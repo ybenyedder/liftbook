@@ -224,29 +224,31 @@ fun LoggerScreen() {
     fun hasData(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.kg != null || it.reps != null } }
     fun anyDone(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.done && (it.kg != null || it.reps != null) } }
 
+    fun trySaveRoutine() {
+        val n = nameText.trim()
+        if (n.isEmpty()) { toast(ctx, L10n.s("Name your routine first", "Donne un nom à ta routine")); return }
+        if (draft.exercises.isEmpty()) { toast(ctx, L10n.s("Add at least one exercise", "Ajoute au moins un exercice")); return }
+        Repo.saveRoutine(n)
+        Nav.pop()
+        toast(ctx, L10n.s("Routine saved", "Routine enregistrée"))
+    }
+
     Column(Modifier.fillMaxSize().imePadding()) {
         // ---- top bar ----
-        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = {
-                if (hasData()) showDiscard = true
-                else { Repo.discardDraft(); Nav.pop(); toast(ctx, L10n.s("Discarded", "Supprimée")) }
-            }) { Icon(Icons.Rounded.ArrowBack, null) }
-            if (isWorkout) {
+        if (isWorkout) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = {
+                    if (hasData()) showDiscard = true
+                    else { Repo.discardDraft(); Nav.pop(); toast(ctx, L10n.s("Discarded", "Supprimée")) }
+                }) { Icon(Icons.Rounded.ArrowBack, null) }
                 Column(Modifier.weight(1f)) {
                     Text(draft.name, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    DurationText(draft.startedAt)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(11.dp))
+                        Spacer(Modifier.width(3.dp))
+                        DurationText(draft.startedAt)
+                    }
                 }
-            } else {
-                BasicTextField(
-                    value = nameText,
-                    onValueChange = { nameText = it; draft.name = it },
-                    singleLine = true,
-                    textStyle = TextStyle(color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.weight(1f).padding(vertical = 8.dp),
-                )
-            }
-            if (isWorkout) {
                 Box(
                     Modifier
                         .clip(RoundedCornerShape(999.dp))
@@ -261,28 +263,96 @@ fun LoggerScreen() {
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-            }
-            Box {
-                IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreHoriz, null) }
-                DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                    if (!isWorkout && draft.routineId != null) {
-                        DropdownMenuItem(text = { Text("Delete routine", color = MaterialTheme.colorScheme.error) }, onClick = {
-                            showMenu = false; showDeleteRoutine = true
-                        })
-                    }
-                    if (isWorkout) {
+                Box {
+                    IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreHoriz, null) }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                         DropdownMenuItem(
                             text = { Text(L10n.s("Workout notes", "Notes de la séance")) },
                             leadingIcon = { Icon(Icons.Rounded.Notes, null, modifier = Modifier.size(16.dp)) },
                             onClick = { showMenu = false; showNotesDialog = true },
                         )
+                        DropdownMenuItem(
+                            text = { Text(L10n.s("Discard workout", "Supprimer la séance"), color = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
+                        )
                     }
-                    DropdownMenuItem(
-                        text = { Text(if (isWorkout) L10n.s("Discard workout", "Supprimer la séance") else L10n.s("Discard changes", "Ignorer les modifications"), color = MaterialTheme.colorScheme.error) },
-                        onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
-                    )
                 }
             }
+            // ---- live stats row (Durée / Volume / Séries) ----
+            val tick = produceState(System.currentTimeMillis()) {
+                while (true) { value = System.currentTimeMillis(); delay(1000) }
+            }.value
+            var liveVol = 0.0; var liveSets = 0
+            for (ex in draft.exercises) for (s in ex.sets) {
+                if (s.done && s.kg != null && s.reps != null) { liveVol += s.kg!! * s.reps!!; liveSets++ }
+            }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                LiveStat(Calc.fmtDur(maxOf(0, tick - (draft.startedAt ?: tick))), L10n.s("Duration", "Durée"), Modifier.weight(1f))
+                LiveStat("${Calc.fmtVol(liveVol, unit)} ${Calc.unitLabel(unit)}", L10n.s("Volume", "Volume"), Modifier.weight(1f))
+                LiveStat("$liveSets", L10n.s("Sets", "Séries"), Modifier.weight(1f))
+            }
+        } else {
+            // ---- routine editor top bar (Hevy: Annuler | Créer une Routine | Enregistrer) ----
+            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    L10n.s("Cancel", "Annuler"),
+                    color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            if (hasData()) showDiscard = true
+                            else { Repo.discardDraft(); Nav.pop() }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                )
+                Text(
+                    if (draft.routineId != null) L10n.s("Edit Routine", "Modifier la Routine")
+                    else L10n.s("Create Routine", "Créer une Routine"),
+                    fontWeight = FontWeight.ExtraBold, fontSize = 16.sp,
+                    modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                )
+                Text(
+                    L10n.s("Save", "Enregistrer"),
+                    color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { trySaveRoutine() }
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
+                )
+                Box {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(34.dp)) { Icon(Icons.Rounded.MoreHoriz, null, modifier = Modifier.size(19.dp)) }
+                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                        if (draft.routineId != null) {
+                            DropdownMenuItem(text = { Text(L10n.s("Delete routine", "Supprimer la routine"), color = MaterialTheme.colorScheme.error) }, onClick = {
+                                showMenu = false; showDeleteRoutine = true
+                            })
+                        }
+                        DropdownMenuItem(
+                            text = { Text(L10n.s("Discard changes", "Ignorer les modifications"), color = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
+                        )
+                    }
+                }
+            }
+            TextField(
+                value = nameText,
+                onValueChange = { nameText = it; draft.name = it },
+                placeholder = { Text(L10n.s("Routine title", "Titre de la routine"), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surface,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent,
+                ),
+                textStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).height(52.dp),
+            )
         }
         // ---- exercise cards ----
         LazyColumn(Modifier.weight(1f)) {
@@ -330,21 +400,6 @@ fun LoggerScreen() {
             if (RestTimer.endAt > 0) {
                 RestBar()
                 Spacer(Modifier.height(10.dp))
-            }
-            if (!isWorkout) {
-                PrimaryButton(
-                    L10n.s("Save Routine", "Enregistrer la routine"),
-                    onClick = {
-                        val n = nameText.trim()
-                        if (n.isEmpty()) { toast(ctx, L10n.s("Name your routine first", "Donne un nom à ta routine")); return@PrimaryButton }
-                        if (draft.exercises.isEmpty()) { toast(ctx, L10n.s("Add at least one exercise", "Ajoute au moins un exercice")); return@PrimaryButton }
-                        Repo.saveRoutine(n)
-                        Nav.pop()
-                        toast(ctx, L10n.s("Routine saved", "Routine enregistrée"))
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    leading = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(17.dp)) },
-                )
             }
         }
     }
@@ -475,7 +530,7 @@ private fun ExCard(
     ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String,
     isDragging: Boolean, moveExercise: (Int, Int) -> Unit,
 ) {
-    var showNotes by remember { mutableStateOf(ex.notes.isNotEmpty()) }
+    var showNotes by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var showRestDialog by remember { mutableStateOf(false) }
     val view = androidx.compose.ui.platform.LocalView.current
@@ -522,12 +577,30 @@ private fun ExCard(
                 }
                 Column(Modifier.weight(1f)) {
                     Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        if (ex.superset) L10n.s("SUPERSET", "SUPERSET")
-                        else "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
-                        color = if (ex.superset) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 13.sp, fontWeight = if (ex.superset) FontWeight.Bold else FontWeight.Normal,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            if (ex.superset) L10n.s("SUPERSET", "SUPERSET")
+                            else "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
+                            color = if (ex.superset) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp, fontWeight = if (ex.superset) FontWeight.Bold else FontWeight.Normal,
+                            modifier = Modifier.weight(1f),
+                        )
+                        // Hevy-style rest label on the card — tap opens the picker
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showRestDialog = true }
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                        ) {
+                            Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                L10n.s("Rest: %1\$s", "Repos : %1\$s").format(fmtRestLabel(ex.restSec ?: Repo.settings.restSec)),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp, fontWeight = FontWeight.Medium,
+                            )
+                        }
+                    }
                 }
                 Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 Box {
@@ -622,43 +695,46 @@ private fun ExCard(
                     .padding(vertical = 12.dp),
                 textAlign = TextAlign.Center,
             )
-            // notes — opens a dialog
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { showNotes = true }) {
-                    Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(L10n.s("Notes", "Notes"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-                    if (ex.notes.isNotEmpty()) {
-                        Spacer(Modifier.width(5.dp))
-                        Box(Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+            // notes — inline Hevy-style placeholder / preview, tap opens the editor
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .clickable { showNotes = true }
+                    .padding(horizontal = 10.dp, vertical = 10.dp),
+            ) {
+                if (ex.notes.isEmpty()) {
+                    Text(
+                        L10n.s("Add notes here…", "Ajouter des notes ici…"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                        fontSize = 13.sp,
+                    )
+                } else {
+                    Row(verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp).padding(top = 1.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            ex.notes,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp, lineHeight = 18.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
+                        )
                     }
                 }
             }
             if (showRestDialog) {
-                var restText by remember { mutableStateOf(ex.restSec?.toString() ?: "") }
-                AlertDialog(
-                    onDismissRequest = { showRestDialog = false },
-                    title = { Text(L10n.s("Rest timer (seconds)", "Minuteur de repos (secondes)"), fontWeight = FontWeight.Bold) },
-                    text = {
-                        androidx.compose.material3.OutlinedTextField(
-                            value = restText,
-                            onValueChange = { restText = it.filter { c -> c.isDigit() }.take(3) },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                RestSheet(
+                    initialSec = ex.restSec ?: Repo.settings.restSec,
+                    onDismiss = { showRestDialog = false },
+                    onDone = { sec ->
+                        ex.restSec = sec
+                        Repo.touchPublic()
+                        showRestDialog = false
                     },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            ex.restSec = restText.toIntOrNull()?.takeIf { it in 5..600 }
-                            Repo.touchPublic()
-                            showRestDialog = false
-                        }) { Text(L10n.s("Save", "Enregistrer")) }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = {
-                            ex.restSec = null
-                            showRestDialog = false
-                        }) { Text(L10n.s("Reset", "Réinitialiser")) }
+                    onReset = {
+                        ex.restSec = null
+                        Repo.touchPublic()
+                        showRestDialog = false
                     },
                 )
             }
@@ -821,6 +897,95 @@ private fun SetField(init: String, hint: String, onChange: (String) -> Unit, mod
 
 // ---------------- rest bar ----------------
 
+/** "2min 0s" style rest label. */
+fun fmtRestLabel(sec: Int): String =
+    if (sec >= 60) "${sec / 60}min ${sec % 60}s" else "${sec}s"
+
+/** Compact live stat cell for the Durée / Volume / Séries row. */
+@Composable
+private fun LiveStat(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(value, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/** Hevy-style rest picker: scrollable 5-second steps + Terminé. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RestSheet(
+    initialSec: Int,
+    onDismiss: () -> Unit,
+    onDone: (Int) -> Unit,
+    onReset: () -> Unit,
+) {
+    val values = remember { (3..120).map { it * 5 } } // 15s → 10min
+    var sel by remember { mutableStateOf(initialSec.coerceIn(15, 600)) }
+    val selIndex = values.indexOf(sel).coerceAtLeast(0)
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState(
+        initialFirstVisibleItemIndex = maxOf(0, selIndex - 4),
+    )
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+            Text(
+                L10n.s("Rest Timer", "Minuteur de Repos"),
+                fontWeight = FontWeight.ExtraBold, fontSize = 17.sp,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                L10n.s("Rest: %1\$s", "Repos : %1\$s").format(fmtRestLabel(sel)),
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp,
+            )
+            Spacer(Modifier.height(6.dp))
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxWidth().height(240.dp),
+            ) {
+                items(values.size) { i ->
+                    val v = values[i]
+                    val selected = v == sel
+                    Text(
+                        fmtRestLabel(v),
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.Normal,
+                        fontSize = if (selected) 18.sp else 15.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
+                            .clickable { sel = v }
+                            .padding(vertical = 9.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    TextButton(onClick = onReset) {
+                        Text(L10n.s("Use default", "Par défaut"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Box(Modifier.weight(2f)) {
+                    PrimaryButton(
+                        L10n.s("Done", "Terminé"),
+                        onClick = { onDone(sel) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+            Spacer(Modifier.height(22.dp))
+        }
+    }
+}
+
 /** Elapsed-workout label; ticks once per second without recomposing the whole logger. */
 @Composable
 private fun DurationText(startedAt: Long?) {
@@ -921,7 +1086,9 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            items(listOf("All") + MUSCLES) { m -> Chip(m, mus == m, onClick = { mus = m }) }
+            items(listOf("All") + MUSCLES) { m ->
+                Chip(if (m == "All") L10n.s("All", "Tous") else muscleName(m), mus == m, onClick = { mus = m })
+            }
         }
         LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
             if (filtered.isEmpty()) item { EmptyState(L10n.s("No exercises found.", "Aucun exercice trouvé.")) }
@@ -937,7 +1104,7 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text(exName(e.name), fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2)
-                        Text(muscleName(e.muscle), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp)
+                        Text("${muscleName(e.muscle)} · ${equipName(e.equip)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp)
                     }
                     Spacer(Modifier.width(10.dp))
                     Box(

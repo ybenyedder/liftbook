@@ -3,140 +3,280 @@ package com.hevyclone.app.data
 data class ExerciseDef(val name: String, val muscle: String, val equip: String)
 
 val EXERCISES: List<ExerciseDef> = listOf(
-    // Chest
+    // ---------------- Chest ----------------
     ExerciseDef("Barbell Bench Press", "Chest", "Barbell"),
     ExerciseDef("Incline Barbell Bench Press", "Chest", "Barbell"),
     ExerciseDef("Decline Bench Press", "Chest", "Barbell"),
+    ExerciseDef("Wide Grip Bench Press", "Chest", "Barbell"),
+    ExerciseDef("Reverse Grip Bench Press", "Chest", "Barbell"),
+    ExerciseDef("Guillotine Press", "Chest", "Barbell"),
     ExerciseDef("Smith Machine Bench Press", "Chest", "Machine"),
+    ExerciseDef("Incline Smith Machine Bench Press", "Chest", "Machine"),
     ExerciseDef("Dumbbell Bench Press", "Chest", "Dumbbell"),
     ExerciseDef("Incline Dumbbell Bench Press", "Chest", "Dumbbell"),
+    ExerciseDef("Decline Dumbbell Press", "Chest", "Dumbbell"),
+    ExerciseDef("Single-Arm Dumbbell Press", "Chest", "Dumbbell"),
+    ExerciseDef("Dumbbell Floor Press", "Chest", "Dumbbell"),
+    ExerciseDef("Svend Press", "Chest", "Other"),
     ExerciseDef("Dumbbell Fly", "Chest", "Dumbbell"),
     ExerciseDef("Incline Dumbbell Fly", "Chest", "Dumbbell"),
     ExerciseDef("Machine Chest Press", "Chest", "Machine"),
+    ExerciseDef("Machine Incline Press", "Chest", "Machine"),
     ExerciseDef("Machine Fly (Pec Deck)", "Chest", "Machine"),
     ExerciseDef("Cable Crossover", "Chest", "Cable"),
     ExerciseDef("Cable Fly", "Chest", "Cable"),
+    ExerciseDef("Cable Incline Fly", "Chest", "Cable"),
+    ExerciseDef("Low To High Cable Fly", "Chest", "Cable"),
+    ExerciseDef("High To Low Cable Fly", "Chest", "Cable"),
+    ExerciseDef("Single-Arm Cable Fly", "Chest", "Cable"),
     ExerciseDef("Push Up", "Chest", "Bodyweight"),
     ExerciseDef("Weighted Push Up", "Chest", "Bodyweight"),
-    // Shoulders
+    ExerciseDef("Incline Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Decline Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Diamond Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Plyometric Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Chest Dip", "Chest", "Bodyweight"),
+    // ---------------- Shoulders ----------------
     ExerciseDef("Overhead Press", "Shoulders", "Barbell"),
+    ExerciseDef("Seated Overhead Press", "Shoulders", "Barbell"),
+    ExerciseDef("Push Press", "Shoulders", "Barbell"),
+    ExerciseDef("Z Press", "Shoulders", "Barbell"),
     ExerciseDef("Seated Dumbbell Shoulder Press", "Shoulders", "Dumbbell"),
+    ExerciseDef("Single-Arm Dumbbell Shoulder Press", "Shoulders", "Dumbbell"),
     ExerciseDef("Arnold Press", "Shoulders", "Dumbbell"),
+    ExerciseDef("Seated Arnold Press", "Shoulders", "Dumbbell"),
     ExerciseDef("Machine Shoulder Press", "Shoulders", "Machine"),
     ExerciseDef("Smith Machine Shoulder Press", "Shoulders", "Machine"),
+    ExerciseDef("Landmine Press", "Shoulders", "Other"),
     ExerciseDef("Lateral Raise", "Shoulders", "Dumbbell"),
+    ExerciseDef("Single-Arm Lateral Raise", "Shoulders", "Dumbbell"),
     ExerciseDef("Cable Lateral Raise", "Shoulders", "Cable"),
+    ExerciseDef("Single-Arm Cable Lateral Raise", "Shoulders", "Cable"),
+    ExerciseDef("Leaning Cable Lateral Raise", "Shoulders", "Cable"),
+    ExerciseDef("Machine Lateral Raise", "Shoulders", "Machine"),
     ExerciseDef("Front Raise", "Shoulders", "Dumbbell"),
+    ExerciseDef("Barbell Front Raise", "Shoulders", "Barbell"),
+    ExerciseDef("Cable Front Raise", "Shoulders", "Cable"),
     ExerciseDef("Rear Delt Fly", "Shoulders", "Dumbbell"),
+    ExerciseDef("Incline Rear Delt Fly", "Shoulders", "Dumbbell"),
+    ExerciseDef("Cable Rear Delt Fly", "Shoulders", "Cable"),
+    ExerciseDef("Dumbbell Rear Delt Row", "Shoulders", "Dumbbell"),
     ExerciseDef("Reverse Pec Deck", "Shoulders", "Machine"),
     ExerciseDef("Face Pull", "Shoulders", "Cable"),
     ExerciseDef("Upright Row", "Shoulders", "Barbell"),
-    // Biceps
+    ExerciseDef("Wide Grip Upright Row", "Shoulders", "Barbell"),
+    // ---------------- Biceps ----------------
     ExerciseDef("Barbell Curl", "Biceps", "Barbell"),
     ExerciseDef("EZ Bar Curl", "Biceps", "Barbell"),
     ExerciseDef("Drag Curl", "Biceps", "Barbell"),
     ExerciseDef("Dumbbell Curl", "Biceps", "Dumbbell"),
-    ExerciseDef("Hammer Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Seated Dumbbell Curl", "Biceps", "Dumbbell"),
     ExerciseDef("Incline Dumbbell Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Lying Dumbbell Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Hammer Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Incline Hammer Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Cross Body Hammer Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Pinwheel Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Zottman Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Spider Curl", "Biceps", "Dumbbell"),
     ExerciseDef("Concentration Curl", "Biceps", "Dumbbell"),
     ExerciseDef("Preacher Curl", "Biceps", "Machine"),
+    ExerciseDef("EZ Preacher Curl", "Biceps", "Barbell"),
     ExerciseDef("Cable Curl", "Biceps", "Cable"),
+    ExerciseDef("Single-Arm Cable Curl", "Biceps", "Cable"),
+    ExerciseDef("Rope Hammer Curl", "Biceps", "Cable"),
     ExerciseDef("Bayesian Cable Curl", "Biceps", "Cable"),
     ExerciseDef("Chin Up", "Biceps", "Bodyweight"),
-    // Triceps
+    ExerciseDef("Weighted Chin Up", "Biceps", "Bodyweight"),
+    // ---------------- Triceps ----------------
     ExerciseDef("Tricep Pushdown", "Triceps", "Cable"),
+    ExerciseDef("Rope Pushdown", "Triceps", "Cable"),
+    ExerciseDef("Straight Bar Pushdown", "Triceps", "Cable"),
+    ExerciseDef("V-Bar Pushdown", "Triceps", "Cable"),
+    ExerciseDef("Single-Arm Pushdown", "Triceps", "Cable"),
     ExerciseDef("Overhead Cable Extension", "Triceps", "Cable"),
+    ExerciseDef("Overhead Rope Extension", "Triceps", "Cable"),
     ExerciseDef("Overhead Dumbbell Extension", "Triceps", "Dumbbell"),
+    ExerciseDef("Single-Arm Overhead Dumbbell Extension", "Triceps", "Dumbbell"),
+    ExerciseDef("Overhead Barbell Extension", "Triceps", "Barbell"),
     ExerciseDef("Skullcrusher", "Triceps", "Barbell"),
+    ExerciseDef("Incline Skullcrusher", "Triceps", "Barbell"),
+    ExerciseDef("Dumbbell Skullcrusher", "Triceps", "Dumbbell"),
+    ExerciseDef("Tate Press", "Triceps", "Dumbbell"),
     ExerciseDef("JM Press", "Triceps", "Barbell"),
     ExerciseDef("Close Grip Bench Press", "Triceps", "Barbell"),
     ExerciseDef("Smith Machine Close Grip Bench Press", "Triceps", "Machine"),
     ExerciseDef("Dips", "Triceps", "Bodyweight"),
     ExerciseDef("Weighted Dip", "Triceps", "Bodyweight"),
     ExerciseDef("Bench Dip", "Triceps", "Bodyweight"),
+    ExerciseDef("Close Grip Push Up", "Triceps", "Bodyweight"),
     ExerciseDef("Kickback", "Triceps", "Dumbbell"),
-    // Lats
+    ExerciseDef("Cable Kickback Triceps", "Triceps", "Cable"),
+    // ---------------- Lats ----------------
     ExerciseDef("Pull Up", "Lats", "Bodyweight"),
     ExerciseDef("Weighted Pull Up", "Lats", "Bodyweight"),
+    ExerciseDef("Wide Grip Pull Up", "Lats", "Bodyweight"),
+    ExerciseDef("Close Grip Pull Up", "Lats", "Bodyweight"),
+    ExerciseDef("Neutral Grip Pull Up", "Lats", "Bodyweight"),
+    ExerciseDef("Assisted Pull Up", "Lats", "Machine"),
     ExerciseDef("Lat Pulldown", "Lats", "Machine"),
+    ExerciseDef("Wide Grip Lat Pulldown", "Lats", "Machine"),
+    ExerciseDef("Close Grip Lat Pulldown", "Lats", "Machine"),
+    ExerciseDef("Reverse Grip Pulldown", "Lats", "Machine"),
+    ExerciseDef("Neutral Grip Lat Pulldown", "Lats", "Machine"),
+    ExerciseDef("Single-Arm Lat Pulldown", "Lats", "Machine"),
+    ExerciseDef("Behind The Neck Pulldown", "Lats", "Machine"),
     ExerciseDef("Straight Arm Pulldown", "Lats", "Cable"),
     ExerciseDef("Bent Over Row", "Lats", "Barbell"),
     ExerciseDef("Pendlay Row", "Lats", "Barbell"),
+    ExerciseDef("Yates Row", "Lats", "Barbell"),
+    ExerciseDef("Underhand Barbell Row", "Lats", "Barbell"),
+    ExerciseDef("Seal Row", "Lats", "Barbell"),
+    ExerciseDef("Meadow Row", "Lats", "Other"),
     ExerciseDef("Dumbbell Row", "Lats", "Dumbbell"),
+    ExerciseDef("Incline Dumbbell Row", "Lats", "Dumbbell"),
+    ExerciseDef("Renegade Row", "Lats", "Dumbbell"),
     ExerciseDef("Chest Supported Row", "Lats", "Machine"),
     ExerciseDef("Seated Cable Row", "Lats", "Cable"),
+    ExerciseDef("Single-Arm Cable Row", "Lats", "Cable"),
+    ExerciseDef("Wide Grip Cable Row", "Lats", "Cable"),
+    ExerciseDef("V-Bar Cable Row", "Lats", "Cable"),
     ExerciseDef("T-Bar Row", "Lats", "Machine"),
     ExerciseDef("Machine Row", "Lats", "Machine"),
     ExerciseDef("Inverted Row", "Lats", "Bodyweight"),
-    // Lower back
+    ExerciseDef("Dumbbell Pullover", "Lats", "Dumbbell"),
+    ExerciseDef("Cable Pullover", "Lats", "Cable"),
+    ExerciseDef("Machine Pullover", "Lats", "Machine"),
+    // ---------------- Lower back ----------------
     ExerciseDef("Deadlift", "Lower back", "Barbell"),
     ExerciseDef("Sumo Deadlift", "Lower back", "Barbell"),
     ExerciseDef("Trap Bar Deadlift", "Lower back", "Barbell"),
+    ExerciseDef("Deficit Deadlift", "Lower back", "Barbell"),
+    ExerciseDef("Paused Deadlift", "Lower back", "Barbell"),
+    ExerciseDef("Snatch Grip Deadlift", "Lower back", "Barbell"),
     ExerciseDef("Romanian Deadlift", "Lower back", "Barbell"),
+    ExerciseDef("Dumbbell Romanian Deadlift", "Lower back", "Dumbbell"),
     ExerciseDef("Stiff Leg Deadlift", "Lower back", "Barbell"),
     ExerciseDef("Good Morning", "Lower back", "Barbell"),
+    ExerciseDef("Seated Good Morning", "Lower back", "Barbell"),
     ExerciseDef("Back Extension", "Lower back", "Bodyweight"),
-    // Traps
+    ExerciseDef("45 Degree Back Extension", "Lower back", "Bodyweight"),
+    ExerciseDef("Weighted Back Extension", "Lower back", "Other"),
+    ExerciseDef("Reverse Hyperextension", "Lower back", "Machine"),
+    // ---------------- Traps ----------------
     ExerciseDef("Barbell Shrug", "Traps", "Barbell"),
     ExerciseDef("Dumbbell Shrug", "Traps", "Dumbbell"),
     ExerciseDef("Smith Machine Shrug", "Traps", "Machine"),
+    ExerciseDef("Cable Shrug", "Traps", "Cable"),
+    ExerciseDef("Behind The Back Shrug", "Traps", "Barbell"),
+    ExerciseDef("Overhead Barbell Shrug", "Traps", "Barbell"),
+    ExerciseDef("Trap Bar Shrug", "Traps", "Barbell"),
     ExerciseDef("Rack Pull", "Traps", "Barbell"),
-    // Quads
+    // ---------------- Quads ----------------
     ExerciseDef("Barbell Squat", "Quads", "Barbell"),
+    ExerciseDef("Pause Squat", "Quads", "Barbell"),
+    ExerciseDef("Box Squat", "Quads", "Barbell"),
     ExerciseDef("Front Squat", "Quads", "Barbell"),
+    ExerciseDef("Zercher Squat", "Quads", "Barbell"),
+    ExerciseDef("Overhead Squat", "Quads", "Barbell"),
     ExerciseDef("Smith Machine Squat", "Quads", "Machine"),
     ExerciseDef("Hack Squat", "Quads", "Machine"),
+    ExerciseDef("Reverse Hack Squat", "Quads", "Machine"),
     ExerciseDef("Belt Squat", "Quads", "Machine"),
-    ExerciseDef("Leg Press", "Quads", "Machine"),
-    ExerciseDef("Bulgarian Split Squat", "Quads", "Dumbbell"),
+    ExerciseDef("Dumbbell Squat", "Quads", "Dumbbell"),
     ExerciseDef("Goblet Squat", "Quads", "Dumbbell"),
+    ExerciseDef("Landmine Squat", "Quads", "Other"),
+    ExerciseDef("Leg Press", "Quads", "Machine"),
+    ExerciseDef("Single-Leg Leg Press", "Quads", "Machine"),
+    ExerciseDef("Bulgarian Split Squat", "Quads", "Dumbbell"),
+    ExerciseDef("Split Squat", "Quads", "Bodyweight"),
     ExerciseDef("Walking Lunge", "Quads", "Dumbbell"),
+    ExerciseDef("Reverse Lunge", "Quads", "Dumbbell"),
+    ExerciseDef("Barbell Lunge", "Quads", "Barbell"),
     ExerciseDef("Step Up", "Quads", "Dumbbell"),
     ExerciseDef("Leg Extension", "Quads", "Machine"),
     ExerciseDef("Sissy Squat", "Quads", "Bodyweight"),
-    // Hamstrings
+    ExerciseDef("Air Squat", "Quads", "Bodyweight"),
+    ExerciseDef("Jump Squat", "Quads", "Bodyweight"),
+    ExerciseDef("Pistol Squat", "Quads", "Bodyweight"),
+    ExerciseDef("Wall Sit", "Quads", "Bodyweight"),
+    // ---------------- Hamstrings ----------------
     ExerciseDef("Lying Leg Curl", "Hamstrings", "Machine"),
+    ExerciseDef("Single-Leg Lying Curl", "Hamstrings", "Machine"),
     ExerciseDef("Seated Leg Curl", "Hamstrings", "Machine"),
+    ExerciseDef("Standing Leg Curl", "Hamstrings", "Machine"),
+    ExerciseDef("Sliding Leg Curl", "Hamstrings", "Bodyweight"),
+    ExerciseDef("Stability Ball Leg Curl", "Hamstrings", "Other"),
     ExerciseDef("Nordic Curl", "Hamstrings", "Bodyweight"),
     ExerciseDef("Glute Ham Raise", "Hamstrings", "Bodyweight"),
+    ExerciseDef("Kettlebell Swing", "Hamstrings", "Other"),
     ExerciseDef("Single Leg Romanian Deadlift", "Hamstrings", "Dumbbell"),
-    // Glutes
+    // ---------------- Glutes ----------------
     ExerciseDef("Barbell Hip Thrust", "Glutes", "Barbell"),
     ExerciseDef("Smith Machine Hip Thrust", "Glutes", "Machine"),
     ExerciseDef("Glute Bridge", "Glutes", "Bodyweight"),
+    ExerciseDef("Barbell Glute Bridge", "Glutes", "Barbell"),
+    ExerciseDef("Single-Leg Glute Bridge", "Glutes", "Bodyweight"),
+    ExerciseDef("Frog Pump", "Glutes", "Bodyweight"),
     ExerciseDef("Cable Kickback", "Glutes", "Cable"),
+    ExerciseDef("Machine Glute Kickback", "Glutes", "Machine"),
     ExerciseDef("Cable Pull Through", "Glutes", "Cable"),
-    // Abductors / Adductors
+    ExerciseDef("Curtsy Lunge", "Glutes", "Dumbbell"),
+    // ---------------- Abductors ----------------
     ExerciseDef("Abduction Machine", "Abductors", "Machine"),
     ExerciseDef("Cable Hip Abduction", "Abductors", "Cable"),
+    ExerciseDef("Side Lying Hip Abduction", "Abductors", "Bodyweight"),
+    // ---------------- Adductors ----------------
     ExerciseDef("Adduction Machine", "Adductors", "Machine"),
+    ExerciseDef("Standing Cable Adduction", "Adductors", "Cable"),
     ExerciseDef("Copenhagen Plank", "Adductors", "Bodyweight"),
+    ExerciseDef("Side Lunge", "Adductors", "Dumbbell"),
     ExerciseDef("Sumo Squat", "Adductors", "Barbell"),
-    // Calves
+    // ---------------- Calves ----------------
     ExerciseDef("Standing Calf Raise", "Calves", "Machine"),
+    ExerciseDef("Smith Machine Calf Raise", "Calves", "Machine"),
     ExerciseDef("Seated Calf Raise", "Calves", "Machine"),
     ExerciseDef("Leg Press Calf Raise", "Calves", "Machine"),
     ExerciseDef("Donkey Calf Raise", "Calves", "Machine"),
     ExerciseDef("Single Leg Calf Raise", "Calves", "Bodyweight"),
-    // Abs
+    ExerciseDef("Tibialis Raise", "Calves", "Bodyweight"),
+    // ---------------- Abs ----------------
     ExerciseDef("Plank", "Abs", "Bodyweight"),
     ExerciseDef("Side Plank", "Abs", "Bodyweight"),
+    ExerciseDef("Plank Shoulder Tap", "Abs", "Bodyweight"),
+    ExerciseDef("Hollow Hold", "Abs", "Bodyweight"),
     ExerciseDef("Crunch", "Abs", "Bodyweight"),
+    ExerciseDef("Weighted Crunch", "Abs", "Other"),
+    ExerciseDef("Machine Crunch", "Abs", "Machine"),
+    ExerciseDef("Cable Crunch", "Abs", "Cable"),
     ExerciseDef("Sit Up", "Abs", "Bodyweight"),
+    ExerciseDef("Weighted Sit Up", "Abs", "Other"),
+    ExerciseDef("Decline Sit Up", "Abs", "Bodyweight"),
+    ExerciseDef("Butterfly Sit Up", "Abs", "Bodyweight"),
+    ExerciseDef("Jackknife Sit Up", "Abs", "Bodyweight"),
+    ExerciseDef("Reverse Crunch", "Abs", "Bodyweight"),
+    ExerciseDef("V-Up", "Abs", "Bodyweight"),
     ExerciseDef("Bicycle Crunch", "Abs", "Bodyweight"),
     ExerciseDef("Russian Twist", "Abs", "Bodyweight"),
+    ExerciseDef("Windshield Wipers", "Abs", "Bodyweight"),
     ExerciseDef("Dead Bug", "Abs", "Bodyweight"),
+    ExerciseDef("Flutter Kicks", "Abs", "Bodyweight"),
+    ExerciseDef("Scissor Kicks", "Abs", "Bodyweight"),
+    ExerciseDef("Mountain Climbers", "Abs", "Bodyweight"),
     ExerciseDef("Leg Raise", "Abs", "Bodyweight"),
     ExerciseDef("Hanging Leg Raise", "Abs", "Bodyweight"),
     ExerciseDef("Hanging Knee Raise", "Abs", "Bodyweight"),
-    ExerciseDef("Cable Crunch", "Abs", "Cable"),
+    ExerciseDef("Dragon Flag", "Abs", "Bodyweight"),
     ExerciseDef("Ab Wheel Rollout", "Abs", "Other"),
-    ExerciseDef("Machine Crunch", "Abs", "Machine"),
-    // Forearms
+    ExerciseDef("Dumbbell Side Bend", "Abs", "Dumbbell"),
+    // ---------------- Forearms ----------------
     ExerciseDef("Wrist Curl", "Forearms", "Dumbbell"),
     ExerciseDef("Reverse Wrist Curl", "Forearms", "Barbell"),
+    ExerciseDef("Behind The Back Wrist Curl", "Forearms", "Barbell"),
     ExerciseDef("Reverse Curl", "Forearms", "Barbell"),
     ExerciseDef("Farmer's Carry", "Forearms", "Dumbbell"),
+    ExerciseDef("Single-Arm Farmer's Carry", "Forearms", "Dumbbell"),
+    ExerciseDef("Dead Hang", "Forearms", "Bodyweight"),
 )
 
 val EX: Map<String, ExerciseDef> = EXERCISES.associateBy { it.name }
@@ -148,7 +288,7 @@ val EQUIP_HINT: Map<String, String> = mapOf(
     "Machine" to "Performed on a pin- or plate-loaded machine.",
     "Cable" to "Performed at a cable station with attachments.",
     "Bodyweight" to "No equipment needed — your body provides the resistance.",
-    "Other" to "Uses specialty equipment such as a bench, band or wheel.",
+    "Other" to "Uses specialty equipment such as a bench, band, kettlebell or wheel.",
 )
 
 val CUES: Map<String, List<String>> = mapOf(
@@ -225,3 +365,349 @@ val CUES: Map<String, List<String>> = mapOf(
         "Use a slow tempo and higher reps.",
     ),
 )
+
+// ------------------------------------------------------------------
+// Step-by-step instructions (Hevy-like). Archetype-level steps keyed
+// by movement pattern; every exercise maps to exactly one archetype.
+// ------------------------------------------------------------------
+
+val ARCH_STEPS: Map<String, List<String>> = mapOf(
+    "bench" to listOf(
+        "Lie on the bench with eyes under the bar, feet planted firmly on the floor.",
+        "Grip the bar slightly wider than shoulder width and unrack it.",
+        "Lower the bar to the mid-chest with the elbows at about 75°.",
+        "Press the bar up and slightly back until the arms are locked out.",
+    ),
+    "incline_bench" to listOf(
+        "Set the bench to a 30–45° incline and sit back with shoulder blades pinned.",
+        "Unrack the weight directly above the upper chest.",
+        "Lower to the collarbone line, keeping the elbows tucked.",
+        "Press up in a slight arc back to the start position.",
+    ),
+    "decline_bench" to listOf(
+        "Secure your legs at the end of a decline bench and lie back.",
+        "Unrack the bar with a shoulder-width grip.",
+        "Lower the bar to the lower chest, elbows tucked.",
+        "Press up powerfully to full extension.",
+    ),
+    "fly" to listOf(
+        "Set up with a slight elbow bend and keep it fixed for the whole set.",
+        "Open the arms in a wide arc until you feel a stretch across the chest.",
+        "Squeeze the arms back together as if hugging a barrel.",
+        "Pause briefly at peak contraction before the next rep.",
+    ),
+    "pushup" to listOf(
+        "Place the hands slightly wider than the shoulders, body in a straight line.",
+        "Brace the core and squeeze the glutes.",
+        "Lower until the chest is close to the floor, elbows at about 45°.",
+        "Push the floor away to full extension.",
+    ),
+    "ohp" to listOf(
+        "Stand with feet shoulder width, bar resting on the front delts.",
+        "Brace the core and squeeze the glutes to lock the ribcage.",
+        "Press the bar straight up, moving the head back out of the way.",
+        "Lock out overhead with the bar over the mid-foot, then lower under control.",
+    ),
+    "lateral_raise" to listOf(
+        "Stand tall with the weights at your sides and a slight elbow bend.",
+        "Lead with the elbows and raise the arms out to the sides.",
+        "Stop at shoulder height — no higher.",
+        "Lower slowly for a 2–3 second count.",
+    ),
+    "front_raise" to listOf(
+        "Stand tall, weights in front of the thighs.",
+        "Raise the arms straight ahead to shoulder height.",
+        "Keep the torso still — no swinging.",
+        "Lower under control to the start.",
+    ),
+    "rear_delt" to listOf(
+        "Hinge forward with a flat back or sit facing the machine.",
+        "With a slight elbow bend, open the arms out wide.",
+        "Squeeze the shoulder blades together at the widest point.",
+        "Return slowly, keeping tension on the rear delts.",
+    ),
+    "shrug" to listOf(
+        "Stand tall holding the weight with arms fully extended.",
+        "Shrug the shoulders straight up toward the ears.",
+        "Hold the top position for one full second.",
+        "Lower slowly through the complete range of motion.",
+    ),
+    "upright_row" to listOf(
+        "Hold the bar at hip level with a shoulder-width grip.",
+        "Pull the bar up along the body, elbows leading.",
+        "Stop when the elbows reach shoulder height.",
+        "Lower slowly back to the start.",
+    ),
+    "curl" to listOf(
+        "Stand or sit tall with the elbows pinned to your sides.",
+        "Curl the weight up without swinging the torso.",
+        "Squeeze hard at the top of every rep.",
+        "Lower for a 2–3 second count to full extension.",
+    ),
+    "triceps_pushdown" to listOf(
+        "Face the cable station, elbows pinned to your sides.",
+        "Push the handle down by extending the elbows only.",
+        "Reach full lockout and squeeze the triceps.",
+        "Return slowly until the forearms touch the biceps.",
+    ),
+    "triceps_overhead" to listOf(
+        "Hold the weight overhead with both hands, elbows pointing forward.",
+        "Lower the weight behind the head by bending only the elbows.",
+        "Feel a deep stretch in the triceps at the bottom.",
+        "Extend back up to full lockout.",
+    ),
+    "skullcrusher" to listOf(
+        "Lie on a bench holding the weight above the chest.",
+        "Bend the elbows to lower the weight toward the forehead.",
+        "Keep the upper arms vertical and stationary.",
+        "Extend the elbows to press back up.",
+    ),
+    "dip" to listOf(
+        "Support yourself on parallel bars with arms locked.",
+        "Lower the body by bending the elbows, leaning slightly forward.",
+        "Descend until the shoulders reach elbow height.",
+        "Press back up to full extension.",
+    ),
+    "pulldown" to listOf(
+        "Sit with the thighs locked under the pads, chest tall.",
+        "Grip the bar wider than the shoulders.",
+        "Pull the bar to the upper chest by driving the elbows down.",
+        "Let the bar travel all the way back up for a full stretch.",
+    ),
+    "pull_up" to listOf(
+        "Hang from the bar with the chosen grip.",
+        "Start the pull by driving the elbows down toward the hips.",
+        "Pull until the chin clears the bar, chest to the bar.",
+        "Lower all the way down to a dead hang each rep.",
+    ),
+    "row_bent" to listOf(
+        "Hinge to about 45° with a flat back and the weight hanging.",
+        "Pull the weight to the lower chest or navel.",
+        "Squeeze the shoulder blades at the top.",
+        "Lower under control without losing the hip position.",
+    ),
+    "row_supported" to listOf(
+        "Set up with the chest supported on the pad or bench.",
+        "Pull the handles toward the lower chest, elbows tight.",
+        "Pause and squeeze at full contraction.",
+        "Return slowly to a complete stretch.",
+    ),
+    "straight_arm" to listOf(
+        "Stand facing the cable or hold the dumbbell above the chest.",
+        "Keep the arms nearly straight throughout.",
+        "Pull or lower the weight down in an arc using the lats.",
+        "Return slowly to the stretched position.",
+    ),
+    "deadlift" to listOf(
+        "Set up with the bar over mid-foot, hips back and back flat.",
+        "Take a big breath and brace the core hard.",
+        "Push the floor away, dragging the bar up the shins.",
+        "Finish tall by driving the hips forward, then reverse with control.",
+    ),
+    "rdl" to listOf(
+        "Stand tall with the weight held close to the thighs.",
+        "Push the hips back, letting the weight slide down the legs.",
+        "Descend until you feel a deep hamstring stretch, back flat.",
+        "Drive the hips forward to stand back up.",
+    ),
+    "good_morning" to listOf(
+        "Set the bar on the traps as for a squat.",
+        "With a slight knee bend, hinge at the hips.",
+        "Lower the torso until it is near parallel to the floor.",
+        "Drive the hips forward to return upright.",
+    ),
+    "back_ext" to listOf(
+        "Position yourself on the bench with the pad at the hip crease.",
+        "Cross the arms over the chest or hold the weight.",
+        "Hinge down with a rounded upper back, then raise the torso.",
+        "Squeeze the glutes and stop when the body forms a straight line.",
+    ),
+    "squat" to listOf(
+        "Set up with the bar comfortably on the traps or the weight at the chest.",
+        "Unrack, take two steps back, feet shoulder width apart.",
+        "Sit down between the hips to at least parallel, knees tracking the toes.",
+        "Drive through the mid-foot to stand up tall.",
+    ),
+    "lunge" to listOf(
+        "Stand tall holding the weights at the sides.",
+        "Step forward or backward into a long split stance.",
+        "Lower until both knees reach about 90°.",
+        "Push through the front foot to return and alternate legs.",
+    ),
+    "leg_press" to listOf(
+        "Sit with the back and hips flat against the pad, feet shoulder width.",
+        "Release the safeties and lower the sled until the knees reach the chest.",
+        "Keep the lower back glued to the seat at the bottom.",
+        "Press up powerfully without snapping the knees straight.",
+    ),
+    "leg_ext" to listOf(
+        "Sit with the pad resting on the front of the shins.",
+        "Extend the knees to lift the weight.",
+        "Squeeze the quads hard at full extension.",
+        "Lower slowly, resisting on the way down.",
+    ),
+    "leg_curl" to listOf(
+        "Position the pad above the heels or at the calf.",
+        "Curl the legs by bending the knees.",
+        "Contract the hamstrings fully at the top.",
+        "Return slowly to a complete stretch.",
+    ),
+    "hip_thrust" to listOf(
+        "Set the upper back on a bench, bar or weight over the hips.",
+        "Push through the heels to lift the hips.",
+        "Finish with the torso parallel to the floor, chin tucked.",
+        "Squeeze the glutes hard at lockout, lower under control.",
+    ),
+    "calf" to listOf(
+        "Place the balls of the feet on the platform, heels hanging.",
+        "Lower the heels for a deep stretch.",
+        "Press up onto the toes as high as possible.",
+        "Pause one full second at the top.",
+    ),
+    "abduction" to listOf(
+        "Sit or lie with the pads on the outside of the knees.",
+        "Keep the torso still and move only at the hips.",
+        "Push the legs apart against the resistance.",
+        "Return slowly, resisting all the way in.",
+    ),
+    "adduction" to listOf(
+        "Sit or stand with the pad on the inside of the knee.",
+        "Keep the torso upright and move with control.",
+        "Pull the legs together against the resistance.",
+        "Pause briefly, then return slowly.",
+    ),
+    "crunch" to listOf(
+        "Lie on your back with the knees bent and feet flat.",
+        "Exhale and curl the ribs toward the hips.",
+        "Lift the shoulder blades just off the floor and squeeze.",
+        "Lower slowly without dropping the tension.",
+    ),
+    "sit_up" to listOf(
+        "Lie on your back with the knees bent, feet anchored.",
+        "Curl the torso up starting with the head.",
+        "Come up until the torso is vertical.",
+        "Lower with control, one vertebra at a time.",
+    ),
+    "leg_raise" to listOf(
+        "Lie flat or hang from a bar.",
+        "Raise the legs by curling the pelvis, not just swinging.",
+        "Stop when the legs are vertical or the feet clear the bar.",
+        "Lower slowly without touching down between reps.",
+    ),
+    "plank" to listOf(
+        "Support the body on the forearms and toes.",
+        "Squeeze the glutes and brace the core.",
+        "Keep a straight line from head to heels.",
+        "Breathe steadily and hold for the target time.",
+    ),
+    "twist" to listOf(
+        "Sit with the torso upright or leaning back slightly.",
+        "Rotate the torso from side to side with control.",
+        "Move at the ribcage, not just the arms.",
+        "Keep the core braced throughout.",
+    ),
+    "rollout" to listOf(
+        "Kneel with the wheel under the shoulders.",
+        "Brace the core and roll the wheel forward.",
+        "Extend as far as you can keep the hips from sagging.",
+        "Pull back with the abs, not the arms.",
+    ),
+    "wrist" to listOf(
+        "Rest the forearms on a bench, hands hanging off the edge.",
+        "Curl the wrists up and down through the full range.",
+        "Move slowly with lighter weights.",
+        "Keep the forearms pinned in place.",
+    ),
+    "carry" to listOf(
+        "Deadlift the weights and stand tall.",
+        "Brace the core, pull the shoulders back.",
+        "Walk steady steps for the target distance.",
+        "Set the weights down with a flat back.",
+    ),
+    "pullover" to listOf(
+        "Lie on a bench or face the cable station.",
+        "Hold the weight above the chest with a slight elbow bend.",
+        "Lower the weight in an arc overhead or pull it down.",
+        "Return along the same arc, feeling the lats and chest stretch.",
+    ),
+    "swing" to listOf(
+        "Stand over the weight with a flat back, hips hinged.",
+        "Hike the weight back between the legs.",
+        "Snap the hips forward to swing the weight to chest height.",
+        "Let it fall back down and immediately load the next rep.",
+    ),
+)
+
+/** Map an exercise (canonical EN name) to its instruction archetype. */
+fun archetypeOf(name: String): String {
+    val n = name.lowercase()
+    val muscle = EX[name]?.muscle ?: ""
+    return when {
+        // --- chest ---
+        n.contains("incline") && (n.contains("press") || n.contains("bench")) -> "incline_bench"
+        n.contains("decline") && (n.contains("press") || n.contains("bench")) -> "decline_bench"
+        (n.contains("bench press") && !n.contains("close grip")) || n == "machine chest press" ||
+            n.contains("floor press") || n == "svend press" || n.contains("guillotine") -> "bench"
+        n.contains("fly") || n.contains("crossover") || n.contains("pec deck") || n.contains("svend") -> "fly"
+        n.contains("push up") || n.contains("pushup") -> "pushup"
+        n.contains("dip") && muscle == "Chest" -> "dip"
+        // --- shoulders ---
+        n.contains("shrug") || n.contains("rack pull") -> "shrug"
+        n.contains("lateral raise") -> "lateral_raise"
+        n.contains("front raise") -> "front_raise"
+        n.contains("rear delt") || n.contains("face pull") || n.contains("reverse pec deck") -> "rear_delt"
+        n.contains("upright row") -> "upright_row"
+        n.contains("press") && (muscle == "Shoulders") -> "ohp"
+        // --- arms ---
+        n.contains("wrist") -> "wrist"
+        n.contains("curl") -> "curl"
+        (n.contains("pushdown") || n.contains("kickback")) && muscle == "Triceps" -> "triceps_pushdown"
+        n.contains("extension") && muscle == "Triceps" -> "triceps_overhead"
+        n.contains("skullcrusher") || n.contains("tate") || n.contains("jm press") -> "skullcrusher"
+        n.contains("close grip bench") || n.contains("close grip push") -> "skullcrusher"
+        n.contains("dip") -> "dip"
+        // --- back ---
+        n.contains("straight arm") -> "straight_arm"
+        n.contains("pulldown") -> "pulldown"
+        n.contains("pull up") || n.contains("pullup") || n.contains("chin up") -> "pull_up"
+        n.contains("pullover") -> "pullover"
+        n.contains("inverted row") -> "pull_up"
+        n.contains("cable row") || n.contains("supported row") || n.contains("machine row") ||
+            n.contains("t-bar") || n.contains("incline dumbbell row") || n.contains("seal row") ||
+            n.contains("meadow row") -> "row_supported"
+        n.contains("row") -> "row_bent"
+        // --- posterior chain ---
+        n.contains("deadlift") && (n.contains("romanian") || n.contains("single leg")) -> "rdl"
+        n.contains("deadlift") -> "deadlift"
+        n.contains("good morning") -> "good_morning"
+        n.contains("extension") && (muscle == "Lower back") || n.contains("hyperextension") -> "back_ext"
+        n.contains("swing") -> "swing"
+        n.contains("hip thrust") || n.contains("glute bridge") || n.contains("frog pump") ||
+            n.contains("pull through") || n.contains("kickback") -> "hip_thrust"
+        n.contains("leg curl") -> "leg_curl"
+        // --- legs ---
+        n.contains("squat") -> "squat"
+        n.contains("lunge") || n.contains("split squat") || n.contains("step up") || n.contains("curtsy") -> "lunge"
+        n.contains("calf") || n.contains("tibialis") -> "calf"
+        n.contains("leg press") -> "leg_press"
+        n.contains("leg extension") -> "leg_ext"
+        n.contains("abduction") -> "abduction"
+        n.contains("adduction") -> "adduction"
+        // --- abs ---
+        n.contains("plank") || n.contains("hollow") || n.contains("dead bug") || n.contains("wall sit") ||
+            n.contains("mountain") -> "plank"
+        n.contains("sit up") -> "sit_up"
+        n.contains("crunch") -> "crunch"
+        n.contains("twist") || n.contains("windshield") -> "twist"
+        n.contains("leg raise") || n.contains("knee raise") || n.contains("v-up") ||
+            n.contains("flutter") || n.contains("scissor") || n.contains("dragon flag") -> "leg_raise"
+        n.contains("rollout") -> "rollout"
+        n.contains("side bend") -> "twist"
+        // --- forearms ---
+        n.contains("carry") || n.contains("dead hang") -> "carry"
+        else -> when (muscle) {
+            "Abs" -> "crunch"
+            else -> "bench"
+        }
+    }
+}

@@ -295,7 +295,7 @@ object Repo {
             if (ex != null) {
                 result = ex.sets.map { s ->
                     if (s.kg == null && s.reps == null) "—"
-                    else "${Calc.fmtKg(s.kg, settings.unit)} × ${s.reps ?: "—"}"
+                    else "${Calc.fmtKg(s.kg, settings.unit)}${Calc.unitLabel(settings.unit)} × ${s.reps ?: "—"}"
                 }
                 break
             }
@@ -314,7 +314,7 @@ object Repo {
             val ex = w.exercises.firstOrNull { e -> e.name == name && e.sets.any { it.kg != null || it.reps != null } } ?: continue
             return ex.sets.map { s ->
                 if (s.kg == null && s.reps == null) "—"
-                else "${Calc.fmtKg(s.kg, settings.unit)} × ${s.reps ?: "—"}"
+                else "${Calc.fmtKg(s.kg, settings.unit)}${Calc.unitLabel(settings.unit)} × ${s.reps ?: "—"}"
             }
         }
         return null

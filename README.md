@@ -1,24 +1,25 @@
 # Hevy Clone — App Android native
 
-Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (122 exercices traduits) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
+Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (**259 exercices traduits**, noms alignés sur Hevy : « Tirage Poitrine », « Rowing », « Développé »…) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
 
-**Dernière version : v1.19** — https://github.com/ybenyedder/hevy-clone/releases
+**Dernière version : v1.22** — https://github.com/ybenyedder/hevy-clone/releases
 
 ## Installation
 
-Télécharge `hevy-clone-v1.19-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
+Télécharge `hevy-clone-v1.22-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
 
 ## Fonctions (toutes vérifiées par capture sur émulateur fr-FR ou par test unitaire)
 
 ### Fidélité Hevy (comparaison capture par capture)
 - 3 onglets (Accueil / Entraînement / Profil), thème noir `#111113` + accent configurable, police Inter (OFL)
 - **Accueil** : fil social (posts de séances, Temps/Volume/Records, chip du nombre de séries, « Voir N exercices en plus »)
-- **Logger** : TERMINER en barre haute, cartes « Nom + N série(s) › », grille SÉRIE|PRÉCÉDENTE|KG|RÉPS, coche à droite
-- **Picker** : « Choisir des exercices » + OK bleu, illustrations anatomiques à gauche, bouton + bleu
+- **Logger** : TERMINER en barre haute, **rangée live Durée / Volume / Séries**, grille SÉRIE|PRÉCÉDENTE|KG|RÉPS (précédent « 80kg × 8 »), coche à droite, **« Repos : 2min 0s » sur chaque carte** (toucher = picker 5 s type Hevy), **notes inline « Ajouter des notes ici… »**
+- **Éditeur de routine** : barre Annuler | Créer une Routine | Enregistrer + champ « Titre de la routine » (captures Hevy)
+- **Picker** : « Choisir des exercices » + OK bleu, illustrations anatomiques à gauche, sous-titre « Muscle · Matériel », chips muscles en français, bouton + bleu
 - **Entraînement** : Démarrer vide / Reprendre la dernière / Nouvelle routine / Explorer / Mes routines (n) + tri
 - **Détail de séance** : 4 stats (Temps/Volume/Records/Séries), cartes exercices, table alternée avec PRÉCÉDENTE
 - **Historique** : sections Cette semaine ▾, date-box + plage horaire + volume, recherche floue + filtres de période, calendrier
-- **Fiche exercice** : onglets Graphiques (Records + périodes 3m/6m/1a/Tout + 2 graphiques + progression vs record) / Historique / À propos (démo animée, instructions numérotées)
+- **Fiche exercice** : onglets **Résumé / Historique / Instructions** (Records + périodes 3m/6m/1a/Tout + 2 graphiques + progression vs record) / **instructions pas-à-pas numérotées** (44 archétypes de mouvement FR/EN) + conseils + muscle principal + matériel
 - **Profil** : heatmap annuelle du volume, totaux, mois en cours, semaine glissante vs précédente, barres 6 mois, volume par groupe musculaire, historique
 
 ### Entraînement
@@ -28,7 +29,10 @@ Télécharge `hevy-clone-v1.19-release.apk` depuis la page Releases et installe-
 - Notes de séance et notes d'exercice (dialogues), états PR (Epley) avec badges WEIGHT/1RM PR
 
 ### Recherche
-- Moteur **tolérant aux fautes** (Levenshtein), insensible aux accents, multi-mots, matche noms FR + EN + muscle + équipement — « developer coucher » → « Développé Couché (Barre) » (test unitaire)
+- Moteur **tolérant aux fautes** (Levenshtein sur le nom uniquement), insensible aux accents, multi-mots
+- Matche noms FR + EN + **alias de salle** (« dc », « sdt », « barre au front »…) + **synonymes de muscles** (dos → dorsaux/lombaires/trapèzes, abdos, jambes → quadriceps/ischio/mollets, bras, poitrine, mollets, fessiers) + **matériel FR** (poulie, haltères, barre, machine, poids du corps)
+- « tirage poitrine » → Tirage Poitrine (Machine) ; « developer coucher » → Développé Couché (Barre) (tests unitaires)
+- Tolérance de fautes limitée au nom pour éviter les faux positifs (« goblet » ≠ « mollets »)
 
 ### Données & système
 - SQLite locale + persistance JSON du brouillon
@@ -47,8 +51,8 @@ android/
 │   ├── QuickWidgetProvider.kt   widget RemoteViews
 │   ├── data/
 │   │   ├── Models.kt            @Serializable : Workout, Routine, Draft, BackupData…
-│   │   ├── Data.kt              122 exercices, cues, hints matériel
-│   │   ├── L10nData.kt          traductions FR + moteur de recherche flou (Levenshtein)
+│   │   ├── Data.kt              259 exercices, cues, hints matériel, instructions (44 archétypes)
+│   │   ├── L10nData.kt          traductions FR + alias + synonymes + moteur de recherche flou (Levenshtein)
 │   │   ├── Calc.kt              PUR : 1RM Epley, volume, streak, PR cache, CSV, seed
 │   │   └── Repo.kt              SQLite + mémoire + draft persistant + backup
 │   └── ui/
@@ -71,7 +75,7 @@ JAVA_HOME=/usr/lib/jvm/java-17-openjdk ~/gradle/gradle-8.7/bin/gradle testDebugU
 
 ## Historique des versions
 
-v1.0 natif → v1.2 fluidité → v1.4 zéro donnée factice → v1.7–v1.9 fidélité capture par capture → v1.10 supersets/drag → v1.11 profil/partage/CSV → v1.12 filtres/records → v1.13 notes/reprise/minuteur persistant → v1.14 widget/tri → v1.15 brouillon persistant/Explorer/paysage → v1.16 refaire séance/minuteur par exercice → v1.17 graphiques mensuels/chrono notification/import CSV → v1.18 accents/progression/multi-fenêtre → **v1.19 sauvegarde JSON/semaine glissante**. Détail complet dans l'historique git et les notes de release.
+v1.0 natif → v1.2 fluidité → v1.4 zéro donnée factice → v1.7–v1.9 fidélité capture par capture → v1.10 supersets/drag → v1.11 profil/partage/CSV → v1.12 filtres/records → v1.13 notes/reprise/minuteur persistant → v1.14 widget/tri → v1.15 brouillon persistant/Explorer/paysage → v1.16 refaire séance/minuteur par exercice → v1.17 graphiques mensuels/chrono notification/import CSV → v1.18 accents/progression/multi-fenêtre → v1.19 sauvegarde JSON/semaine glissante → v1.20 undo suppression/duplication → v1.21 routine depuis séance → **v1.22 finition Hevy : bibliothèque 140→259 exercices (noms Hevy FR), recherche élargie (synonymes + alias + matériel FR, « tirage poitrine » OK), instructions pas-à-pas par exercice (44 archétypes), onglets Résumé/Historique/Instructions, stats live Durée/Volume/Séries, « Repos : Xmin Ys » + picker 5 s, notes inline, éditeur de routine Annuler/Créer/Enregistrer**. Détail complet dans l'historique git et les notes de release.
 
 ---
 Projet personnel à but éducatif — non affilié à Hevy. Police Inter et illustrations vectorielles originales sous licences libres.

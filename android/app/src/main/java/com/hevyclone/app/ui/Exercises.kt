@@ -73,7 +73,7 @@ fun ExercisesScreen() {
     val grouped = remember(filtered) { filtered.groupBy { it.muscle } }
 
     Column(Modifier.fillMaxSize()) {
-        Text("Exercises", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
+        Text(L10n.s("Exercises", "Exercices"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp))
         TextField(
             value = q,
@@ -98,7 +98,7 @@ fun ExercisesScreen() {
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(listOf("All") + com.hevyclone.app.data.MUSCLES) { m ->
-                Chip(m, mus == m, onClick = { mus = m })
+                Chip(if (m == "All") L10n.s("All", "Tous") else muscleName(m), mus == m, onClick = { mus = m })
             }
         }
         LazyColumn(Modifier.fillMaxSize()) {
@@ -147,9 +147,9 @@ fun ExerciseDetailScreen(name: String) {
         // tab row with underline
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             listOf(
-                L10n.s("Charts", "Graphiques"),
+                L10n.s("Summary", "Résumé"),
                 L10n.s("History", "Historique"),
-                L10n.s("About", "À propos"),
+                L10n.s("Instructions", "Instructions"),
             ).forEachIndexed { i, label ->
                 Column(
                     Modifier
@@ -357,17 +357,57 @@ fun ExerciseDetailScreen(name: String) {
                         }
                     }
                     item {
+                        val steps = com.hevyclone.app.data.L10nData.steps(name)
+                        if (steps.isNotEmpty()) {
+                            AppCard {
+                                Column(Modifier.padding(14.dp)) {
+                                    Text(
+                                        L10n.s("How to perform", "Comment réaliser l'exercice"),
+                                        fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    steps.forEachIndexed { si, step ->
+                                        Row(Modifier.padding(vertical = 7.dp), verticalAlignment = Alignment.Top) {
+                                            Box(
+                                                Modifier
+                                                    .size(22.dp)
+                                                    .clip(CircleShape)
+                                                    .background(MaterialTheme.colorScheme.primary),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    "${si + 1}",
+                                                    color = MaterialTheme.colorScheme.onPrimary,
+                                                    fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                                )
+                                            }
+                                            Spacer(Modifier.width(10.dp))
+                                            Text(step, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
                         AppCard {
                             Column(Modifier.padding(14.dp)) {
                                 val cues = com.hevyclone.app.data.L10nData.cues(def?.muscle ?: "")
-                                cues.forEachIndexed { ci, cue ->
-                                    Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
-                                        Text(
-                                            "${ci + 1}.",
-                                            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp,
-                                            modifier = Modifier.width(22.dp),
-                                        )
-                                        Text(cue, fontSize = 14.sp, lineHeight = 20.sp)
+                                if (cues.isNotEmpty()) {
+                                    Text(
+                                        L10n.s("TIPS", "CONSEILS"),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    cues.forEachIndexed { ci, cue ->
+                                        Row(Modifier.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
+                                            Text(
+                                                "•",
+                                                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                                                modifier = Modifier.width(14.dp),
+                                            )
+                                            Text(cue, fontSize = 14.sp, lineHeight = 20.sp)
+                                        }
                                     }
                                 }
                             }

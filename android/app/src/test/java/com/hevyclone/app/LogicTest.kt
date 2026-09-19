@@ -139,6 +139,47 @@ class LogicTest {
         assertTrue(m("elevaion", "Lateral Raise"))
     }
     @Test
+    fun `fuzzy search matches hevy french vocabulary`() {
+        val m = com.hevyclone.app.data.L10nData::matches
+        // the user's exact example: « tirage poitrine » → Chest Supported Row (renamed "Tirage Poitrine")
+        assertTrue(m("tirage poitrine", "Chest Supported Row"))
+        assertTrue(m("poitrine", "Chest Supported Row"))
+        assertTrue(m("pec deck", "Machine Fly (Pec Deck)"))
+        // muscle synonyms (gym vocabulary)
+        assertTrue(m("dos", "Pull Up"))
+        assertTrue(m("dos", "Deadlift"))
+        assertTrue(m("abdos", "Crunch"))
+        assertTrue(m("ventre", "Plank"))
+        assertTrue(m("jambes", "Barbell Squat"))
+        assertTrue(m("mollets", "Standing Calf Raise"))
+        assertTrue(m("bras", "Barbell Curl"))
+        // equipment FR
+        assertTrue(m("poulie", "Cable Curl"))
+        assertTrue(m("halteres", "Dumbbell Bench Press"))
+        assertTrue(m("poids du corps", "Push Up"))
+        // gym slang aliases
+        assertTrue(m("dc", "Barbell Bench Press"))
+        assertTrue(m("sdt", "Deadlift"))
+        assertTrue(m("barre au front", "Skullcrusher"))
+        // newly added exercises are searchable via their FR names
+        assertTrue(m("fentes arriere", "Reverse Lunge"))
+        assertTrue(m("kettlebell", "Kettlebell Swing"))
+        assertTrue(m("dragon flag", "Dragon Flag"))
+        assertTrue(m("tractions prise large", "Wide Grip Pull Up"))
+        // no typo-fuzzy on muscle words: « goblet » must not match « mollets » noise
+        assertTrue(m("goblet", "Goblet Squat"))
+        assertFalse(m("goblet", "Standing Calf Raise"))
+        assertFalse(m("squat", "Standing Calf Raise"))
+        // DB sanity: unique canonical names, FR name + instructions for every exercise
+        val names = com.hevyclone.app.data.EXERCISES.map { it.name }
+        assertEquals(names.size, names.toSet().size)
+        assertTrue(names.size >= 250)
+        names.forEach { n ->
+            assertNotNull("missing FR name: $n", com.hevyclone.app.data.L10nData.NAME_FR[n])
+            assertTrue("no instructions: $n", com.hevyclone.app.data.L10nData.steps(n).isNotEmpty())
+        }
+    }
+    @Test
     fun `csv import parses export format with multiple exercises`() {
         val csv = """
             Date;Heure;Exercice;Serie;KG;Reps
