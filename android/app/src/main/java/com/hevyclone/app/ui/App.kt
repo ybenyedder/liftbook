@@ -83,16 +83,22 @@ fun App() {
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()).statusBarsPadding()) {
-            when (val s = Nav.current) {
-                Screen.HomeTab -> HomeScreen()
-                Screen.TrainingTab -> TrainingScreen()
-                Screen.ProfileTab -> ProfileScreen()
-                is Screen.WorkoutDetail -> WorkoutDetailScreen(s.id)
-                is Screen.ExerciseDetail -> ExerciseDetailScreen(s.name)
-                is Screen.RoutineDetail -> RoutineDetailScreen(s.id)
-                Screen.History -> HistoryScreen()
-                Screen.Exercises -> ExercisesScreen()
-                Screen.Logger -> LoggerScreen()
+            androidx.compose.animation.Crossfade(
+                targetState = Nav.current,
+                animationSpec = androidx.compose.animation.core.tween(180),
+                label = "nav",
+            ) { s ->
+                when (s) {
+                    Screen.HomeTab -> HomeScreen()
+                    Screen.TrainingTab -> TrainingScreen()
+                    Screen.ProfileTab -> ProfileScreen()
+                    is Screen.WorkoutDetail -> WorkoutDetailScreen(s.id)
+                    is Screen.ExerciseDetail -> ExerciseDetailScreen(s.name)
+                    is Screen.RoutineDetail -> RoutineDetailScreen(s.id)
+                    Screen.History -> HistoryScreen()
+                    Screen.Exercises -> ExercisesScreen()
+                    Screen.Logger -> LoggerScreen()
+                }
             }
         }
     }
