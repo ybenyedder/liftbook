@@ -259,13 +259,13 @@ object Calc {
                     val rv = if (rnd() < 0.22) row.reps - 1 else if (rnd() > 0.9) row.reps + 1 else row.reps
                     sets.add(SetEntry(kg, maxOf(4, rv), done = true))
                 }
-                ExEntry(row.name, EX[row.name]?.muscle ?: "Quads", "", sets)
+                ExEntry(row.name, EX[row.name]?.muscle ?: "Quads", "", false, sets)
             }.toMutableList()
             workouts.add(Workout(wid++, names[kind]!!, start, end, exs))
         }
 
         fun routineRows(rows: List<SeedRow>) = rows.map { r ->
-            ExEntry(r.name, EX[r.name]?.muscle ?: "", "",
+            ExEntry(r.name, EX[r.name]?.muscle ?: "", "", false,
                 MutableList(r.nSets) { SetEntry(round125(r.base), r.reps, done = true) })
         }.toMutableList()
         var rid = 1L
@@ -274,12 +274,12 @@ object Calc {
             Routine(rid++, "Pull Day", routineRows(T["pull"]!!)),
             Routine(rid++, "Leg Day", routineRows(T["legs"]!!)),
             Routine(rid++, "Upper Body", listOf(
-                ExEntry("Barbell Bench Press", "Chest", "", MutableList(4) { SetEntry(72.5, 8) }),
-                ExEntry("Lat Pulldown", "Lats", "", MutableList(4) { SetEntry(62.0, 10) }),
-                ExEntry("Seated Cable Row", "Lats", "", MutableList(3) { SetEntry(57.0, 10) }),
-                ExEntry("Machine Shoulder Press", "Shoulders", "", MutableList(3) { SetEntry(40.0, 10) }),
-                ExEntry("Barbell Curl", "Biceps", "", MutableList(3) { SetEntry(32.5, 10) }),
-                ExEntry("Tricep Pushdown", "Triceps", "", MutableList(3) { SetEntry(27.5, 12) }),
+                ExEntry("Barbell Bench Press", "Chest", "", false, MutableList(4) { SetEntry(72.5, 8) }),
+                ExEntry("Lat Pulldown", "Lats", "", false, MutableList(4) { SetEntry(62.0, 10) }),
+                ExEntry("Seated Cable Row", "Lats", "", false, MutableList(3) { SetEntry(57.0, 10) }),
+                ExEntry("Machine Shoulder Press", "Shoulders", "", false, MutableList(3) { SetEntry(40.0, 10) }),
+                ExEntry("Barbell Curl", "Biceps", "", false, MutableList(3) { SetEntry(32.5, 10) }),
+                ExEntry("Tricep Pushdown", "Triceps", "", false, MutableList(3) { SetEntry(27.5, 12) }),
             ).toMutableList()),
         )
         return workouts to routines

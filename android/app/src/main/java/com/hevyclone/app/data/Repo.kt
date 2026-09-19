@@ -97,7 +97,7 @@ object Repo {
     fun startWorkout(routineId: Long?) {
         val r = routineId?.let { routineById(it) }
         val exs = r?.exercises?.map { ex ->
-            ExEntry(ex.name, ex.muscle, ex.notes, ex.sets.map { SetEntry(it.kg, it.reps, done = false) }.toMutableList())
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.sets.map { SetEntry(it.kg, it.reps, done = false) }.toMutableList())
         }?.toMutableList() ?: mutableListOf()
         draft = Draft("workout", routineId, r?.name ?: "Séance", System.currentTimeMillis(), exs)
         touch()
@@ -106,7 +106,7 @@ object Repo {
     fun startRoutine(routineId: Long?) {
         val r = routineId?.let { routineById(it) }
         val exs = r?.exercises?.map { ex ->
-            ExEntry(ex.name, ex.muscle, ex.notes, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
         }?.toMutableList() ?: mutableListOf()
         draft = Draft("routine", routineId, r?.name ?: "Nouvelle Routine", null, exs)
         touch()
@@ -114,7 +114,7 @@ object Repo {
 
     fun addExToDraft(name: String) {
         val d = draft ?: return
-        d.exercises.add(ExEntry(name, EX[name]?.muscle ?: "", "", mutableListOf(SetEntry(null, null, done = false))))
+        d.exercises.add(ExEntry(name, EX[name]?.muscle ?: "", "", false, mutableListOf(SetEntry(null, null, done = false))))
         touch()
     }
 

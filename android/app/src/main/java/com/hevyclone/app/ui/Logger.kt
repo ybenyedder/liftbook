@@ -3,6 +3,13 @@ package com.hevyclone.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material.icons.rounded.Link
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.ui.layout.onGloballyPositioned
+
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,8 +87,46 @@ import kotlinx.coroutines.delay
 
 object RestTimer {
     var endAt by mutableStateOf(0L)
-    fun start(sec: Int) { endAt = System.currentTimeMillis() + sec * 1000L }
-    fun clear() { endAt = 0 }
+    var appContext: android.content.Context? = null
+    private const val CHANNEL = "rest_timer"
+    private const val NOTIF_ID = 4242
+
+    fun start(sec: Int) {
+        endAt = System.currentTimeMillis() + sec * 1000L
+        postNotification()
+    }
+
+    fun clear() {
+        endAt = 0
+        appContext?.let {
+            runCatching {
+                (it.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
+                    .cancel(NOTIF_ID)
+            }
+        }
+    }
+
+    private fun postNotification() {
+        val ctx = appContext ?: run { android.util.Log.w("RestTimer", "no context"); return }
+        runCatching {
+            val nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            nm.createNotificationChannel(
+                android.app.NotificationChannel(CHANNEL, "Minuteur de repos", android.app.NotificationManager.IMPORTANCE_LOW)
+            )
+            val end = endAt
+            val notif = android.app.Notification.Builder(ctx, CHANNEL)
+                .setSmallIcon(android.R.drawable.ic_popup_reminder)
+                .setContentTitle("Repos")
+                .setContentText("Repos en cours")
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setWhen(end)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .build()
+            nm.notify(NOTIF_ID, notif)
+        }.onFailure { android.util.Log.e("RestTimer", "notif failed", it) }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,6 +146,15 @@ fun LoggerScreen() {
     var showNoSets by remember { mutableStateOf(false) }
     var showDeleteRoutine by remember { mutableStateOf(false) }
     var nameText by remember(draft) { mutableStateOf(draft.name) }
+    var dragIndex by remember { mutableStateOf(-1) }   // exercise being dragged
+
+    fun moveExercise(from: Int, to: Int) {
+        val list = draft.exercises
+        if (from == to || from !in list.indices || to !in list.indices) return
+        list.add(to, list.removeAt(from))
+        dragIndex = to
+        Repo.touchPublic()
+    }
 
     LaunchedEffect(RestTimer.endAt) {
         if (RestTimer.endAt > 0) {
@@ -176,7 +230,7 @@ fun LoggerScreen() {
                 }
             }
             items(draft.exercises.size, key = { "${draft.exercises[it].name}-$it" }) { ei ->
-                ExCard(draft.exercises[ei], ei, isWorkout, unit)
+                ExCard(draft.exercises[ei], ei, isWorkout, unit, dragIndex == ei, ::moveExercise)
             }
             item(key = "addEx") {
                 // Hevy-style full-width add button under the cards
@@ -328,11 +382,39 @@ fun LoggerScreen() {
 
 // ---------------- exercise card ----------------
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
+private fun ExCard(
+    ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String,
+    isDragging: Boolean, moveExercise: (Int, Int) -> Unit,
+) {
     var showNotes by remember { mutableStateOf(ex.notes.isNotEmpty()) }
     var menuOpen by remember { mutableStateOf(false) }
-    AppCard {
+    val view = androidx.compose.ui.platform.LocalView.current
+    val isLast = Repo.draft?.exercises?.indexOfLast { it === ex }?.let { it >= (Repo.draft?.exercises?.size ?: 0) - 1 } ?: true
+    var cardHeight by remember { mutableStateOf(1f) }
+    val dragScale = animateFloatAsState(if (isDragging) 1.03f else 1f, label = "dragScale")
+    AppCard(modifier = Modifier
+        .graphicsLayer {
+            scaleX = dragScale.value
+            scaleY = dragScale.value
+            alpha = if (isDragging) 0.92f else 1f
+        }
+        .onGloballyPositioned { cardHeight = it.size.height.toFloat() }
+        .pointerInput(Unit) {
+            detectDragGesturesAfterLongPress(
+                onDragStart = {
+                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                },
+                onDrag = { change, dragAmount ->
+                    change.consume()
+                    val steps = (dragAmount.y / cardHeight).toInt()
+                    if (steps != 0) moveExercise(ei, ei + steps)
+                },
+                onDragEnd = { },
+            )
+        }
+    ) {
         Column(Modifier.padding(vertical = 8.dp)) {
             Row(
                 Modifier
@@ -341,11 +423,22 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
                     .padding(horizontal = 12.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (ex.superset) {
+                    Box(
+                        Modifier
+                            .size(width = 3.dp, height = 34.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 Column(Modifier.weight(1f)) {
                     Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                        if (ex.superset) L10n.s("SUPERSET", "SUPERSET")
+                        else "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
+                        color = if (ex.superset) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp, fontWeight = if (ex.superset) FontWeight.Bold else FontWeight.Normal,
                     )
                 }
                 Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
@@ -361,13 +454,29 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
                                 menuOpen = false
                                 Repo.draft?.exercises?.let { list ->
                                     if (ei < list.size) {
-                                        val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+                                        val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
                                         list.add(ei + 1, copy)
                                     }
                                 }
                                 Repo.touchPublic()
                             },
                         )
+                        if (!isLast) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        if (ex.superset) L10n.s("Remove superset", "Retirer le superset")
+                                        else L10n.s("Superset with next", "Superset avec le suivant")
+                                    )
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.Link, null, modifier = Modifier.size(16.dp)) },
+                                onClick = {
+                                    menuOpen = false
+                                    ex.superset = !ex.superset
+                                    Repo.touchPublic()
+                                },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(L10n.s("Delete exercise", "Supprimer l'exercice"), color = MaterialTheme.colorScheme.error) },
                             leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) },
@@ -450,6 +559,7 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
 @Composable
 private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: String, prevText: String?) {
     var menuOpen by remember { mutableStateOf(false) }
+    val rowView = androidx.compose.ui.platform.LocalView.current
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -524,6 +634,7 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
                     )
                     .clickable {
                         s.done = !s.done
+                        rowView.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
                         if (s.done) RestTimer.start(Repo.settings.restSec)
                     },
             ) {
