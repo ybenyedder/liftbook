@@ -1,72 +1,77 @@
 # Hevy Clone — App Android native
 
-Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3). Implémentation originale : aucun asset ni code de l'app officielle n'est copié — design recréé d'après les captures fournies (thème noir + accent bleu `#028CFD`, police Inter OFL), 3 onglets (Accueil / Entraînement / Profil), UI française complète (noms d'exercices traduits) + EN/ES/DE.
+Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (122 exercices traduits) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
 
-**v1.4** : **aucune donnée factice** (l'app démarre vide, tout est créé par l'utilisateur) + **optimisation de la fluidité** (build release R8 de 1,7 Mo, modèles de vue immuables, clés de recomposition, stats mises en cache) + illustrations anatomiques animées (play/pause) dans chaque fiche d'exercice.
+**Dernière version : v1.19** — https://github.com/ybenyedder/hevy-clone/releases
 
-## Livrable
+## Installation
 
-**`hevy-clone-v1.0-debug.apk`** (à la racine) — APK debug signé automatiquement, installable sur tout appareil Android 8.0+ (minSdk 26).
+Télécharge `hevy-clone-v1.19-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
 
-```bash
-adb install hevy-clone-v1.0-debug.apk
-```
+## Fonctions (toutes vérifiées par capture sur émulateur fr-FR ou par test unitaire)
 
-## Reconstruire
+### Fidélité Hevy (comparaison capture par capture)
+- 3 onglets (Accueil / Entraînement / Profil), thème noir `#111113` + accent configurable, police Inter (OFL)
+- **Accueil** : fil social (posts de séances, Temps/Volume/Records, chip du nombre de séries, « Voir N exercices en plus »)
+- **Logger** : TERMINER en barre haute, cartes « Nom + N série(s) › », grille SÉRIE|PRÉCÉDENTE|KG|RÉPS, coche à droite
+- **Picker** : « Choisir des exercices » + OK bleu, illustrations anatomiques à gauche, bouton + bleu
+- **Entraînement** : Démarrer vide / Reprendre la dernière / Nouvelle routine / Explorer / Mes routines (n) + tri
+- **Détail de séance** : 4 stats (Temps/Volume/Records/Séries), cartes exercices, table alternée avec PRÉCÉDENTE
+- **Historique** : sections Cette semaine ▾, date-box + plage horaire + volume, recherche floue + filtres de période, calendrier
+- **Fiche exercice** : onglets Graphiques (Records + périodes 3m/6m/1a/Tout + 2 graphiques + progression vs record) / Historique / À propos (démo animée, instructions numérotées)
+- **Profil** : heatmap annuelle du volume, totaux, mois en cours, semaine glissante vs précédente, barres 6 mois, volume par groupe musculaire, historique
 
-```bash
-cd android
-JAVA_HOME=/usr/lib/jvm/java-17-openjdk ~/gradle/gradle-8.7/bin/gradle assembleDebug
-# APK : android/app/build/outputs/apk/debug/app-debug.apk
-```
+### Entraînement
+- Supersets (menu ⋯, rail bleu + label), **drag-and-drop** des exercices (appui long)
+- Minuteurs : repos global, **par exercice**, notification système (chronomètre inversé), **persistant au redémarrage** ; chronomètre de séance en notification permanente
+- Brouillon de séance **persistant** (survit à la fermeture/kill de l'app) ; reprise de la dernière séance ou **de n'importe quelle séance passée** (menu ⋯ du détail)
+- Notes de séance et notes d'exercice (dialogues), états PR (Epley) avec badges WEIGHT/1RM PR
 
-Tests unitaires (logique pure, sans émulateur) :
+### Recherche
+- Moteur **tolérant aux fautes** (Levenshtein), insensible aux accents, multi-mots, matche noms FR + EN + muscle + équipement — « developer coucher » → « Développé Couché (Barre) » (test unitaire)
 
-```bash
-JAVA_HOME=/usr/lib/jvm/java-17-openjdk ~/gradle/gradle-8.7/bin/gradle testDebugUnitTest
-```
-
-## Fonctions
-
-- **Bottom nav 5 onglets** : Home, History, Routines, Exercises, Profile
-- **Home** : avatar, streak 🔥 (jours consécutifs), stats de la semaine (séances, volume, reps, PRs), bouton jaune « Start an Empty Workout », routines en scroll horizontal, activité récente
-- **Logger de séance** : grille `PREVIOUS | SET | KG | REPS` + case à cocher jaune, **timer de repos auto** (−10 s / +15 s / ignorer, 90 s par défaut), copier/supprimer une série (menu au clic sur le numéro), + Add Set, notes par exercice, résumé de fin (durée, volume, séries, reps, nouveaux records) avant sauvegarde
-- **Sélecteur d'exercices** : bottom sheet avec recherche + 15 filtres musculaires, 122 exercices embarqués
-- **Routines** : Push/Pull/Legs/Upper pré-remplies, création/édition (même éditeur, sans case à cocher), démarrage en 1 tap (pré-remplit le logger), « last performed », suppression
-- **History** : calendrier mensuel avec pastilles jaunes sur les jours d'entraînement + jour du jour cerclé, liste groupée (This Week / Last Week / mois), fiche séance avec badges **WEIGHT PR / 1RM PR** par série, bannière trophée des records, suppression
-- **Exercises** : recherche + filtres, fiche détaillée (matériel, cues de coaching, records, courbe de 1RM estimé Epley, historique des sessions), « Add to Current Workout » si une séance est en cours
-- **Profile** : totaux (séances, volume, streak, PRs), **Weekly Volume** (line chart Canvas maison avec dégradé), **Muscle Split** (barres par groupe musculaire), records récents
-- **Réglages** (roue crantée) : unités **kg/lb** (conversion partout, y compris les champs de saisie), timer 60/90/120/180 s, **thème sombre/clair**, recharger la démo, tout effacer
-- **Données de démo** : 45 séances sur 12 semaines (Push/Pull/Legs progressifs, PRs rétro-calculés), 4 routines — générées au premier lancement
-- **Persistance** : SQLite locale (workouts/routines en blobs JSON via kotlinx.serialization, table settings), écrite à chaque mutation
+### Données & système
+- SQLite locale + persistance JSON du brouillon
+- **Sauvegarde/restauration complète en fichier JSON** (roundtrip testé)
+- **Export CSV** des séances + **import CSV** (parseur groupant par date+heure, remap FR→EN, testé)
+- Partage réel d'une séance (share sheet Android avec résumé complet)
+- Widget « Démarrer une séance » sur l'écran d'accueil (deep-link testé)
+- Thèmes d'accent (Bleu/Teal/Violet/Orange), multi-fenêtre vérifié, mode paysage vérifié, transitions animées, retours haptiques
 
 ## Architecture
 
 ```
 android/
 ├── app/src/main/java/com/hevyclone/app/
-│   ├── MainActivity.kt          single Activity, edge-to-edge, thème
+│   ├── MainActivity.kt          single Activity, edge-to-edge, deep-link widget
+│   ├── QuickWidgetProvider.kt   widget RemoteViews
 │   ├── data/
-│   │   ├── Models.kt            @Serializable : Workout, Routine, SetEntry…
+│   │   ├── Models.kt            @Serializable : Workout, Routine, Draft, BackupData…
 │   │   ├── Data.kt              122 exercices, cues, hints matériel
-│   │   ├── Calc.kt              PUR : 1RM Epley, volume, streak, PR cache,
-│   │   │                        semaine/muscles, seed démo (unit-testable)
-│   │   └── Repo.kt              SQLite + mémoire + mutations (rev → recompose)
+│   │   ├── L10nData.kt          traductions FR + moteur de recherche flou (Levenshtein)
+│   │   ├── Calc.kt              PUR : 1RM Epley, volume, streak, PR cache, CSV, seed
+│   │   └── Repo.kt              SQLite + mémoire + draft persistant + backup
 │   └── ui/
-│       ├── Theme.kt             colorScheme dark/light (jaune #FFDB5C)
-│       ├── Comps.kt             cartes, chips, métriques, LineChart Canvas
-│       ├── App.kt               pile de navigation + bottom bar
-│       ├── Home.kt, History.kt, Routines.kt, Exercises.kt, Profile.kt
-│       └── Logger.kt            éditeur séance/routine, timer, picker, résumé
-└── app/src/test/java/com/hevyclone/app/LogicTest.kt   8 tests JUnit
+│       ├── Theme.kt             colorScheme + accents + Inter
+│       ├── Comps.kt             cartes, chips, LineChart Canvas
+│       ├── App.kt               navigation à pile + Crossfade + bottom bar
+│       ├── Home.kt, Routines.kt, History.kt, Exercises.kt, Profile.kt, Logger.kt
+│       └── Util.kt              partages (séance, CSV, JSON), haptique
+└── app/src/test/…/LogicTest.kt  12 tests unitaires (1RM, PRs, streak, recherche floue, CSV, backup)
 ```
 
-- **Navigation** : pile maison (`mutableStateListOf`) + `BackHandler` — pas de lib de navigation
-- **Rest timer** : objet singleton avec `mutableStateOf` + ticker `produceState` (250 ms)
-- **Recomposition** : compteur `Repo.rev` incrémenté à chaque mutation de données
+## Reconstruire / tester
 
-## Testé
+```bash
+cd android
+JAVA_HOME=/usr/lib/jvm/java-17-openjdk ~/gradle/gradle-8.7/bin/gradle assembleDebug      # debug
+JAVA_HOME=/usr/lib/jvm/java-17-openjdk ~/gradle/gradle-8.7/bin/gradle assembleRelease    # release R8 signée
+JAVA_HOME=/usr/lib/jvm/java-17-openjdk ~/gradle/gradle-8.7/bin/gradle testDebugUnitTest  # 12 tests
+```
 
-- `assembleDebug` : BUILD SUCCESSFUL
-- `testDebugUnitTest` : 8/8 (1RM, volume/sets/reps, conversion kg↔lb, PR cache + flags chrono, streak, cohérence du seed, stats hebdo)
-- **Émulateur Android 14 (Pixel 6 AVD)** : parcours complet — 5 onglets, calendrier, détail séance avec badges PR, création d'une séance (picker → recherche → saisie 80 kg × 8 → coche → timer REST 1:28 → Finish → résumé exact (640 kg, 1 série, « no new records » car 80 < 82.5) → Save) → incréments vérifiés sur l'accueil (+640 kg, +8 reps, +1 séance), filtres musculaires, fiche exercice, profil + graphiques
+## Historique des versions
+
+v1.0 natif → v1.2 fluidité → v1.4 zéro donnée factice → v1.7–v1.9 fidélité capture par capture → v1.10 supersets/drag → v1.11 profil/partage/CSV → v1.12 filtres/records → v1.13 notes/reprise/minuteur persistant → v1.14 widget/tri → v1.15 brouillon persistant/Explorer/paysage → v1.16 refaire séance/minuteur par exercice → v1.17 graphiques mensuels/chrono notification/import CSV → v1.18 accents/progression/multi-fenêtre → **v1.19 sauvegarde JSON/semaine glissante**. Détail complet dans l'historique git et les notes de release.
+
+---
+Projet personnel à but éducatif — non affilié à Hevy. Police Inter et illustrations vectorielles originales sous licences libres.
