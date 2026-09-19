@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -60,8 +61,30 @@ fun HistoryScreen() {
     var viewYear by remember { mutableStateOf(now.year) }
     var viewMonth by remember { mutableStateOf(now.monthValue) }
     var showCalendar by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf(0) } // 0=Toutes 1=Semaine 2=Mois 3=Année
     val byDay = remember(rev) { Repo.workouts.groupBy { Calc.dayKey(it.startedAt) } }
-    val groups = remember(rev) { buildGroups(Repo.workoutsDesc()) }
+    val cutoff = remember(filter) {
+        val now = System.currentTimeMillis()
+        when (filter) {
+            1 -> now - 7L * 86400000L
+            2 -> now - 30L * 86400000L
+            3 -> now - 365L * 86400000L
+            else -> 0L
+        }
+    }
+    val filteredWorkouts = remember(rev, query, filter) {
+        Repo.workoutsDesc().filter { w ->
+            w.startedAt >= cutoff && (
+                query.isBlank() ||
+                com.hevyclone.app.data.L10nData.matches(query, "") .let { true } && (
+                    w.name.lowercase().contains(query.lowercase()) ||
+                    w.exercises.any { com.hevyclone.app.data.L10nData.matches(query, it.name) }
+                )
+            )
+        }
+    }
+    val groups = remember(rev, query, filter) { buildGroups(filteredWorkouts) }
     val month = YearMonth.of(viewYear, viewMonth)
     val today = LocalDate.now()
 
@@ -73,6 +96,65 @@ fun HistoryScreen() {
             ) {
                 Text(L10n.s("History", "Historique"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                 IconButton(onClick = { showCalendar = !showCalendar }) { Icon(Icons.Rounded.CalendarMonth, null) }
+            }
+        }
+        item(key = "search") {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(8.dp))
+                androidx.compose.foundation.text.BasicTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary),
+                    modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+                    decorationBox = { inner ->
+                        if (query.isEmpty()) Text(
+                            L10n.s("Search workouts", "Rechercher des séances"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
+                        )
+                        inner()
+                    },
+                )
+            }
+        }
+        item(key = "filters") {
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(
+                    L10n.s("All", "Toutes"),
+                    L10n.s("This week", "Cette semaine"),
+                    L10n.s("This month", "Ce mois"),
+                    L10n.s("This year", "Cette année"),
+                ).forEachIndexed { i, label ->
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(if (filter == i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface)
+                            .border(
+                                1.dp,
+                                if (filter == i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                RoundedCornerShape(999.dp),
+                            )
+                            .clickable { filter = i }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Text(
+                            label,
+                            color = if (filter == i) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
             }
         }
         if (showCalendar) item { CalendarCard(month, byDay, today, onPrev = {

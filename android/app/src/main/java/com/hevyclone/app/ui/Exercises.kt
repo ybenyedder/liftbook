@@ -221,6 +221,41 @@ fun ExerciseDetailScreen(name: String) {
                         if (heaviest.isEmpty()) {
                             EmptyState(L10n.s("No data yet.\nLog this exercise to see charts.", "Aucune donnée.\nEnregistre cet exercice pour voir les graphiques."))
                         } else {
+                            // records summary card
+                            val pr = Repo.prFor(name)
+                            val best1rm = sessions.flatMap { (_, e) -> e.sets.filter { (it.kg ?: 0.0) > 0 && (it.reps ?: 0) > 0 }.map { Calc.e1rm(it.kg!!, it.reps!!) } }.maxOrNull()
+                            val bestSet = sessions.flatMap { (_, e) -> e.sets.mapNotNull { it.kg } }.maxOrNull()
+                            AppCard {
+                                Column(Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Rounded.EmojiEvents, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(7.dp))
+                                        Text(L10n.s("Records", "Records"), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                    }
+                                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text(L10n.s("Best est. 1RM", "1RM max est."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
+                            Text("${Calc.fmtKg(best1rm, unit)} kg", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(L10n.s("Heaviest set", "Série lourde"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
+                            Text("${Calc.fmtKg(bestSet, unit)} kg", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(L10n.s("Sessions", "Séances"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
+                            Text("${sessions.size}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                                    if (pr != null) {
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            L10n.s("PR set on ", "Record établi le ") + Calc.fmtDateShort(pr.weightDate),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp,
+                                        )
+                                    }
+                                }
+                            }
                             AppCard {
                                 Column(Modifier.padding(14.dp)) {
                                     Text(L10n.s("Heaviest weight", "Poids le plus lourd"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.Medium)
