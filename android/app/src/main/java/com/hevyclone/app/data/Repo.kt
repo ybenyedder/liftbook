@@ -48,21 +48,12 @@ object Repo {
         val sRow = db.readableDatabase.rawQuery("SELECT v FROM settings WHERE k='settings'", null).use { c ->
             if (c.moveToFirst()) c.getString(0) else null
         }
-        settings = sRow?.let { runCatching { json.decodeFromString<Settings>(it) }.getOrNull() } ?: Settings()
+        settings = sRow?.let { runCatching { json.decodeFromString<Settings>(it) }.getOrNull() } ?: Settings(since = System.currentTimeMillis())
         db.readableDatabase.rawQuery("SELECT json FROM workouts ORDER BY startedAt ASC", null).use { c ->
             while (c.moveToNext()) runCatching { json.decodeFromString<Workout>(c.getString(0)) }.getOrNull()?.let { workouts.add(it) }
         }
         db.readableDatabase.rawQuery("SELECT json FROM routines ORDER BY id ASC", null).use { c ->
             while (c.moveToNext()) runCatching { json.decodeFromString<Routine>(c.getString(0)) }.getOrNull()?.let { routines.add(it) }
-        }
-        if (workouts.isEmpty() && routines.isEmpty()) {
-            val since = System.currentTimeMillis() - 84L * 86400000L
-            settings.since = since
-            val (ws, rs) = Calc.seed(System.currentTimeMillis())
-            workouts.addAll(ws); routines.addAll(rs)
-            ws.forEach { persistWorkout(it) }
-            rs.forEach { persistRoutine(it) }
-            persistSettings()
         }
         prCache = Calc.rebuildPrs(workouts)
         persistSettings()
@@ -182,18 +173,6 @@ object Repo {
     fun setUnit(u: String) { settings.unit = u; persistSettings(); touch() }
     fun setRest(sec: Int) { settings.restSec = sec; persistSettings(); touch() }
     fun setTheme(t: String) { settings.theme = t; persistSettings(); touch() }
-
-    fun reseed() {
-        workouts.clear(); routines.clear(); draft = null
-        db.writableDatabase.delete("workouts", null, null)
-        db.writableDatabase.delete("routines", null, null)
-        val (ws, rs) = Calc.seed(System.currentTimeMillis())
-        workouts.addAll(ws); routines.addAll(rs)
-        ws.forEach { persistWorkout(it) }
-        rs.forEach { persistRoutine(it) }
-        prCache = Calc.rebuildPrs(workouts)
-        touch()
-    }
 
     fun wipe() {
         workouts.clear(); routines.clear(); draft = null

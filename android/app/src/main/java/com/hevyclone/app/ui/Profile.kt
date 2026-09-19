@@ -53,6 +53,12 @@ fun ProfileScreen() {
     val unit = st.unit
     val showSettings = remember { mutableStateOf(false) }
     val month = java.time.Instant.ofEpochMilli(st.since).atZone(java.time.ZoneId.systemDefault())
+    val streak = remember(rev) { Calc.streak(Repo.workouts, System.currentTimeMillis()) }
+    val totalVol = remember(rev) { Calc.totalVol(Repo.workouts) }
+    val totalPrs = remember(rev) { Repo.workouts.sumOf { it.prs.size } }
+    val weekly = remember(rev, unit) { Calc.weekly(Repo.workouts, 12, unit, System.currentTimeMillis()) }
+    val dist = remember(rev) { Calc.muscleDist(Repo.workouts, 8) }
+    val recentPrs = remember(rev) { Calc.recentPrs(Repo.workouts, 8) }
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -75,13 +81,13 @@ fun ProfileScreen() {
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.weight(1f)) { Metric("${Repo.workouts.size}", "Séances", tight = true) }
-                    Box(Modifier.weight(1f)) { Metric(Calc.fmtVol(Calc.totalVol(Repo.workouts), unit), "Volume", unit = unit, tight = true) }
+                    Box(Modifier.weight(1f)) { Metric(Calc.fmtVol(totalVol, unit), "Volume", unit = unit, tight = true) }
                 }
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) { Metric("${Calc.streak(Repo.workouts, System.currentTimeMillis())}", "Jours d'affilée", tight = true) }
-                    Box(Modifier.weight(1f)) { Metric("${Repo.workouts.sumOf { it.prs.size }}", "PRs", accent = true, tight = true) }
+                    Box(Modifier.weight(1f)) { Metric("$streak", "Jours d'affilée", tight = true) }
+                    Box(Modifier.weight(1f)) { Metric("$totalPrs", "PRs", accent = true, tight = true) }
                 }
             }
             item {
@@ -108,7 +114,7 @@ fun ProfileScreen() {
                             Spacer(Modifier.width(7.dp))
                             Text("Volume hebdomadaire", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                         }
-                        LineChart(Calc.weekly(Repo.workouts, 12, unit, System.currentTimeMillis()), fmtLabel = { v ->
+                        LineChart(weekly, fmtLabel = { v ->
                             val k = Math.round(v / 100.0) / 10.0
                             "${k}k"
                         })
@@ -124,7 +130,6 @@ fun ProfileScreen() {
                             Text("Répartition musculaire", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                         }
                         Spacer(Modifier.height(8.dp))
-                        val dist = Calc.muscleDist(Repo.workouts, 8)
                         val maxVol = dist.firstOrNull()?.second ?: 1.0
                         if (dist.isEmpty()) Text("Aucune donnée.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         dist.forEach { (muscle, vol) ->
@@ -156,9 +161,8 @@ fun ProfileScreen() {
                             Text("Records récents", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                         }
                         Spacer(Modifier.height(4.dp))
-                        val prs = Calc.recentPrs(Repo.workouts, 8)
-                        if (prs.isEmpty()) Text("Aucun record.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                        prs.forEach { (p, date, _) ->
+                        if (recentPrs.isEmpty()) Text("Aucun record.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        recentPrs.forEach { (p, date, _) ->
                             PrRow("${p.ex} · ${p.kind}", "${Calc.fmtKg(p.value, unit)} ${Calc.unitLabel(unit)} · ${Calc.fmtDateShort(date)}")
                         }
                     }
@@ -234,9 +238,6 @@ private fun SettingsSheet(onClose: () -> Unit) {
                 }
             }
             Text("DONNÉES", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp))
-            TextButton(onClick = { confirm = "reseed" }, modifier = Modifier.padding(start = 8.dp)) {
-                Text("Recharger la démo", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-            }
             TextButton(onClick = { confirm = "wipe" }, modifier = Modifier.padding(start = 8.dp)) {
                 Text("Tout effacer", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
             }
@@ -245,25 +246,18 @@ private fun SettingsSheet(onClose: () -> Unit) {
     confirm?.let { action ->
         AlertDialog(
             onDismissRequest = { confirm = null },
-            title = { Text(if (action == "reseed") "Recharger la démo ?" else "Tout effacer ?", fontWeight = FontWeight.ExtraBold) },
+            title = { Text("Tout effacer ?", fontWeight = FontWeight.ExtraBold) },
             text = {
-                Text(
-                    if (action == "reseed") "Your current workouts and routines will be replaced by the demo dataset."
-                    else "All workouts, routines and records will be permanently deleted from this device."
-                )
+                Text("Toutes les séances, routines et records seront définitivement supprimés de cet appareil.")
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirm = null
-                    if (action == "reseed") {
-                        Repo.reseed()
-                    } else {
-                        Repo.wipe()
-                    }
+                    Repo.wipe()
                     onClose()
-                }) { Text(if (action == "reseed") "Reload" else "Erase", color = MaterialTheme.colorScheme.error) }
+                }) { Text("Effacer", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Annuler") } },
         )
     }
 }

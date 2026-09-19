@@ -56,7 +56,8 @@ fun HistoryScreen() {
     val now = java.time.LocalDate.now()
     var viewYear by remember { mutableStateOf(now.year) }
     var viewMonth by remember { mutableStateOf(now.monthValue) }
-    val byDay = Repo.workouts.groupBy { Calc.dayKey(it.startedAt) }
+    val byDay = remember(rev) { Repo.workouts.groupBy { Calc.dayKey(it.startedAt) } }
+    val groups = remember(rev) { buildGroups(Repo.workoutsDesc()) }
     val month = YearMonth.of(viewYear, viewMonth)
     val today = LocalDate.now()
 
@@ -76,14 +77,13 @@ fun HistoryScreen() {
             byDay[key]?.firstOrNull()?.let { Nav.push(Screen.WorkoutDetail(it.id)) }
         }) }
         item { SectionLabel("") }
-        val groups = buildGroups(Repo.workoutsDesc())
         if (groups.isEmpty()) item { EmptyState("Aucune séance enregistrée.") }
         else {
             groups.forEach { g ->
-                item { Text(g.first.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                item(key = "label-${g.first}") { Text(g.first.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp)) }
-                items(g.second.size) { i ->
+                items(g.second.size, key = { g.second[it].id }) { i ->
                     val w = g.second[i]
                     HistoryRow(w, onClick = { Nav.push(Screen.WorkoutDetail(w.id)) })
                 }

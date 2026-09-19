@@ -1,8 +1,8 @@
 # Hevy Clone — App Android native
 
-Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3). Implémentation originale : aucun asset ni code de l'app officielle n'est copié — le design est **recréé** d'après les captures publiques du Play Store : palette échantillonnée au pixel (accent teal `#20B49A`, fond `#FAFBFB`, texte `#19191A`, pilules noires), police **Poppins** (licence SIL OFL, intégration légale), bande de semaine MON→SUN, libellés « kgs ».
+Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3). Implémentation originale : aucun asset ni code de l'app officielle n'est copié — design recréé d'après les captures fournies (thème noir + accent bleu `#028CFD`, police Inter OFL), 3 onglets (Accueil / Entraînement / Profil), UI française complète (noms d'exercices traduits) + EN/ES/DE.
 
-**v1.1** : restylage « pixel près » d'après les références officielles (thème clair par défaut + teal, thème sombre optionnel, logger à cercle-numéro gauche, onglet Training avec semaine).
+**v1.4** : **aucune donnée factice** (l'app démarre vide, tout est créé par l'utilisateur) + **optimisation de la fluidité** (build release R8 de 1,7 Mo, modèles de vue immuables, clés de recomposition, stats mises en cache) + illustrations anatomiques animées (play/pause) dans chaque fiche d'exercice.
 
 ## Livrable
 

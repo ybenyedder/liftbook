@@ -54,7 +54,7 @@ private val DarkColors = darkColorScheme(
     error = C.Red,
 )
 
-private fun hevyTypography() = Typography(
+private val HevyTypography = Typography(
     displayLarge = defaultStyle(FontWeight.Bold),
     displayMedium = defaultStyle(FontWeight.Bold),
     displaySmall = defaultStyle(FontWeight.Bold),
@@ -81,7 +81,7 @@ private fun defaultStyle(weight: FontWeight) = androidx.compose.ui.text.TextStyl
 fun HevyTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = DarkColors,
-        typography = hevyTypography(),
+        typography = HevyTypography,
         content = content,
     )
 }
