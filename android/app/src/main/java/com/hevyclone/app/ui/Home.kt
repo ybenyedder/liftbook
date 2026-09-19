@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.ThumbUp
@@ -121,8 +122,8 @@ private fun FeedPost(p: PostUi) {
                 Text(p.author, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(p.timeLabel, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             }
-            IconButton(onClick = { toast(ctx, L10n.s("Workout options", "Options de la séance")) }) {
-                Text("•••", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.ExtraBold)
+            IconButton(onClick = { Nav.push(Screen.WorkoutDetail(p.id)) }) {
+                Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
         }
         Text(

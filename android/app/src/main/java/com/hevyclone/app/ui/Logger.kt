@@ -305,18 +305,46 @@ fun LoggerScreen() {
 @Composable
 private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
     var showNotes by remember { mutableStateOf(ex.notes.isNotEmpty()) }
+    var menuOpen by remember { mutableStateOf(false) }
     AppCard {
         Column(Modifier.padding(vertical = 8.dp)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { Repo.draft?.exercises?.let { if (ei < it.size) it.removeAt(ei) } }, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Rounded.Close, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
-                }
                 Text(
-                    ex.name, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp,
+                    exName(ex.name), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp,
                     modifier = Modifier.weight(1f).clickable { Nav.push(Screen.ExerciseDetail(ex.name)) },
                     maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
-                MuscleTag(ex.muscle)
+                MuscleTag(muscleName(ex.muscle))
+                Box {
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(30.dp)) {
+                        Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(L10n.s("Duplicate exercise", "Dupliquer l'exercice")) },
+                            leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp)) },
+                            onClick = {
+                                menuOpen = false
+                                Repo.draft?.exercises?.let { list ->
+                                    if (ei < list.size) {
+                                        val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+                                        list.add(ei + 1, copy)
+                                    }
+                                }
+                                Repo.touchPublic()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(L10n.s("Delete exercise", "Supprimer l'exercice"), color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) },
+                            onClick = {
+                                menuOpen = false
+                                Repo.draft?.exercises?.let { list -> if (ei < list.size) list.removeAt(ei) }
+                                Repo.touchPublic()
+                            },
+                        )
+                    }
+                }
             }
             if (isWorkout) {
                 Row(Modifier.padding(horizontal = 12.dp)) {
@@ -324,12 +352,14 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
                     Text(L10n.s("PREVIOUS", "PRÉCÉDENTE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1.1f), textAlign = TextAlign.Center)
                     Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                     Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Spacer(Modifier.width(40.dp))
                 }
             } else {
                 Row(Modifier.padding(horizontal = 12.dp)) {
                     Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
                     Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                     Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Spacer(Modifier.width(40.dp))
                 }
             }
             val prev = if (isWorkout) Repo.prevFor(ex.name) else null
@@ -390,54 +420,35 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // set number circle — tap to toggle done (workout mode)
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(if (s.done && isWorkout) MaterialTheme.colorScheme.primary else Color.Transparent)
-                .border(
-                    1.5.dp,
-                    if (s.done && isWorkout) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                    CircleShape,
-                )
-                .combinedClickable(
-                    onClick = {
-                        if (isWorkout) {
-                            s.done = !s.done
-                            if (s.done) RestTimer.start(Repo.settings.restSec)
-                        }
-                    },
-                    onLongClick = { menuOpen = true },
-                ),
-        ) {
-            if (isWorkout && s.done) {
-                Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
-            } else {
-                Text(
-                    "${si + 1}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                )
-            }
-            if (isWorkout) {
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text(L10n.s("Copy set", "Copier la série")) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(15.dp)) }, onClick = {
-                        menuOpen = false
-                        Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
-                            if (si < ex.sets.size) ex.sets.add(si + 1, SetEntry(s.kg, s.reps, done = false))
-                        }
-                        Repo.touchPublic()
-                    })
-                    DropdownMenuItem(text = { Text(L10n.s("Delete set", "Supprimer la série"), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(15.dp)) }, onClick = {
-                        menuOpen = false
-                        Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
-                            if (ex.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else ex.sets.removeAt(si)
-                        }
-                        Repo.touchPublic()
-                    })
-                }
+        // set number chip — tap opens options (copy / delete)
+        Box {
+            Text(
+                "${si + 1}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable { menuOpen = true }
+                    .wrapContentHeight(Alignment.CenterVertically),
+            )
+            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                DropdownMenuItem(text = { Text(L10n.s("Copy set", "Copier la série")) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(15.dp)) }, onClick = {
+                    menuOpen = false
+                    Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
+                        if (si < ex.sets.size) ex.sets.add(si + 1, SetEntry(s.kg, s.reps, done = false))
+                    }
+                    Repo.touchPublic()
+                })
+                DropdownMenuItem(text = { Text(L10n.s("Delete set", "Supprimer la série"), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(15.dp)) }, onClick = {
+                    menuOpen = false
+                    Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
+                        if (ex.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else ex.sets.removeAt(si)
+                    }
+                    Repo.touchPublic()
+                })
             }
         }
         Spacer(Modifier.width(8.dp))
@@ -450,8 +461,6 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
                 modifier = Modifier.weight(1.1f).padding(horizontal = 2.dp),
                 textAlign = TextAlign.Center,
             )
-        } else {
-            Spacer(Modifier.width(0.dp))
         }
         SetField(
             init = Calc.fmtKg(s.kg, unit),
@@ -465,39 +474,40 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
             onChange = { v -> s.reps = v.filter { it.isDigit() }.take(4).toIntOrNull() },
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
         )
-        if (!isWorkout) {
-            DropdownMenuHost(s, si, ei)
-        }
-    }
-}
-
-@Composable
-private fun DropdownMenuHost(s: SetEntry, si: Int, ei: Int) {
-    var menuOpen by remember { mutableStateOf(false) }
-    Box {
-        Text(
-            "⋯",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp,
-            modifier = Modifier
-                .padding(start = 6.dp)
-                .clickable { menuOpen = true },
-        )
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(text = { Text("Copier la série") }, onClick = {
-                menuOpen = false
-                Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
-                    if (si < ex.sets.size) ex.sets.add(si + 1, SetEntry(s.kg, s.reps, done = true))
-                }
-                Repo.touchPublic()
-            })
-            DropdownMenuItem(text = { Text("Supprimer la série", color = MaterialTheme.colorScheme.error) }, onClick = {
-                menuOpen = false
-                Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
-                    if (ex.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else ex.sets.removeAt(si)
-                }
-                Repo.touchPublic()
-            })
+        Spacer(Modifier.width(5.dp))
+        if (isWorkout) {
+            // dedicated completion check — toggles done + starts rest timer
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(if (s.done) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .border(
+                        1.5.dp,
+                        if (s.done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        CircleShape,
+                    )
+                    .clickable {
+                        s.done = !s.done
+                        if (s.done) RestTimer.start(Repo.settings.restSec)
+                    },
+            ) {
+                if (s.done) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
+            }
+        } else {
+            // routine editor: direct delete button
+            IconButton(
+                onClick = {
+                    Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
+                        if (ex.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else ex.sets.removeAt(si)
+                    }
+                    Repo.touchPublic()
+                },
+                modifier = Modifier.size(30.dp),
+            ) {
+                Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+            }
         }
     }
 }

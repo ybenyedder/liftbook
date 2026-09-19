@@ -21,6 +21,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.IosShare
@@ -28,11 +30,15 @@ import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -60,11 +66,7 @@ fun TrainingScreen() {
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Text(L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
-                Icon(Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp))
-            }
-            IconButton(onClick = { Repo.touchPublic(); toast(ctx, L10n.s("Synced", "Synchronisé")) }) { Icon(Icons.Rounded.Refresh, null) }
+            Text(L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
         }
         Spacer(Modifier.height(6.dp))
         // Start an empty workout — bordered dark button
@@ -159,6 +161,8 @@ private fun SecondaryButton(text: String, icon: androidx.compose.ui.graphics.vec
 @Composable
 private fun RoutineCard(r: Routine) {
     val ctx = LocalContext.current
+    var cardMenu by remember { mutableStateOf(false) }
+    var confirmDel by remember { mutableStateOf(false) }
     AppCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
         Column(
             Modifier
@@ -168,8 +172,22 @@ private fun RoutineCard(r: Routine) {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(exName(r.name), fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                IconButton(onClick = { toast(ctx, L10n.s("Routine options", "Options de la routine")) }, modifier = Modifier.size(28.dp)) {
-                    Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Box {
+                    IconButton(onClick = { cardMenu = true }, modifier = Modifier.size(28.dp)) {
+                        Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    DropdownMenu(expanded = cardMenu, onDismissRequest = { cardMenu = false }) {
+                        DropdownMenuItem(text = { Text(L10n.s("Edit routine", "Modifier la routine")) }, leadingIcon = { Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp)) }, onClick = {
+                            cardMenu = false
+                            if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")); return@DropdownMenuItem }
+                            Repo.startRoutine(r.id)
+                            Nav.push(Screen.Logger)
+                        })
+                        DropdownMenuItem(text = { Text(L10n.s("Delete routine", "Supprimer la routine"), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) }, onClick = {
+                            cardMenu = false
+                            confirmDel = true
+                        })
+                    }
                 }
             }
             Text(
@@ -194,6 +212,20 @@ private fun RoutineCard(r: Routine) {
                 Text(L10n.s("Start Routine", "Commencer la Routine", "Comenzar la Rutina", "Routine starten"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+    if (confirmDel) {
+        AlertDialog(
+            onDismissRequest = { confirmDel = false },
+            title = { Text(L10n.s("Delete routine?", "Supprimer la routine ?"), fontWeight = FontWeight.ExtraBold) },
+            text = { Text(L10n.s("This routine will be removed from your list.", "Cette routine sera retirée de ta liste.")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDel = false
+                    Repo.deleteRoutine(r.id)
+                }) { Text(L10n.s("Delete", "Supprimer"), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDel = false }) { Text(L10n.s("Cancel", "Annuler")) } },
+        )
     }
 }
 
@@ -258,7 +290,7 @@ fun RoutineDetailScreen(id: Long) {
                     Spacer(Modifier.width(8.dp))
                     Text(lastDate, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.weight(1f))
-                    Text(L10n.s("3 months ˅", "3 derniers mois ˅"), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(L10n.s("3 months", "3 derniers mois"), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 LineChart(series, fmtLabel = { v ->
                     if (metric == 2) "${v.toInt()}m" else Calc.fmtVol(v, unit)
