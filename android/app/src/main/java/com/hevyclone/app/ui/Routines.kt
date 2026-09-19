@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
@@ -214,6 +215,7 @@ private fun RoutineCard(r: Routine) {
     val ctx = LocalContext.current
     var cardMenu by remember { mutableStateOf(false) }
     var confirmDel by remember { mutableStateOf(false) }
+    var renameTarget by remember { mutableStateOf<Long?>(null) }
     AppCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
         Column(
             Modifier
@@ -228,6 +230,13 @@ private fun RoutineCard(r: Routine) {
                         Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     DropdownMenu(expanded = cardMenu, onDismissRequest = { cardMenu = false }) {
+                        DropdownMenuItem(text = { Text(L10n.s("Rename routine", "Renommer la routine")) }, leadingIcon = { Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp)) }, onClick = {
+                            cardMenu = false; renameTarget = r.id
+                        })
+                        DropdownMenuItem(text = { Text(L10n.s("Duplicate routine", "Dupliquer la routine")) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp)) }, onClick = {
+                            cardMenu = false
+                            Repo.duplicateRoutine(r.id)
+                        })
                         DropdownMenuItem(text = { Text(L10n.s("Edit routine", "Modifier la routine")) }, leadingIcon = { Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp)) }, onClick = {
                             cardMenu = false
                             if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")); return@DropdownMenuItem }
@@ -263,6 +272,26 @@ private fun RoutineCard(r: Routine) {
                 Text(L10n.s("Start routine", "Commencer la routine", "Comenzar la rutina", "Routine starten"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+    renameTarget?.let { rid ->
+        var newName by remember(rid) { mutableStateOf(r.name) }
+        AlertDialog(
+            onDismissRequest = { renameTarget = null },
+            title = { Text(L10n.s("Rename routine", "Renommer la routine"), fontWeight = FontWeight.Bold) },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = newName, onValueChange = { newName = it.take(40) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    Repo.renameRoutine(rid, newName)
+                    renameTarget = null
+                }) { Text(L10n.s("Save", "Enregistrer")) }
+            },
+            dismissButton = { TextButton(onClick = { renameTarget = null }) { Text(L10n.s("Cancel", "Annuler")) } },
+        )
     }
     if (confirmDel) {
         AlertDialog(

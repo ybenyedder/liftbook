@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.IosShare
@@ -330,6 +331,15 @@ fun WorkoutDetailScreen(id: Long) {
             Box {
                 IconButton(onClick = { detailMenu = true }) { Icon(Icons.Rounded.MoreHoriz, null) }
                 androidx.compose.material3.DropdownMenu(expanded = detailMenu, onDismissRequest = { detailMenu = false }) {
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(L10n.s("Create routine from workout", "Créer une routine depuis cette séance")) },
+                        leadingIcon = { Icon(Icons.Rounded.CreateNewFolder, null, modifier = Modifier.size(16.dp)) },
+                        onClick = {
+                            detailMenu = false
+                            Repo.routineFromWorkout(w.id, w.name)
+                            toast(ctx, L10n.s("Routine created", "Routine créée"))
+                        },
+                    )
                     androidx.compose.material3.DropdownMenuItem(
                         text = { Text(L10n.s("Repeat this workout", "Refaire cette séance")) },
                         leadingIcon = { Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(16.dp)) },

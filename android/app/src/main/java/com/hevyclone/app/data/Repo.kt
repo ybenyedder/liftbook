@@ -201,6 +201,24 @@ object Repo {
         touch()
     }
 
+    fun routineFromWorkout(workoutId: Long, name: String): Routine? {
+        val w = workoutById(workoutId) ?: return null
+        val r = Routine(nextRoutineId(), name.trim().ifEmpty { w.name }, w.exercises.map { ex ->
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+        }.toMutableList())
+        routines.add(r)
+        persistRoutine(r)
+        touch()
+        return r
+    }
+
+    fun renameRoutine(id: Long, name: String) {
+        val r = routineById(id) ?: return
+        r.name = name.trim().ifEmpty { r.name }
+        persistRoutine(r)
+        touch()
+    }
+
     fun duplicateRoutine(id: Long): Routine? {
         val r = routineById(id) ?: return null
         val copy = Routine(nextRoutineId(), r.name + " (2)", r.exercises.map { ex ->
