@@ -208,4 +208,17 @@ object Repo {
 
     fun routineLastPerformed(r: Routine): Long? =
         workoutsDesc().firstOrNull { w -> w.name == r.name && w.exercises.any { e -> r.exercises.any { it.name == e.name } } }?.startedAt
+    
+    /** Per-set "previous" strings for an exercise, computed strictly before the given timestamp. */
+    fun prevSetsBefore(beforeMs: Long, name: String): List<String>? {
+        for (w in workouts.sortedByDescending { it.startedAt }) {
+            if (w.startedAt >= beforeMs) continue
+            val ex = w.exercises.firstOrNull { e -> e.name == name && e.sets.any { it.kg != null || it.reps != null } } ?: continue
+            return ex.sets.map { s ->
+                if (s.kg == null && s.reps == null) "—"
+                else "${Calc.fmtKg(s.kg, settings.unit)} × ${s.reps ?: "—"}"
+            }
+        }
+        return null
+    }
 }

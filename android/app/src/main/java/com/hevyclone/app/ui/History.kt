@@ -19,9 +19,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Notes
@@ -56,6 +58,7 @@ fun HistoryScreen() {
     val now = java.time.LocalDate.now()
     var viewYear by remember { mutableStateOf(now.year) }
     var viewMonth by remember { mutableStateOf(now.monthValue) }
+    var showCalendar by remember { mutableStateOf(false) }
     val byDay = remember(rev) { Repo.workouts.groupBy { Calc.dayKey(it.startedAt) } }
     val groups = remember(rev) { buildGroups(Repo.workoutsDesc()) }
     val month = YearMonth.of(viewYear, viewMonth)
@@ -63,26 +66,30 @@ fun HistoryScreen() {
 
     LazyColumn(Modifier.fillMaxSize()) {
         item {
-            Text(
-                "History",
-                fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp),
-            )
+            Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 20.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(L10n.s("History", "Historique"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                IconButton(onClick = { showCalendar = !showCalendar }) { Icon(Icons.Rounded.CalendarMonth, null) }
+            }
         }
-        item { CalendarCard(month, byDay, today, onPrev = {
+        if (showCalendar) item { CalendarCard(month, byDay, today, onPrev = {
             if (viewMonth == 1) { viewMonth = 12; viewYear-- } else viewMonth--
         }, onNext = {
             if (viewMonth == 12) { viewMonth = 1; viewYear++ } else viewMonth++
         }, onDay = { key ->
             byDay[key]?.firstOrNull()?.let { Nav.push(Screen.WorkoutDetail(it.id)) }
         }) }
-        item { SectionLabel("") }
         if (groups.isEmpty()) item { EmptyState("Aucune séance enregistrée.") }
         else {
             groups.forEach { g ->
-                item(key = "label-${g.first}") { Text(g.first.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 6.dp)) }
+                item(key = "label-${g.first}") {
+                    Row(Modifier.padding(start = 16.dp, top = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(g.first, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                        Icon(Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    }
+                }
                 items(g.second.size, key = { g.second[it].id }) { i ->
                     val w = g.second[i]
                     HistoryRow(w, onClick = { Nav.push(Screen.WorkoutDetail(w.id)) })
@@ -200,18 +207,21 @@ fun HistoryRow(w: Workout, onClick: () -> Unit) {
             Modifier.width(46.dp).clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(d.dayOfWeek.toString().take(3).uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold)
+            Text(d.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, java.util.Locale.FRANCE).uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold)
             Text("${d.dayOfMonth}", fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(w.name, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(w.name, fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${Calc.fmtVol(Calc.vol(w), Repo.settings.unit)} ${Calc.unitLabel(Repo.settings.unit)} · ${Calc.setsDone(w)} sets · ${Calc.fmtDur(w.endedAt - w.startedAt)}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
+                "${Calc.fmtTime(w.startedAt)} — ${Calc.fmtTime(w.endedAt)}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
             )
         }
-        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+        Text(
+            "${Calc.fmtVol(Calc.vol(w), Repo.settings.unit)} kg",
+            color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -234,21 +244,33 @@ fun WorkoutDetailScreen(id: Long) {
         LazyColumn(Modifier.fillMaxSize()) {
             item {
                 Text(
-                    "${Calc.fmtDateFull(w.startedAt)} · ${Calc.fmtTime(w.startedAt)} — ${Calc.fmtTime(w.endedAt)}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
+                    "${Calc.fmtDateFull(w.startedAt)}, ${Calc.fmtTime(w.startedAt)} — ${Calc.fmtTime(w.endedAt)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 2.dp),
                 )
             }
             item {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) { Metric(Calc.fmtDur(w.endedAt - w.startedAt), "Durée", tight = true) }
-                    Box(Modifier.weight(1f)) { Metric(Calc.fmtVol(Calc.vol(w), Repo.settings.unit), "Volume", unit = Calc.unitLabel(Repo.settings.unit), tight = true) }
-                }
-            }
-            item {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) { Metric("${Calc.setsDone(w)}", "Sets", tight = true) }
-                    Box(Modifier.weight(1f)) { Metric("${w.prs.size}", "PRs", accent = true, tight = true) }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text(L10n.s("Time", "Temps"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Text(Calc.fmtDur(w.endedAt - w.startedAt), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Column(Modifier.weight(1.4f)) {
+                        Text(L10n.s("Volume", "Volume"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Text("${Calc.fmtVol(Calc.vol(w), Repo.settings.unit)} kg", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(L10n.s("Records", "Records"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🏅", fontSize = 13.sp)
+                            Spacer(Modifier.width(3.dp))
+                            Text("${w.prs.size}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(L10n.s("Sets", "Séries"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Text("${Calc.setsDone(w)}", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
             if (w.prs.isNotEmpty()) item {
@@ -268,25 +290,52 @@ fun WorkoutDetailScreen(id: Long) {
                     }
                 }
             }
-            items(w.exercises.size) { ei ->
+            items(w.exercises.size, key = { w.exercises[it].name + it }) { ei ->
                 val ex = w.exercises[ei]
+                val prevSets = remember(ex.name, w.id) { Repo.prevSetsBefore(w.startedAt, ex.name) }
                 AppCard {
                     Column(Modifier.padding(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(exName(ex.name), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                            MuscleTag(ex.muscle)
+                        Row(
+                            Modifier.fillMaxWidth().clickable { Nav.push(Screen.ExerciseDetail(ex.name)) },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text(
+                                    "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                                )
+                            }
+                            Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                         }
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(6.dp))
+                        Row(Modifier.fillMaxWidth()) {
+                            Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.width(34.dp))
+                            Text(L10n.s("PREVIOUS", "PRÉCÉDENTE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1.1f))
+                            Text("KG", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        }
                         ex.sets.forEachIndexed { i, s ->
                             Row(
-                                Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                                Modifier.fillMaxWidth().background(if (i % 2 == 1) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f) else androidx.compose.ui.graphics.Color.Transparent)
+                                    .padding(vertical = 9.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text("${i + 1}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(22.dp))
+                                Text("${i + 1}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(34.dp))
+                                val prevTxt = prevSets?.getOrNull(i)
                                 Text(
-                                    if (s.kg != null) "${Calc.fmtKg(s.kg, Repo.settings.unit)} ${Calc.unitLabel(Repo.settings.unit)} × ${s.reps ?: "—"}"
-                                    else if (s.reps != null) "× ${s.reps} (bodyweight)" else "—",
-                                    fontWeight = FontWeight.SemiBold, fontSize = 13.5.sp,
+                                    prevTxt ?: "—",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                                    modifier = Modifier.weight(1.1f),
+                                )
+                                Text(
+                                    if (s.kg != null) Calc.fmtKg(s.kg, Repo.settings.unit) else "—",
+                                    fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(
+                                    "${s.reps ?: "—"}",
+                                    fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
                                     modifier = Modifier.weight(1f),
                                 )
                                 if (s.prW || s.prE) {
@@ -313,14 +362,7 @@ fun WorkoutDetailScreen(id: Long) {
                     }
                 }
             }
-            item {
-                GhostButton(
-                    "Supprimer la séance",
-                    onClick = { confirmDelete = true },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    leading = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(17.dp)) },
-                )
-            }
+
         }
     }
     if (confirmDelete) {
