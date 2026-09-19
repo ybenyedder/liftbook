@@ -1,7 +1,7 @@
 package com.hevyclone.app.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,146 +15,222 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ChevronRight
-import androidx.compose.material.icons.rounded.LocalFireDepartment
-import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
+import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.ThumbUp
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hevyclone.app.data.Calc
 import com.hevyclone.app.data.Repo
+import com.hevyclone.app.data.Workout
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun HomeScreen() {
+    val rev = Repo.rev
     val ctx = LocalContext.current
-    val rev = Repo.rev // subscribe to data changes
-    val st = Repo.settings
-    val now = System.currentTimeMillis()
-    val week = Calc.weekStats(Repo.workouts, now)
-    val streak = Calc.streak(Repo.workouts, now)
-    val routines = Repo.routines
-    val recent = Repo.workoutsDesc().take(4)
+    val feed = remember(rev) { Repo.workoutsDesc().take(15) }
 
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Row(
-                Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 20.dp),
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Avatar(st.profileName.trim().take(1).uppercase(), 40)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(st.profileName, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
-                    Text("@${st.handle}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-                }
-                // streak chip
-                Row(
-                    Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(999.dp))
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Rounded.LocalFireDepartment, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(14.dp))
+                Text("Accueil", fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                IconButton(onClick = { Nav.push(Screen.Exercises) }) { Icon(Icons.Rounded.Search, null) }
+                IconButton(onClick = { toast(ctx, "Pas de nouvelles notifications") }) { Icon(Icons.Rounded.Notifications, null) }
+            }
+        }
+        if (feed.isEmpty()) item { EmptyState("Aucune séance pour le moment.\nVa dans Entraînement pour démarrer !") }
+        else items(feed.size) { i ->
+            FeedPost(feed[i])
+            if (i < feed.size - 1) Box(Modifier.fillMaxWidth().height(8.dp).background(Color.Black))
+        }
+        item {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Athlètes Recommandés", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { toast(ctx, "Invitation copiée !") }) {
+                    Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("$streak", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp)
+                    Text("Inviter un ami", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
         item {
-            PrimaryButton(
-                "Start an Empty Workout",
-                onClick = {
-                    if (Repo.draft != null) {
-                        toast(ctx, "Workout resumed")
-                    } else {
-                        Repo.startWorkout(null)
-                    }
-                    Nav.push(Screen.Logger)
-                },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                leading = { Icon(Icons.Rounded.Add, null, modifier = Modifier.size(19.dp)) },
+            val suggestions = listOf(
+                listOf("alex_m", Color(0xFF7C4DFF)),
+                listOf("sam.frt", Color(0xFFFF7043)),
+                listOf("lea.fit", Color(0xFF26A69A)),
             )
-        }
-        item { SectionLabel("This week") }
-        item {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(62.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(Modifier.weight(1f)) { Metric("${week.count}", "Workouts", tight = true) }
-                Box(Modifier.weight(1f)) { Metric(Calc.fmtVol(week.vol, st.unit), "Volume (${Calc.unitLabel(st.unit)})", tight = true) }
-            }
-        }
-        item {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(62.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(Modifier.weight(1f)) { Metric("${week.reps}", "Reps", tight = true) }
-                Box(Modifier.weight(1f)) { Metric("${week.prs}", "PRs", accent = true, tight = true) }
-            }
-        }
-        item { SectionLabel("Routines") }
-        item {
-            if (routines.isEmpty()) EmptyState("No routines yet.", slim = true)
-            else LazyRow(
+            LazyRow(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                items(routines.size) { i ->
-                    val r = routines[i]
+                items(suggestions.size) { i ->
+                    val name = suggestions[i][0] as String
+                    val color = suggestions[i][1] as Color
                     Column(
                         Modifier
-                            .width(176.dp)
+                            .width(150.dp)
                             .clip(RoundedCornerShape(14.dp))
                             .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
-                            .clickableNoRipple { Repo.startRoutine(r.id); Nav.push(Screen.Logger) }
-                            .padding(13.dp),
+                            .padding(vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        Text(r.name, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${r.exercises.size} exercise${if (r.exercises.size > 1) "s" else ""}",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
-                        Spacer(Modifier.height(12.dp))
-                        Row(
+                        Box(
+                            Modifier.size(84.dp).clip(CircleShape).background(color),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(name.take(1).uppercase(), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        Text(name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Text("Featured", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Spacer(Modifier.height(10.dp))
+                        Box(
                             Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp)
                                 .clip(RoundedCornerShape(9.dp))
                                 .background(MaterialTheme.colorScheme.primary)
-                                .clickableNoRipple {
-                                    if (Repo.draft != null) toast(ctx, "Finish or discard the current workout first")
-                                    else { Repo.startWorkout(r.id); Nav.push(Screen.Logger) }
-                                }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .clickable { toast(ctx, "Demande envoyée à $name") }
+                                .padding(vertical = 9.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.Rounded.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(12.dp))
-                            Spacer(Modifier.width(5.dp))
-                            Text("Start Workout", color = MaterialTheme.colorScheme.onPrimary, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                            Text("Suivre", color = MaterialTheme.colorScheme.onPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
-        item { SectionLabel("Recent activity") }
-        if (recent.isEmpty()) item { EmptyState("No workouts yet — start your first one!") }
-        else items(recent.size) { i ->
-            val w = recent[i]
-            HistoryRow(w, onClick = { Nav.push(Screen.WorkoutDetail(w.id)) })
-        }
         item { Spacer(Modifier.height(20.dp)) }
+    }
+}
+
+@Composable
+private fun FeedPost(w: Workout) {
+    var expanded by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    val shown = if (expanded) w.exercises else w.exercises.take(3)
+    val hidden = w.exercises.size - shown.size
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Avatar(Repo.settings.profileName.trim().take(1).uppercase(), 44)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(Repo.settings.profileName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(relativeTime(w.startedAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            }
+            IconButton(onClick = { toast(ctx, "Options de la séance") }) {
+                Text("•••", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+        Text(
+            dayNameFr(w.startedAt),
+            fontSize = 21.sp, fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.padding(start = 16.dp, top = 10.dp, bottom = 8.dp),
+        )
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            FeedStat("Temps", Calc.fmtDur(w.endedAt - w.startedAt), Modifier.weight(1.2f))
+            FeedStat("Volume", "${Calc.fmtVol(Calc.vol(w), Repo.settings.unit)} kg", Modifier.weight(1.2f))
+            FeedStat("Records", "", Modifier.weight(1f), medal = w.prs.size)
+        }
+        HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.outline)
+        shown.forEach { ex ->
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                }
+                Spacer(Modifier.width(14.dp))
+                Text(
+                    "${ex.sets.size} série${if (ex.sets.size > 1) "s" else ""} ${ex.name}",
+                    fontSize = 16.sp, fontWeight = FontWeight.Medium,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (hidden > 0) {
+            Text(
+                "Voir $hidden exercice${if (hidden > 1) "s" else ""} en plus",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.5.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().clickable { expanded = true }.padding(vertical = 8.dp),
+            )
+        }
+        HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.outline)
+        Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { toast(ctx, "Ajouté aux favoris") }) { Icon(Icons.Rounded.ThumbUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton(onClick = { toast(ctx, "Les commentaires arrivent bientôt") }) { Icon(Icons.Rounded.ChatBubbleOutline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton(onClick = { toast(ctx, "Partagé !") }) { Icon(Icons.Rounded.IosShare, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        }
+    }
+}
+
+@Composable
+private fun FeedStat(label: String, value: String, modifier: Modifier = Modifier, medal: Int = -1) {
+    Column(modifier) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+        Spacer(Modifier.height(2.dp))
+        if (medal >= 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("🏅", fontSize = 15.sp)
+                Spacer(Modifier.width(5.dp))
+                Text("$medal", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            }
+        } else {
+            Text(value, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+private fun dayNameFr(ms: Long): String {
+    val s = Calc.localDate(ms).format(DateTimeFormatter.ofPattern("EEEE", Locale.FRANCE))
+    return s.replaceFirstChar { it.uppercase(Locale.FRANCE) }
+}
+
+private fun relativeTime(ms: Long): String {
+    val diff = System.currentTimeMillis() - ms
+    val hours = diff / 3600000
+    return when {
+        hours < 1 -> "il y a ${maxOf(1, (diff / 60000).toInt())} min"
+        hours < 24 -> "il y a $hours h"
+        else -> {
+            val days = (hours / 24).toInt()
+            if (days == 1) "il y a 1 jour" else "il y a $days jours"
+        }
     }
 }

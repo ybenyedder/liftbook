@@ -15,15 +15,29 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Timer
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,136 +49,307 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hevyclone.app.data.Calc
 import com.hevyclone.app.data.Repo
+import com.hevyclone.app.data.Routine
 
 @Composable
-fun RoutinesScreen() {
+fun TrainingScreen() {
     val ctx = LocalContext.current
     val rev = Repo.rev
     val routines = Repo.routines
-    val byDay = Repo.workouts.groupBy { Calc.dayKey(it.startedAt) }
+    var expanded by remember { mutableStateOf(true) }
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Training", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
-                Text(
-                    "Today, ${java.time.format.DateTimeFormatter.ofPattern("MMMM d", java.util.Locale.US).format(java.time.LocalDate.now())}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
-                )
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Text("Entraînement", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                Icon(Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp))
             }
+            IconButton(onClick = { Repo.touchPublic(); toast(ctx, "Synchronisé") }) { Icon(Icons.Rounded.Refresh, null) }
+        }
+        Spacer(Modifier.height(6.dp))
+        // Start an empty workout — bordered dark button
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                .clickable {
+                    if (Repo.draft != null) { Nav.push(Screen.Logger); return@clickable }
+                    Repo.startWorkout(null)
+                    Nav.push(Screen.Logger)
+                }
+                .padding(vertical = 15.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Add, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Text("Démarrer un Entraînement Vide", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        // Routines header
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Routines", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             IconButton(onClick = {
                 if (Repo.draft != null) { Nav.push(Screen.Logger); return@IconButton }
                 Repo.startRoutine(null)
                 Nav.push(Screen.Logger)
-            }) { Icon(Icons.Rounded.Add, null) }
+            }) { Icon(Icons.Rounded.CreateNewFolder, null) }
         }
-        WeekStrip(byDay)
-        PrimaryButton(
-            "Start an Empty Workout",
-            onClick = {
-                if (Repo.draft != null) { Nav.push(Screen.Logger); return@PrimaryButton }
-                Repo.startWorkout(null)
+        // Nouv. Routine / Explorer buttons
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SecondaryButton("Nouv. Routine", Icons.Rounded.CreateNewFolder, Modifier.weight(1f)) {
+                if (Repo.draft != null) { Nav.push(Screen.Logger); return@SecondaryButton }
+                Repo.startRoutine(null)
                 Nav.push(Screen.Logger)
-            },
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-            leading = { Icon(Icons.Rounded.Add, null, modifier = Modifier.size(19.dp)) },
-        )
-        Text(
-            "Routines", color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(start = 16.dp, top = 10.dp, bottom = 2.dp),
-        )
+            }
+            SecondaryButton("Explorer", Icons.Rounded.Search, Modifier.weight(1f)) {
+                Nav.push(Screen.Exercises)
+            }
+        }
+        // Mes routines (N) collapsible
+        Row(
+            Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                Icons.Rounded.ExpandMore, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "Mes routines (${routines.size})",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+            )
+        }
         LazyColumn(Modifier.fillMaxSize()) {
-            if (routines.isEmpty()) item { EmptyState("No routines yet.\nCreate one to reuse your favorite workouts.") }
-            else items(routines.size) { i ->
-                val r = routines[i]
-                val last = Repo.routineLastPerformed(r)
-                AppCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
-                    Row(Modifier.clickable {
-                        if (Repo.draft != null && Repo.draft?.mode != "routine") toast(ctx, "Finish or discard the current workout first")
-                        else if (Repo.draft != null) Nav.push(Screen.Logger)
-                        else { Repo.startRoutine(r.id); Nav.push(Screen.Logger) }
-                    }.padding(14.dp)) {
-                        Column(Modifier.weight(1f)) {
-                            Text(r.name, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                "${r.exercises.size} exercise${if (r.exercises.size > 1) "s" else ""} · ${if (last != null) "Last performed ${Calc.fmtDateShort(last)}" else "Never performed"}",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
-                            )
-                            Spacer(Modifier.height(9.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                r.exercises.take(2).forEach { e -> MuscleTag(e.name) }
-                                if (r.exercises.size > 2) MuscleTag("+${r.exercises.size - 2}")
-                            }
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                            Row(
-                                Modifier
-                                    .clip(RoundedCornerShape(999.dp))
-                                    .background(MaterialTheme.colorScheme.primary)
-                                    .clickableNoRipple {
-                                        if (Repo.draft != null) { toast(ctx, "Finish or discard the current workout first"); return@clickableNoRipple }
-                                        Repo.startWorkout(r.id)
-                                        Nav.push(Screen.Logger)
-                                    }
-                                    .padding(horizontal = 13.dp, vertical = 9.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(Icons.Rounded.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(12.dp))
-                                Spacer(Modifier.width(5.dp))
-                                Text("Start", color = MaterialTheme.colorScheme.onPrimary, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
-                            }
-                        }
-                    }
+            if (expanded) {
+                if (routines.isEmpty()) item { EmptyState("Aucune routine.\nTouche « Nouv. Routine » pour en créer une.") }
+                else items(routines.size) { i ->
+                    val r = routines[i]
+                    RoutineCard(r)
                 }
             }
-            item { Spacer(Modifier.height(16.dp)) }
+            item { Spacer(Modifier.height(20.dp)) }
         }
     }
 }
 
-/** MON–SUN strip: letters, day numbers, dot on workout days, today filled with accent. */
 @Composable
-fun WeekStrip(byDay: Map<String, List<com.hevyclone.app.data.Workout>>) {
-    val today = java.time.LocalDate.now()
-    val monday = today.minusDays(((today.dayOfWeek.value + 6) % 7).toLong())
-    val labels = listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-        labels.forEachIndexed { i, label ->
-            val date = monday.plusDays(i.toLong())
-            val key = date.toString()
-            val has = byDay[key]?.isNotEmpty() == true
-            val isToday = date == today
-            Column(
-                Modifier.weight(1f).clickable(enabled = has) {
-                    byDay[key]?.firstOrNull()?.let { Nav.push(Screen.WorkoutDetail(it.id)) }
-                },
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(4.dp))
-                Box(
-                    Modifier
-                        .size(30.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (isToday) MaterialTheme.colorScheme.primary else Color.Transparent),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        "${date.dayOfMonth}",
-                        color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
-                        fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                    )
+private fun SecondaryButton(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(
+        modifier
+            .height(46.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, null, modifier = Modifier.size(17.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(text, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun RoutineCard(r: Routine) {
+    val ctx = LocalContext.current
+    AppCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clickable { Nav.push(Screen.RoutineDetail(r.id)) }
+                .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(r.name, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                IconButton(onClick = { toast(ctx, "Options de la routine") }, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Spacer(Modifier.height(4.dp))
-                Box(
-                    Modifier
-                        .size(5.dp)
-                        .clip(RoundedCornerShape(99.dp))
-                        .background(if (has) MaterialTheme.colorScheme.primary else Color.Transparent)
-                )
+            }
+            Text(
+                r.exercises.joinToString(", ") { it.name },
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, lineHeight = 21.sp,
+                maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(14.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable {
+                        if (Repo.draft != null) { toast(ctx, "Termine d'abord la séance en cours"); return@clickable }
+                        Repo.startWorkout(r.id)
+                        Nav.push(Screen.Logger)
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Commencer la Routine", color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
 }
+
+// ---------------- routine detail ----------------
+
+@Composable
+fun RoutineDetailScreen(id: Long) {
+    val rev = Repo.rev
+    val ctx = LocalContext.current
+    val r = Repo.routineById(id)
+    if (r == null) { Nav.pop(); return }
+    var metric by remember { mutableStateOf(0) } // 0=Volume 1=Réps 2=Durée
+    val unit = Repo.settings.unit
+
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { Nav.pop() }) { Icon(Icons.Rounded.ArrowBack, null) }
+            Text("Routine", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            IconButton(onClick = { toast(ctx, "Partagé !") }) { Icon(Icons.Rounded.IosShare, null) }
+            IconButton(onClick = { toast(ctx, "Options de la routine") }) { Icon(Icons.Rounded.MoreHoriz, null) }
+        }
+        LazyColumn(Modifier.fillMaxSize()) {
+            item {
+                Text(r.name, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
+                Text(
+                    "Créée par ${Repo.settings.handle}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
+                    modifier = Modifier.padding(start = 16.dp, top = 2.dp, bottom = 12.dp),
+                )
+            }
+            item {
+                PrimaryButton(
+                    "Commencer la Routine",
+                    onClick = {
+                        if (Repo.draft != null) { toast(ctx, "Termine d'abord la séance en cours"); return@PrimaryButton }
+                        Repo.startWorkout(r.id)
+                        Nav.push(Screen.Logger)
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                )
+            }
+            item {
+                val sessions = remember(rev, r.id) { sessionsFor(r) }
+                val series = remember(rev, r.id, metric) {
+                    sessions.map { w ->
+                        val v = when (metric) {
+                            0 -> Calc.vol(w)
+                            1 -> Calc.reps(w).toDouble()
+                            else -> (w.endedAt - w.startedAt) / 60000.0
+                        }
+                        Calc.fmtDateShort(w.startedAt) to v
+                    }.takeLast(10)
+                }
+                val lastDate = sessions.lastOrNull()?.let { Calc.fmtDateShort(it.startedAt) } ?: ""
+                val total = when (metric) {
+                    0 -> "${Calc.fmtVol(volTargets(r), unit)} kg"
+                    1 -> "${r.exercises.sumOf { e -> e.sets.sumOf { it.reps ?: 0 } }} réps"
+                    else -> "—"
+                }
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
+                    Text(total, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.width(8.dp))
+                    Text(lastDate, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.weight(1f))
+                    Text("3 derniers mois ˅", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
+                LineChart(series, fmtLabel = { v ->
+                    if (metric == 2) "${v.toInt()}m" else Calc.fmtVol(v, unit)
+                })
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("Volume", "Réps", "Durée").forEachIndexed { i, label ->
+                        Box(
+                            Modifier
+                                .clip(RoundedCornerShape(999.dp))
+                                .background(if (metric == i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                                .clickable { metric = i }
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        ) {
+                            Text(
+                                label,
+                                color = if (metric == i) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground,
+                                fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+            }
+            item {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Exercices", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    Text(
+                        "Modifier la Routine",
+                        color = MaterialTheme.colorScheme.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable {
+                            if (Repo.draft != null) { toast(ctx, "Termine d'abord la séance en cours"); return@clickable }
+                            Repo.startRoutine(r.id)
+                            Nav.push(Screen.Logger)
+                        },
+                    )
+                }
+            }
+            items(r.exercises.size) { ei ->
+                val ex = r.exercises[ei]
+                Column(Modifier.padding(bottom = 18.dp)) {
+                    Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
+                        }
+                        Spacer(Modifier.width(14.dp))
+                        Text(
+                            ex.name,
+                            color = MaterialTheme.colorScheme.primary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f).clickable { Nav.push(Screen.ExerciseDetail(ex.name)) },
+                        )
+                    }
+                    Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(8.dp))
+                        val m = Repo.settings.restSec / 60
+                        val s = Repo.settings.restSec % 60
+                        Text(
+                            "Minuteur de Repos: ${if (m > 0) "${m}min " else ""}${s}s",
+                            color = MaterialTheme.colorScheme.primary, fontSize = 14.5.sp, fontWeight = FontWeight.Medium,
+                        )
+                    }
+                    Row(Modifier.padding(horizontal = 16.dp)) {
+                        Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Text("KG", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    }
+                    ex.sets.forEachIndexed { si, s ->
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(if (si % 2 == 1) MaterialTheme.colorScheme.surface else Color.Transparent)
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                        ) {
+                            Text("${si + 1}", fontSize = 15.sp, modifier = Modifier.weight(1f))
+                            Text(if (s.kg != null) Calc.fmtKg(s.kg, unit) else "—", fontSize = 15.sp, modifier = Modifier.weight(1f))
+                            Text("${s.reps ?: "—"}", fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        }
+                    }
+                }
+            }
+            item { Spacer(Modifier.height(20.dp)) }
+        }
+    }
+}
+
+private fun sessionsFor(r: Routine): List<com.hevyclone.app.data.Workout> =
+    Repo.workouts.sortedBy { it.startedAt }
+        .filter { w -> w.exercises.any { e -> r.exercises.any { it.name == e.name } } }
+        .takeLast(12)
+
+private fun volTargets(r: Routine): Double =
+    r.exercises.sumOf { e -> e.sets.sumOf { (it.kg ?: 0.0) * (it.reps ?: 0) } }

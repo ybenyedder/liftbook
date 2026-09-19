@@ -101,13 +101,9 @@ fun LoggerScreen() {
     var showDeleteRoutine by remember { mutableStateOf(false) }
     var nameText by remember(draft) { mutableStateOf(draft.name) }
 
-    val now = produceState(System.currentTimeMillis()) {
-        while (true) { value = System.currentTimeMillis(); delay(250) }
-    }.value
-    val restRemaining = RestTimer.endAt - now
     LaunchedEffect(RestTimer.endAt) {
         if (RestTimer.endAt > 0) {
-            delay(kotlin.math.max(0L, restRemaining) + 4000L)
+            delay(kotlin.math.max(0L, RestTimer.endAt - System.currentTimeMillis()) + 4000L)
             if (RestTimer.endAt > 0 && System.currentTimeMillis() >= RestTimer.endAt + 3950) RestTimer.clear()
         }
     }
@@ -120,15 +116,12 @@ fun LoggerScreen() {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = {
                 if (hasData()) showDiscard = true
-                else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Discarded") }
+                else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") }
             }) { Icon(Icons.Rounded.ArrowBack, null) }
             if (isWorkout) {
                 Column(Modifier.weight(1f)) {
                     Text(draft.name, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        "${Calc.fmtDur(maxOf(0, now - (draft.startedAt ?: now)))}",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-                    )
+                    DurationText(draft.startedAt)
                 }
             } else {
                 BasicTextField(
@@ -149,8 +142,8 @@ fun LoggerScreen() {
                         })
                     }
                     DropdownMenuItem(
-                        text = { Text(if (isWorkout) "Discard workout" else "Discard changes", color = MaterialTheme.colorScheme.error) },
-                        onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Discarded") } },
+                        text = { Text(if (isWorkout) "Supprimer la séance" else "Ignorer les modifications", color = MaterialTheme.colorScheme.error) },
+                        onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
                     )
                 }
             }
@@ -160,8 +153,8 @@ fun LoggerScreen() {
             if (draft.exercises.isEmpty()) {
                 item {
                     EmptyState(
-                        if (isWorkout) "No exercises yet.\nTap “Add Exercise” to start logging."
-                        else "This routine is empty.\nTap “Add Exercise” to build it."
+                        if (isWorkout) "Aucun exercice.\nTouche « Ajouter un Exercice » pour commencer."
+                        else "Cette routine est vide.\nTouche « Ajouter un Exercice » pour la construire."
                     )
                 }
             }
@@ -179,27 +172,27 @@ fun LoggerScreen() {
                 .padding(horizontal = 16.dp, vertical = 10.dp),
         ) {
             if (RestTimer.endAt > 0) {
-                RestBar(remainingMs = restRemaining)
+                RestBar()
                 Spacer(Modifier.height(10.dp))
             }
             Row {
                 GhostButton(
-                    "Add Exercise",
+                    "Ajouter un Exercice",
                     onClick = { showPicker = true },
                     modifier = Modifier.weight(1f),
                     leading = { Icon(Icons.Rounded.Add, null, modifier = Modifier.size(16.dp)) },
                 )
                 Spacer(Modifier.width(10.dp))
                 PrimaryButton(
-                    if (isWorkout) "Finish" else "Save",
+                    if (isWorkout) "Terminer" else "Enregistrer",
                     onClick = {
                         if (!isWorkout) {
                             val n = nameText.trim()
-                            if (n.isEmpty()) { toast(ctx, "Give your routine a name"); return@PrimaryButton }
-                            if (draft.exercises.isEmpty()) { toast(ctx, "Add at least one exercise"); return@PrimaryButton }
+                            if (n.isEmpty()) { toast(ctx, "Donne un nom à ta routine"); return@PrimaryButton }
+                            if (draft.exercises.isEmpty()) { toast(ctx, "Ajoute au moins un exercice"); return@PrimaryButton }
                             Repo.saveRoutine(n)
                             Nav.pop()
-                            toast(ctx, "Routine saved")
+                            toast(ctx, "Routine enregistrée")
                         } else {
                             if (anyDone()) showFinish = true else showNoSets = true
                         }
@@ -222,7 +215,7 @@ fun LoggerScreen() {
                 onPick = { name ->
                     Repo.addExToDraft(name)
                     showPicker = false
-                    toast(ctx, "$name added")
+                    toast(ctx, "$name ajouté")
                 },
             )
         }
@@ -240,7 +233,7 @@ fun LoggerScreen() {
                     RestTimer.clear()
                     Repo.discardDraft()
                     Nav.pop()
-                    toast(ctx, "Discarded")
+                    toast(ctx, "Supprimée")
                 },
                 onSave = {
                     val w = Repo.finishWorkout(nameText)
@@ -248,7 +241,7 @@ fun LoggerScreen() {
                     RestTimer.clear()
                     Nav.toTab(Screen.HomeTab)
                     if (w != null && w.prs.isNotEmpty()) toast(ctx, "Saved · ${w.prs.size} PR${if (w.prs.size > 1) "s" else ""}!")
-                    else toast(ctx, "Workout saved")
+                    else toast(ctx, "Séance enregistrée")
                 },
             )
         }
@@ -256,7 +249,7 @@ fun LoggerScreen() {
     if (showDiscard) {
         AlertDialog(
             onDismissRequest = { showDiscard = false },
-            title = { Text(if (isWorkout) "Discard workout?" else "Discard changes?", fontWeight = FontWeight.ExtraBold) },
+            title = { Text(if (isWorkout) "Supprimer la séance ?" else "Ignorer les modifications ?", fontWeight = FontWeight.ExtraBold) },
             text = { Text(if (isWorkout) "Your logged sets from this session will be lost." else "Changes to this routine will be lost.") },
             confirmButton = {
                 TextButton(onClick = {
@@ -264,16 +257,16 @@ fun LoggerScreen() {
                     RestTimer.clear()
                     Repo.discardDraft()
                     Nav.pop()
-                    toast(ctx, "Discarded")
+                    toast(ctx, "Supprimée")
                 }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showDiscard = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showDiscard = false }) { Text("Annuler") } },
         )
     }
     if (showNoSets) {
         AlertDialog(
             onDismissRequest = { showNoSets = false },
-            title = { Text("No sets completed", fontWeight = FontWeight.ExtraBold) },
+            title = { Text("Aucune série terminée", fontWeight = FontWeight.ExtraBold) },
             text = { Text("There is nothing to save yet. Discard this workout?") },
             confirmButton = {
                 TextButton(onClick = {
@@ -281,10 +274,10 @@ fun LoggerScreen() {
                     RestTimer.clear()
                     Repo.discardDraft()
                     Nav.pop()
-                    toast(ctx, "Discarded")
+                    toast(ctx, "Supprimée")
                 }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showNoSets = false }) { Text("Keep editing") } },
+            dismissButton = { TextButton(onClick = { showNoSets = false }) { Text("Continuer") } },
         )
     }
     if (showDeleteRoutine) {
@@ -300,9 +293,9 @@ fun LoggerScreen() {
                     Repo.discardDraft()
                     Nav.pop()
                     toast(ctx, "Routine deleted")
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                }) { Text("Supprimer", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showDeleteRoutine = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { showDeleteRoutine = false }) { Text("Annuler") } },
         )
     }
 }
@@ -327,16 +320,16 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
             }
             if (isWorkout) {
                 Row(Modifier.padding(horizontal = 12.dp)) {
-                    Text("SET", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
-                    Text("PREVIOUS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1.1f), textAlign = TextAlign.Center)
+                    Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
+                    Text("PRÉCÉDENTE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1.1f), textAlign = TextAlign.Center)
                     Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    Text("REPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 }
             } else {
                 Row(Modifier.padding(horizontal = 12.dp)) {
-                    Text("SET", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
+                    Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
                     Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    Text("REPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 }
             }
             val prev = if (isWorkout) Repo.prevFor(ex.name) else null
@@ -345,7 +338,7 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
             }
             // add set
             Text(
-                "+  Add Set",
+                "+  Ajouter une Série",
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
                 modifier = Modifier
@@ -373,7 +366,7 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
             if (showNotes) {
                 BasicTextField(
                     value = ex.notes,
-                    onValueChange = { ex.notes = it; Repo.touchPublic() },
+                    onValueChange = { ex.notes = it },
                     textStyle = TextStyle(color = MaterialTheme.colorScheme.onBackground, fontSize = 13.sp),
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     modifier = Modifier
@@ -430,14 +423,14 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
             }
             if (isWorkout) {
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text("Copy set") }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(15.dp)) }, onClick = {
+                    DropdownMenuItem(text = { Text("Copier la série") }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(15.dp)) }, onClick = {
                         menuOpen = false
                         Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
                             if (si < ex.sets.size) ex.sets.add(si + 1, SetEntry(s.kg, s.reps, done = false))
                         }
                         Repo.touchPublic()
                     })
-                    DropdownMenuItem(text = { Text("Delete set", color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(15.dp)) }, onClick = {
+                    DropdownMenuItem(text = { Text("Supprimer la série", color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(15.dp)) }, onClick = {
                         menuOpen = false
                         Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
                             if (ex.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else ex.sets.removeAt(si)
@@ -463,13 +456,13 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
         SetField(
             init = Calc.fmtKg(s.kg, unit),
             hint = unit,
-            onChange = { s.kg = Calc.toKg(it, unit); Repo.touchPublic() },
+            onChange = { s.kg = Calc.toKg(it, unit) },
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
         )
         SetField(
             init = s.reps?.toString() ?: "",
-            hint = "Reps",
-            onChange = { v -> s.reps = v.filter { it.isDigit() }.take(4).toIntOrNull(); Repo.touchPublic() },
+            hint = "Réps",
+            onChange = { v -> s.reps = v.filter { it.isDigit() }.take(4).toIntOrNull() },
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
         )
         if (!isWorkout) {
@@ -491,14 +484,14 @@ private fun DropdownMenuHost(s: SetEntry, si: Int, ei: Int) {
                 .clickable { menuOpen = true },
         )
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            DropdownMenuItem(text = { Text("Copy set") }, onClick = {
+            DropdownMenuItem(text = { Text("Copier la série") }, onClick = {
                 menuOpen = false
                 Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
                     if (si < ex.sets.size) ex.sets.add(si + 1, SetEntry(s.kg, s.reps, done = true))
                 }
                 Repo.touchPublic()
             })
-            DropdownMenuItem(text = { Text("Delete set", color = MaterialTheme.colorScheme.error) }, onClick = {
+            DropdownMenuItem(text = { Text("Supprimer la série", color = MaterialTheme.colorScheme.error) }, onClick = {
                 menuOpen = false
                 Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
                     if (ex.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else ex.sets.removeAt(si)
@@ -539,8 +532,24 @@ private fun SetField(init: String, hint: String, onChange: (String) -> Unit, mod
 
 // ---------------- rest bar ----------------
 
+/** Elapsed-workout label; ticks once per second without recomposing the whole logger. */
 @Composable
-private fun RestBar(remainingMs: Long) {
+private fun DurationText(startedAt: Long?) {
+    val now = produceState(System.currentTimeMillis()) {
+        while (true) { value = System.currentTimeMillis(); delay(1000) }
+    }.value
+    Text(
+        "${Calc.fmtDur(maxOf(0, now - (startedAt ?: now)))}",
+        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+    )
+}
+
+@Composable
+private fun RestBar() {
+    val now = produceState(System.currentTimeMillis()) {
+        while (true) { value = System.currentTimeMillis(); delay(250) }
+    }.value
+    val remainingMs = RestTimer.endAt - now
     val remSec = remainingMs / 1000.0
     val over = remSec <= 0
     val shown = if (over) 0 else remSec.toLong()
@@ -554,7 +563,7 @@ private fun RestBar(remainingMs: Long) {
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("REST", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold)
+        Text("REPOS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.width(12.dp))
         Text(
             text,
@@ -594,12 +603,12 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
         .sortedBy { it.name }
     Column(Modifier.fillMaxWidth().fillMaxHeight(0.86f)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Select Exercise", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            Text("Choisir un Exercice", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, null) }
         }
         TextField(
             value = q, onValueChange = { q = it },
-            placeholder = { Text("Search exercises", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            placeholder = { Text("Rechercher des exercices", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp)) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
@@ -618,7 +627,7 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
             items(listOf("All") + MUSCLES) { m -> Chip(m, mus == m, onClick = { mus = m }) }
         }
         LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-            if (filtered.isEmpty()) item { EmptyState("No exercises found.") }
+            if (filtered.isEmpty()) item { EmptyState("Aucun exercice trouvé.") }
             else items(filtered) { e ->
                 Row(
                     Modifier
@@ -662,7 +671,7 @@ private fun FinishSheet(draft: com.hevyclone.app.data.Draft, onCancel: () -> Uni
         if (be > pe) prs.add(com.hevyclone.app.data.PrRec(ex.name, "Est. 1RM", be))
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
-        Text("Workout Summary", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+        Text("Résumé de la séance", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
         Spacer(Modifier.height(10.dp))
         TextField(
             value = name, onValueChange = { name = it },
@@ -679,17 +688,17 @@ private fun FinishSheet(draft: com.hevyclone.app.data.Draft, onCancel: () -> Uni
         )
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { Metric(Calc.fmtDur(System.currentTimeMillis() - (draft.startedAt ?: System.currentTimeMillis())), "Duration", tight = true) }
+            Box(Modifier.weight(1f)) { Metric(Calc.fmtDur(System.currentTimeMillis() - (draft.startedAt ?: System.currentTimeMillis())), "Durée", tight = true) }
             Box(Modifier.weight(1f)) { Metric(Calc.fmtVol(vol, unit), "Volume", unit = unit, tight = true) }
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { Metric("$sets", "Sets", tight = true) }
-            Box(Modifier.weight(1f)) { Metric("$reps", "Reps", tight = true) }
+            Box(Modifier.weight(1f)) { Metric("$sets", "Séries", tight = true) }
+            Box(Modifier.weight(1f)) { Metric("$reps", "Réps", tight = true) }
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            if (prs.isEmpty()) "No new records this session" else "${prs.size} new record${if (prs.size > 1) "s" else ""}",
+            if (prs.isEmpty()) "Aucun nouveau record cette séance" else "${prs.size} new record${if (prs.size > 1) "s" else ""}",
             color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold,
         )
         prs.forEach { p ->
@@ -700,7 +709,7 @@ private fun FinishSheet(draft: com.hevyclone.app.data.Draft, onCancel: () -> Uni
         }
         Spacer(Modifier.height(16.dp))
         Row {
-            GhostButton("Discard", onClick = onDiscard, modifier = Modifier.weight(1f))
+            GhostButton("Supprimer", onClick = onDiscard, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(10.dp))
             PrimaryButton("Save", onClick = onSave, modifier = Modifier.weight(1f).height(44.dp))
         }

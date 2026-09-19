@@ -31,7 +31,15 @@ object Repo {
     var prCache: Map<String, PrBest> = emptyMap()
     var rev by mutableStateOf(0)
 
-    private fun touch() { rev++ }
+    // ---- perf caches (invalidated on touch) ----
+    private var descCache: List<Workout>? = null
+    private var prevCache = HashMap<String, List<String>>()
+
+    private fun touch() {
+        descCache = null
+        prevCache.clear()
+        rev++
+    }
     fun touchPublic() { touch() }
 
     fun init(ctx: Context) {
@@ -86,7 +94,12 @@ object Repo {
 
     fun workoutById(id: Long): Workout? = workouts.firstOrNull { it.id == id }
     fun routineById(id: Long): Routine? = routines.firstOrNull { it.id == id }
-    fun workoutsDesc(): List<Workout> = workouts.sortedByDescending { it.startedAt }
+    fun workoutsDesc(): List<Workout> {
+        descCache?.let { return it }
+        val sorted = workouts.sortedByDescending { it.startedAt }
+        descCache = sorted
+        return sorted
+    }
 
     // ---------- draft lifecycle ----------
 
@@ -95,7 +108,7 @@ object Repo {
         val exs = r?.exercises?.map { ex ->
             ExEntry(ex.name, ex.muscle, ex.notes, ex.sets.map { SetEntry(it.kg, it.reps, done = false) }.toMutableList())
         }?.toMutableList() ?: mutableListOf()
-        draft = Draft("workout", routineId, r?.name ?: "Workout", System.currentTimeMillis(), exs)
+        draft = Draft("workout", routineId, r?.name ?: "Séance", System.currentTimeMillis(), exs)
         touch()
     }
 
@@ -104,7 +117,7 @@ object Repo {
         val exs = r?.exercises?.map { ex ->
             ExEntry(ex.name, ex.muscle, ex.notes, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
         }?.toMutableList() ?: mutableListOf()
-        draft = Draft("routine", routineId, r?.name ?: "New Routine", null, exs)
+        draft = Draft("routine", routineId, r?.name ?: "Nouvelle Routine", null, exs)
         touch()
     }
 
@@ -136,7 +149,7 @@ object Repo {
         val now = System.currentTimeMillis()
         val w = Workout(
             id = nextWorkoutId(),
-            name = name.trim().ifEmpty { "Workout" },
+            name = name.trim().ifEmpty { "Séance" },
             startedAt = d.startedAt ?: now - 3600000,
             endedAt = now,
             exercises = d.exercises,
@@ -196,16 +209,22 @@ object Repo {
 
     fun e1rmSeries(name: String): List<Pair<String, Double>> = Calc.e1rmSeries(name, workouts)
 
-    /** Previous performance of an exercise: per set index, "82.5 × 8" in display units. */
+    /** Previous performance of an exercise: per set index, "82.5 × 8" in display units. Cached. */
     fun prevFor(name: String): List<String>? {
+        prevCache[name]?.let { return it.ifEmpty { null } }
+        var result: List<String>? = null
         for (w in workoutsDesc()) {
             val ex = w.exercises.firstOrNull { e -> e.name == name && e.sets.any { it.kg != null || it.reps != null } }
-            if (ex != null) return ex.sets.map { s ->
-                if (s.kg == null && s.reps == null) "—"
-                else "${Calc.fmtKg(s.kg, settings.unit)} × ${s.reps ?: "—"}"
+            if (ex != null) {
+                result = ex.sets.map { s ->
+                    if (s.kg == null && s.reps == null) "—"
+                    else "${Calc.fmtKg(s.kg, settings.unit)} × ${s.reps ?: "—"}"
+                }
+                break
             }
         }
-        return null
+        prevCache[name] = result ?: emptyList()
+        return result
     }
 
     fun routineLastPerformed(r: Routine): Long? =

@@ -38,7 +38,7 @@ object Calc {
     }
 
     /** Display label for the weight unit, Hevy style: kgs / lbs. */
-    fun unitLabel(unit: String): String = if (unit == "lb") "lbs" else "kgs"
+    fun unitLabel(unit: String): String = if (unit == "lb") "lbs" else "kg"
 
     fun toKg(text: String, unit: String): Double? {
         val v = text.trim().replace(',', '.').toDoubleOrNull() ?: return null
@@ -47,7 +47,7 @@ object Calc {
     }
 
     fun fmtVol(kg: Double, unit: String): String =
-        String.format(Locale.US, "%,d", Math.round(if (unit == "lb") kg * LB else kg))
+        String.format(Locale.FRANCE, "%,d", Math.round(if (unit == "lb") kg * LB else kg))
 
     fun toDisplay(kg: Double, unit: String): Double = if (unit == "lb") kg * LB else kg
 
@@ -59,15 +59,15 @@ object Calc {
     }
 
     fun fmtDateShort(ms: Long): String =
-        Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("MMM d", Locale.US))
+        Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM", Locale.FRANCE))
 
     fun fmtDateFull(ms: Long): String =
         Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy", Locale.US))
+            .format(DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRANCE))
 
     fun fmtTime(ms: Long): String =
         Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("h:mm a", Locale.US))
+            .format(DateTimeFormatter.ofPattern("HH:mm", Locale.FRANCE))
 
     fun localDate(ms: Long): LocalDate = Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).toLocalDate()
 

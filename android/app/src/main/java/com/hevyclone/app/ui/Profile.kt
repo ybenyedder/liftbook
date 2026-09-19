@@ -1,6 +1,7 @@
 package com.hevyclone.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.TrendingUp
@@ -53,7 +56,7 @@ fun ProfileScreen() {
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Profile", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Text("Profil", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             IconButton(onClick = { showSettings.value = true }) { Icon(Icons.Rounded.Settings, null) }
         }
         LazyColumn(Modifier.fillMaxSize()) {
@@ -64,21 +67,37 @@ fun ProfileScreen() {
                     Spacer(Modifier.height(10.dp))
                     Text(st.profileName, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
-                        "@${st.handle} · since ${month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.US))}",
+                        "@${st.handle} · depuis ${month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.US))}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
                     )
                 }
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp).height(62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) { Metric("${Repo.workouts.size}", "Workouts", tight = true) }
+                    Box(Modifier.weight(1f)) { Metric("${Repo.workouts.size}", "Séances", tight = true) }
                     Box(Modifier.weight(1f)) { Metric(Calc.fmtVol(Calc.totalVol(Repo.workouts), unit), "Volume", unit = unit, tight = true) }
                 }
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) { Metric("${Calc.streak(Repo.workouts, System.currentTimeMillis())}", "Day streak", tight = true) }
+                    Box(Modifier.weight(1f)) { Metric("${Calc.streak(Repo.workouts, System.currentTimeMillis())}", "Jours d'affilée", tight = true) }
                     Box(Modifier.weight(1f)) { Metric("${Repo.workouts.sumOf { it.prs.size }}", "PRs", accent = true, tight = true) }
+                }
+            }
+            item {
+                AppCard {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { Nav.push(Screen.History) }
+                            .padding(horizontal = 14.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.Rounded.CalendarMonth, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("Historique", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    }
                 }
             }
             item {
@@ -87,7 +106,7 @@ fun ProfileScreen() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.TrendingUp, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(7.dp))
-                            Text("Weekly Volume", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                            Text("Volume hebdomadaire", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                         }
                         LineChart(Calc.weekly(Repo.workouts, 12, unit, System.currentTimeMillis()), fmtLabel = { v ->
                             val k = Math.round(v / 100.0) / 10.0
@@ -102,12 +121,12 @@ fun ProfileScreen() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.Bolt, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(7.dp))
-                            Text("Muscle Split", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                            Text("Répartition musculaire", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                         }
                         Spacer(Modifier.height(8.dp))
                         val dist = Calc.muscleDist(Repo.workouts, 8)
                         val maxVol = dist.firstOrNull()?.second ?: 1.0
-                        if (dist.isEmpty()) Text("No data yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        if (dist.isEmpty()) Text("Aucune donnée.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         dist.forEach { (muscle, vol) ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(muscle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(86.dp))
@@ -134,11 +153,11 @@ fun ProfileScreen() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.EmojiEvents, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(7.dp))
-                            Text("Recent Records", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                            Text("Records récents", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                         }
                         Spacer(Modifier.height(4.dp))
                         val prs = Calc.recentPrs(Repo.workouts, 8)
-                        if (prs.isEmpty()) Text("No records yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        if (prs.isEmpty()) Text("Aucun record.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         prs.forEach { (p, date, _) ->
                             PrRow("${p.ex} · ${p.kind}", "${Calc.fmtKg(p.value, unit)} ${Calc.unitLabel(unit)} · ${Calc.fmtDateShort(date)}")
                         }
@@ -146,7 +165,7 @@ fun ProfileScreen() {
                 }
             }
             item {
-                Text("Local demo · your data stays on this device.", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                Text("Local demo · your données restent sur cet appareil.", color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.5.sp, modifier = Modifier.fillMaxWidth().padding(top = 14.dp), style = androidx.compose.ui.text.TextStyle(textAlign = androidx.compose.ui.text.style.TextAlign.Center))
             }
             item { Spacer(Modifier.height(16.dp)) }
@@ -166,8 +185,8 @@ private fun SettingsSheet(onClose: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         Column(Modifier.padding(bottom = 30.dp)) {
-            Text("Settings", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
-            Text("UNITS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp))
+            Text("Réglages", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+            Text("UNITÉS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp))
             Row(Modifier.padding(horizontal = 20.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(3.dp)) {
                 listOf("kg", "lb").forEach { u ->
                     Box(
@@ -184,13 +203,13 @@ private fun SettingsSheet(onClose: () -> Unit) {
                     }
                 }
             }
-            Text("REST TIMER", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
+            Text("MINUTEUR DE REPOS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
             Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(60, 90, 120, 180).forEach { sec ->
                     Box(Modifier.weight(1f)) { Chip("${sec}s", st.restSec == sec, onClick = { Repo.setRest(sec) }) }
                 }
             }
-            Text("THEME", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
+            Text("THÈME", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
             Row(Modifier.padding(horizontal = 20.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(3.dp)) {
                 listOf("dark", "light").forEach { t ->
                     Box(
@@ -214,19 +233,19 @@ private fun SettingsSheet(onClose: () -> Unit) {
                     }
                 }
             }
-            Text("DATA", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp))
+            Text("DONNÉES", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp))
             TextButton(onClick = { confirm = "reseed" }, modifier = Modifier.padding(start = 8.dp)) {
-                Text("Reload demo data", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                Text("Recharger la démo", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
             }
             TextButton(onClick = { confirm = "wipe" }, modifier = Modifier.padding(start = 8.dp)) {
-                Text("Erase all data", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                Text("Tout effacer", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
             }
         }
     }
     confirm?.let { action ->
         AlertDialog(
             onDismissRequest = { confirm = null },
-            title = { Text(if (action == "reseed") "Reload demo data?" else "Erase all data?", fontWeight = FontWeight.ExtraBold) },
+            title = { Text(if (action == "reseed") "Recharger la démo ?" else "Tout effacer ?", fontWeight = FontWeight.ExtraBold) },
             text = {
                 Text(
                     if (action == "reseed") "Your current workouts and routines will be replaced by the demo dataset."

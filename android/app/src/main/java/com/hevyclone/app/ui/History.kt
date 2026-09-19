@@ -77,7 +77,7 @@ fun HistoryScreen() {
         }) }
         item { SectionLabel("") }
         val groups = buildGroups(Repo.workoutsDesc())
-        if (groups.isEmpty()) item { EmptyState("No workouts logged yet.") }
+        if (groups.isEmpty()) item { EmptyState("Aucune séance enregistrée.") }
         else {
             groups.forEach { g ->
                 item { Text(g.first.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -98,8 +98,8 @@ private fun buildGroups(desc: List<Workout>): List<Pair<String, List<Workout>>> 
     val groups = mutableListOf<Pair<String, MutableList<Workout>>>()
     for (w in desc) {
         val label = when {
-            w.startedAt >= ws -> "This Week"
-            w.startedAt >= ws - 7L * 86400000L -> "Last Week"
+            w.startedAt >= ws -> "Cette semaine"
+            w.startedAt >= ws - 7L * 86400000L -> "Semaine dernière"
             else -> java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.US)
                 .format(Calc.localDate(w.startedAt))
         }
@@ -123,13 +123,14 @@ private fun CalendarCard(
             Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onPrev) { Icon(Icons.Rounded.ChevronLeft, null, tint = MaterialTheme.colorScheme.onBackground) }
                 Text(
-                    "${month.month.toString().lowercase().replaceFirstChar { it.uppercase() }} ${month.year}",
+                    java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.FRANCE).format(month.atDay(1))
+                        .replaceFirstChar { it.uppercase(java.util.Locale.FRANCE) },
                     fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp,
                     modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
                 )
                 IconButton(onClick = onNext) { Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onBackground) }
             }
-            val dows = listOf("Mo", "Tu", "We", "Th", "Fr", "Sa", "Su")
+            val dows = listOf("Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di")
             Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp)) {
                 dows.forEach { d ->
                     Text(d, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.5.sp,
@@ -240,7 +241,7 @@ fun WorkoutDetailScreen(id: Long) {
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(62.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f)) { Metric(Calc.fmtDur(w.endedAt - w.startedAt), "Duration", tight = true) }
+                    Box(Modifier.weight(1f)) { Metric(Calc.fmtDur(w.endedAt - w.startedAt), "Durée", tight = true) }
                     Box(Modifier.weight(1f)) { Metric(Calc.fmtVol(Calc.vol(w), Repo.settings.unit), "Volume", unit = Calc.unitLabel(Repo.settings.unit), tight = true) }
                 }
             }
@@ -314,7 +315,7 @@ fun WorkoutDetailScreen(id: Long) {
             }
             item {
                 GhostButton(
-                    "Delete Workout",
+                    "Supprimer la séance",
                     onClick = { confirmDelete = true },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     leading = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(17.dp)) },
@@ -325,14 +326,14 @@ fun WorkoutDetailScreen(id: Long) {
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Delete workout?", fontWeight = FontWeight.ExtraBold) },
-            text = { Text("This workout and its records will be permanently removed.") },
+            title = { Text("Supprimer la séance ?", fontWeight = FontWeight.ExtraBold) },
+            text = { Text("Cette séance et ses records seront définitivement supprimés.") },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     Repo.deleteWorkout(w.id)
-                    Nav.toTab(Screen.HistoryTab)
-                    toast(ctx, "Workout deleted")
+                    Nav.toTab(Screen.History)
+                    toast(ctx, "Séance supprimée")
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },

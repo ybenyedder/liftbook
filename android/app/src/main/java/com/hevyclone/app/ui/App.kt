@@ -7,8 +7,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Assignment
-import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Person
@@ -28,12 +26,13 @@ import androidx.compose.ui.unit.sp
 
 sealed interface Screen {
     data object HomeTab : Screen
-    data object HistoryTab : Screen
-    data object RoutinesTab : Screen
-    data object ExercisesTab : Screen
+    data object TrainingTab : Screen
     data object ProfileTab : Screen
     data class WorkoutDetail(val id: Long) : Screen
     data class ExerciseDetail(val name: String) : Screen
+    data class RoutineDetail(val id: Long) : Screen
+    data object History : Screen
+    data object Exercises : Screen
     data object Logger : Screen
 }
 
@@ -51,11 +50,9 @@ private data class TabDef(val screen: Screen, val label: String, val icon: Image
 @Composable
 fun App() {
     val tabs = listOf(
-        TabDef(Screen.HomeTab, "Home", Icons.Rounded.Home),
-        TabDef(Screen.HistoryTab, "History", Icons.Rounded.CalendarMonth),
-        TabDef(Screen.RoutinesTab, "Training", Icons.Rounded.Assignment),
-        TabDef(Screen.ExercisesTab, "Exercises", Icons.Rounded.FitnessCenter),
-        TabDef(Screen.ProfileTab, "Profile", Icons.Rounded.Person),
+        TabDef(Screen.HomeTab, "Accueil", Icons.Rounded.Home),
+        TabDef(Screen.TrainingTab, "Entraînement", Icons.Rounded.FitnessCenter),
+        TabDef(Screen.ProfileTab, "Profil", Icons.Rounded.Person),
     )
 
     BackHandler(enabled = !Nav.atTab) { Nav.pop() }
@@ -71,7 +68,7 @@ fun App() {
                             selected = Nav.current == t.screen,
                             onClick = { Nav.toTab(t.screen) },
                             icon = { Icon(t.icon, contentDescription = t.label) },
-                            label = { Text(t.label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) },
+                            label = { Text(t.label, fontSize = 11.sp, fontWeight = FontWeight.Medium) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.primary,
                                 selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -88,12 +85,13 @@ fun App() {
         Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()).statusBarsPadding()) {
             when (val s = Nav.current) {
                 Screen.HomeTab -> HomeScreen()
-                Screen.HistoryTab -> HistoryScreen()
-                Screen.RoutinesTab -> RoutinesScreen()
-                Screen.ExercisesTab -> ExercisesScreen()
+                Screen.TrainingTab -> TrainingScreen()
                 Screen.ProfileTab -> ProfileScreen()
                 is Screen.WorkoutDetail -> WorkoutDetailScreen(s.id)
                 is Screen.ExerciseDetail -> ExerciseDetailScreen(s.name)
+                is Screen.RoutineDetail -> RoutineDetailScreen(s.id)
+                Screen.History -> HistoryScreen()
+                Screen.Exercises -> ExercisesScreen()
                 Screen.Logger -> LoggerScreen()
             }
         }

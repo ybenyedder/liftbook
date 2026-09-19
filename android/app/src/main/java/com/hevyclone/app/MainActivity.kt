@@ -14,7 +14,7 @@ class MainActivity : ComponentActivity() {
         Repo.init(applicationContext)
         enableEdgeToEdge()
         setContent {
-            HevyTheme(theme = Repo.settings.theme) {
+            HevyTheme {
                 App()
             }
         }

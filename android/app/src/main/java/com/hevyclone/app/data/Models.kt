@@ -43,7 +43,7 @@ data class Routine(
 data class Settings(
     var unit: String = "kg",
     var restSec: Int = 90,
-    var theme: String = "light",
+    var theme: String = "dark",
     var profileName: String = "Alex Carter",
     var handle: String = "alexc",
     var since: Long = 0,

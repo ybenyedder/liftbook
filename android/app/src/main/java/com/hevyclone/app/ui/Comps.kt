@@ -117,15 +117,13 @@ fun Metric(v: String, l: String, accent: Boolean = false, unit: String? = null, 
 
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, leading: (@Composable () -> Unit)? = null) {
-    // Hevy-style CTA: black pill in light theme, accent pill in dark theme
-    val dark = MaterialTheme.colorScheme.background == C.DBg
     Button(
         onClick = onClick,
         modifier = modifier.height(50.dp),
         shape = RoundedCornerShape(999.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = if (dark) MaterialTheme.colorScheme.primary else C.Text,
-            contentColor = if (dark) C.AccText else Color.White,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
         ),
         elevation = androidx.compose.material3.ButtonDefaults.buttonElevation(0.dp),
     ) {
