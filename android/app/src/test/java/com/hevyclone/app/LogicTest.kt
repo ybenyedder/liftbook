@@ -131,5 +131,11 @@ class LogicTest {
         assertTrue(m("squat", "Barbell Squat"))
         assertTrue(m("", "Barbell Squat"))
         assertFalse(m("squat", "Barbell Bench Press"))
+        // typo tolerance — user example: "developer coucher"
+        assertTrue(m("developer coucher", "Barbell Bench Press"))
+        assertTrue(m("developer couché", "Barbell Bench Press"))
+        assertTrue(m("sqaut", "Barbell Squat"))          // transposed letters
+        assertTrue(m("tirrage", "Lat Pulldown"))
+        assertTrue(m("elevaion", "Lateral Raise"))
     }
 }

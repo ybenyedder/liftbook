@@ -1,6 +1,8 @@
 package com.hevyclone.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material.icons.rounded.IosShare
@@ -32,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -54,6 +58,8 @@ private data class PostUi(
     val volume: String,
     val prCount: Int,
     val exerciseLines: List<String>,
+    val names: List<String>,
+    val setCounts: List<Int>,
     val muscles: List<String>,
 )
 
@@ -103,6 +109,8 @@ private fun buildPosts(unit: String): List<PostUi> =
             volume = "${Calc.fmtVol(Calc.vol(w), unit)} kg",
             prCount = w.prs.size,
             exerciseLines = w.exercises.map { seriesLabel(it.sets.size, exName(it.name)) },
+            names = w.exercises.map { exName(it.name) },
+            setCounts = w.exercises.map { it.sets.size },
             muscles = w.exercises.map { it.muscle },
         )
     }
@@ -143,14 +151,26 @@ private fun FeedPost(p: PostUi) {
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.outline)
         for (i in 0 until shown) {
+            val setCount = p.setCounts[i]
             Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IllIcon(p.muscles[i], 38.dp)
-                Spacer(Modifier.width(14.dp))
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 9.dp, vertical = 5.dp),
+                ) {
+                    Text(
+                        "$setCount",
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onBackground,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
                 Text(
-                    p.exerciseLines[i],
+                    p.names[i],
                     fontSize = 16.sp, fontWeight = FontWeight.Medium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )

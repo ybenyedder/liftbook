@@ -30,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
@@ -133,6 +134,22 @@ fun LoggerScreen() {
                     modifier = Modifier.weight(1f).padding(vertical = 8.dp),
                 )
             }
+            if (isWorkout) {
+                Box(
+                    Modifier
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                        .clickable { if (anyDone()) showFinish = true else showNoSets = true }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        L10n.s("FINISH", "TERMINER"),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+            }
             Box {
                 IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreHoriz, null) }
                 DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
@@ -195,22 +212,18 @@ fun LoggerScreen() {
                 RestBar()
                 Spacer(Modifier.height(10.dp))
             }
-            Row {
+            if (!isWorkout) {
                 PrimaryButton(
-                    if (isWorkout) L10n.s("Finish Workout", "Terminer la séance") else L10n.s("Save Routine", "Enregistrer la routine"),
+                    L10n.s("Save Routine", "Enregistrer la routine"),
                     onClick = {
-                        if (!isWorkout) {
-                            val n = nameText.trim()
-                            if (n.isEmpty()) { toast(ctx, L10n.s("Name your routine first", "Donne un nom à ta routine")); return@PrimaryButton }
-                            if (draft.exercises.isEmpty()) { toast(ctx, L10n.s("Add at least one exercise", "Ajoute au moins un exercice")); return@PrimaryButton }
-                            Repo.saveRoutine(n)
-                            Nav.pop()
-                            toast(ctx, L10n.s("Routine saved", "Routine enregistrée"))
-                        } else {
-                            if (anyDone()) showFinish = true else showNoSets = true
-                        }
+                        val n = nameText.trim()
+                        if (n.isEmpty()) { toast(ctx, L10n.s("Name your routine first", "Donne un nom à ta routine")); return@PrimaryButton }
+                        if (draft.exercises.isEmpty()) { toast(ctx, L10n.s("Add at least one exercise", "Ajoute au moins un exercice")); return@PrimaryButton }
+                        Repo.saveRoutine(n)
+                        Nav.pop()
+                        toast(ctx, L10n.s("Routine saved", "Routine enregistrée"))
                     },
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     leading = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(17.dp)) },
                 )
             }
@@ -321,13 +334,21 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
     var menuOpen by remember { mutableStateOf(false) }
     AppCard {
         Column(Modifier.padding(vertical = 8.dp)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    exName(ex.name), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp,
-                    modifier = Modifier.weight(1f).clickable { Nav.push(Screen.ExerciseDetail(ex.name)) },
-                    maxLines = 1, overflow = TextOverflow.Ellipsis,
-                )
-                MuscleTag(muscleName(ex.muscle))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { Nav.push(Screen.ExerciseDetail(ex.name)) }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                    )
+                }
+                Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 Box {
                     IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(30.dp)) {
                         Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
@@ -381,9 +402,9 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
             }
             // add set
             Text(
-                L10n.s("+ Add Set", "+  Ajouter une Série"),
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
+                L10n.s("+ ADD SET", "+ AJOUTER UNE SÉRIE"),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable {
@@ -626,8 +647,15 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
         .sortedBy { exName(it.name) }
     Column(Modifier.fillMaxWidth().fillMaxHeight(0.86f)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(L10n.s("Select Exercise", "Choisir un Exercice"), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
-            IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, null) }
+            Text(L10n.s("Select exercises", "Choisir des exercices"), fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+            Text(
+                L10n.s("DONE", "OK"),
+                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .clickable { onClose() }
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            )
         }
         TextField(
             value = q, onValueChange = { q = it },
@@ -657,14 +685,25 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
                     Modifier
                         .fillMaxWidth()
                         .clickable { onPick(e.name) }
-                        .padding(horizontal = 20.dp, vertical = 13.dp),
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    IllIcon(e.muscle, 46.dp)
+                    Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(e.name, fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp)
-                        Text("${e.muscle} · ${e.equip}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Text(exName(e.name), fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2)
+                        Text(muscleName(e.muscle), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp)
                     }
-                    Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Box(
+                        Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(17.dp))
+                    }
                 }
             }
         }

@@ -66,7 +66,10 @@ fun TrainingScreen() {
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Text(L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                Icon(Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp).size(22.dp))
+            }
         }
         Spacer(Modifier.height(6.dp))
         // Start an empty workout — bordered dark button
@@ -102,7 +105,7 @@ fun TrainingScreen() {
         }
         // Nouv. Routine / Explorer buttons
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SecondaryButton(L10n.s("New Routine", "Nouv. Routine", "Nueva Rutina", "Neue Routine"), Icons.Rounded.CreateNewFolder, Modifier.weight(1f)) {
+            SecondaryButton(L10n.s("New routine", "Nouvelle routine", "Nueva rutina", "Neue Routine"), Icons.Rounded.CreateNewFolder, Modifier.weight(1f)) {
                 if (Repo.draft != null) { Nav.push(Screen.Logger); return@SecondaryButton }
                 Repo.startRoutine(null)
                 Nav.push(Screen.Logger)
@@ -129,7 +132,7 @@ fun TrainingScreen() {
         }
         LazyColumn(Modifier.fillMaxSize()) {
             if (expanded) {
-                if (routines.isEmpty()) item { EmptyState(L10n.s("No routines.\nTap “New Routine” to create one.", "Aucune routine.\nTouche « Nouv. Routine » pour en créer une.")) }
+                if (routines.isEmpty()) item { EmptyState(L10n.s("No routines yet.\nTap “New routine” to create one.", "Aucune routine.\nTouche « Nouvelle routine » pour en créer une.")) }
                 else items(routines.size) { i ->
                     val r = routines[i]
                     RoutineCard(r)
@@ -209,7 +212,7 @@ private fun RoutineCard(r: Routine) {
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(L10n.s("Start Routine", "Commencer la Routine", "Comenzar la Rutina", "Routine starten"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(L10n.s("Start routine", "Commencer la routine", "Comenzar la rutina", "Routine starten"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

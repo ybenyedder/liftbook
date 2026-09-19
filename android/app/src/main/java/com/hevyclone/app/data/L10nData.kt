@@ -225,7 +225,33 @@ object L10nData {
             .replace("\\p{Mn}+".toRegex(), "")
             .replace("'", " ")
 
-    /** True if every word of the query appears in the exercise name (FR or EN), muscle or equipment. */
+    /** Levenshtein edit distance (typo tolerance). */
+    fun lev(a: String, b: String): Int {
+        if (a == b) return 0
+        if (a.isEmpty()) return b.length
+        if (b.isEmpty()) return a.length
+        var prev = IntArray(b.length + 1) { it }
+        var cur = IntArray(b.length + 1)
+        for (i in 1..a.length) {
+            cur[0] = i
+            for (j in 1..b.length) {
+                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+                cur[j] = minOf(cur[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost)
+            }
+            val tmp = prev; prev = cur; cur = tmp
+        }
+        return prev[b.length]
+    }
+
+    /** A query token matches if it is a substring of any target word, or within edit distance of a whole word (typos). */
+    private fun tokenMatches(token: String, words: List<String>): Boolean {
+        if (words.any { it.contains(token) }) return true
+        val maxDist = if (token.length >= 5) 2 else if (token.length == 4) 1 else 0
+        if (maxDist == 0) return false
+        return words.any { w -> kotlin.math.abs(w.length - token.length) <= maxDist && lev(token, w) <= maxDist }
+    }
+
+    /** True if every word of the query appears (or nearly, typos allowed) in the exercise name FR/EN, muscle or equipment. */
     fun matches(q: String, nameEn: String): Boolean {
         val nq = normalize(q).trim()
         if (nq.isEmpty()) return true
@@ -235,7 +261,8 @@ object L10nData {
             normalize(def?.muscle ?: "") + " " +
             normalize(MUSCLE_FR[def?.muscle] ?: "") + " " +
             normalize(def?.equip ?: "")
-        return nq.split(" ").all { it.isBlank() || target.contains(it.trim()) }
+        val words = target.split(" ").filter { it.isNotBlank() }
+        return nq.split(" ").all { it.isBlank() || tokenMatches(it.trim(), words) }
     }
 
     fun equipHint(e: String): String = when {
