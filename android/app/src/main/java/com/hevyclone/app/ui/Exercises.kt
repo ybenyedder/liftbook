@@ -256,6 +256,19 @@ fun ExerciseDetailScreen(name: String) {
                                             color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp,
                                         )
                                     }
+                                    if (sessions.size >= 2) {
+                                        Spacer(Modifier.height(8.dp))
+                                        val lastTop = sessions.last().second.sets.maxOfOrNull { it.kg ?: 0.0 } ?: 0.0
+                                        val bestTop = bestSet ?: 0.0
+                                        val delta = lastTop - bestTop
+                                        val pct = if (bestTop > 0) (delta / bestTop * 100).toInt() else 0
+                                        Text(
+                                            L10n.s("Last session vs best", "Dernière séance vs record") + " : " +
+                                                (if (delta >= 0) "+" else "") + "${Calc.fmtKg(delta, unit)} kg ($pct%)",
+                                            color = if (delta < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                        )
+                                    }
                                 }
                             }
                             AppCard {

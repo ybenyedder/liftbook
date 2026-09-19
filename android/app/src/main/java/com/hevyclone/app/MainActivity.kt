@@ -33,7 +33,7 @@ class MainActivity : ComponentActivity() {
             com.hevyclone.app.ui.Nav.pendingStartEmpty = true
         }
         setContent {
-            HevyTheme {
+            HevyTheme(accent = Repo.settings.accent) {
                 App(refreshKey = bootKey.intValue)
             }
         }

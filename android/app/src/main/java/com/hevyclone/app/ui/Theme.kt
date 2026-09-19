@@ -77,10 +77,18 @@ private fun defaultStyle(weight: FontWeight) = androidx.compose.ui.text.TextStyl
     fontWeight = weight,
 )
 
+fun accentColor(name: String): Color = when (name) {
+    "teal" -> Color(0xFF20B49A)
+    "violet" -> Color(0xFF7C5CFF)
+    "orange" -> Color(0xFFFF7A45)
+    else -> Color(0xFF028CFD)
+}
+
 @Composable
-fun HevyTheme(content: @Composable () -> Unit) {
+fun HevyTheme(accent: String = "blue", content: @Composable () -> Unit) {
+    val scheme = DarkColors.copy(primary = accentColor(accent))
     MaterialTheme(
-        colorScheme = DarkColors,
+        colorScheme = scheme,
         typography = HevyTypography,
         content = content,
     )

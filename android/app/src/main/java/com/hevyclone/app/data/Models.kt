@@ -47,6 +47,7 @@ data class Settings(
     var unit: String = "kg",
     var restSec: Int = 90,
     var theme: String = "dark",
+    var accent: String = "blue",
     var profileName: String = "Athlète",
     var handle: String = "athlete",
     var since: Long = 0,

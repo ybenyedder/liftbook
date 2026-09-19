@@ -202,6 +202,7 @@ object Repo {
 
     fun setUnit(u: String) { settings.unit = u; persistSettings(); touch() }
     fun setRest(sec: Int) { settings.restSec = sec; persistSettings(); touch() }
+    fun setAccent(a: String) { settings.accent = a; persistSettings(); touch() }
     fun setTheme(t: String) { settings.theme = t; persistSettings(); touch() }
 
     fun importCsv(content: String): Int {

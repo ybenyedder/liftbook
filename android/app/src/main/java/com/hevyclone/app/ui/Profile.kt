@@ -383,6 +383,28 @@ private fun SettingsSheet(onClose: () -> Unit) {
                     Box(Modifier.weight(1f)) { Chip("${sec}s", st.restSec == sec, onClick = { Repo.setRest(sec) }) }
                 }
             }
+            Text("COULEUR D'ACCENT", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
+            Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                listOf(
+                    "blue" to androidx.compose.ui.graphics.Color(0xFF028CFD),
+                    "teal" to androidx.compose.ui.graphics.Color(0xFF20B49A),
+                    "violet" to androidx.compose.ui.graphics.Color(0xFF7C5CFF),
+                    "orange" to androidx.compose.ui.graphics.Color(0xFFFF7A45),
+                ).forEach { (key, color) ->
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(color)
+                            .border(
+                                if (st.accent == key) 3.dp else 1.dp,
+                                if (st.accent == key) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.outline,
+                                androidx.compose.foundation.shape.CircleShape,
+                            )
+                            .clickable { Repo.setAccent(key); onClose(); (ctx as? android.app.Activity)?.recreate() },
+                    )
+                }
+            }
             Text("DONNÉES", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp))
             val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.GetContent()
