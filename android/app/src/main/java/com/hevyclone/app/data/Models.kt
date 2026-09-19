@@ -72,3 +72,9 @@ data class Draft(
 )
 
 data class WeekStats(val count: Int, val vol: Double, val reps: Int, val prs: Int)
+
+@Serializable
+data class BackupData(
+    val workouts: List<Workout>,
+    val routines: List<Routine>,
+)

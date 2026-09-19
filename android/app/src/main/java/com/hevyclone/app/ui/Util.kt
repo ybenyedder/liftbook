@@ -70,3 +70,17 @@ fun exportCsv(ctx: android.content.Context) {
     }
     ctx.startActivity(android.content.Intent.createChooser(intent, "Exporter les séances"))
 }
+
+/** Export the full database as a JSON backup file, shared as attachment. */
+fun shareBackup(ctx: android.content.Context) {
+    val dir = java.io.File(ctx.cacheDir, "exports").apply { mkdirs() }
+    val f = java.io.File(dir, "hevy-sauvegarde.json")
+    f.writeText(com.hevyclone.app.data.Repo.backupJson())
+    val uri = androidx.core.content.FileProvider.getUriForFile(ctx, ctx.packageName + ".fileprovider", f)
+    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "application/json"
+        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    ctx.startActivity(android.content.Intent.createChooser(intent, "Sauvegarde"))
+}

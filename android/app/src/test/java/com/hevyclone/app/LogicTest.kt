@@ -163,4 +163,19 @@ class LogicTest {
         assertEquals(1, ws2.size)
         assertEquals(90.0, ws2[0].exercises[0].sets[0].kg!!, 1e-9)
     }
+    @Test
+    fun `backup roundtrip preserves workouts and routines`() {
+        val (ws, rs) = Calc.seed(1_700_000_000_000L)
+        val backup = com.hevyclone.app.data.BackupData(
+            ws.map { w -> w.copy(exercises = w.exercises) },
+            rs,
+        )
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        val text = json.encodeToString(com.hevyclone.app.data.BackupData.serializer(), backup)
+        val back = json.decodeFromString(com.hevyclone.app.data.BackupData.serializer(), text)
+        assertEquals(backup.workouts.size, back.workouts.size)
+        assertEquals(backup.routines.size, back.routines.size)
+        assertEquals(backup.workouts.first().exercises.first().sets.size,
+                     back.workouts.first().exercises.first().sets.size)
+    }
 }

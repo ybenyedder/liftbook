@@ -122,6 +122,24 @@ fun ProfileScreen() {
                 )
             }
         }
+        item(key = "rolling-week") {
+            val now = System.currentTimeMillis()
+            val last7 = remember(rev) { Repo.workouts.filter { it.startedAt >= now - 7L * 86400000L } }
+            val prev7 = remember(rev) { Repo.workouts.filter { it.startedAt in (now - 14L * 86400000L) until (now - 7L * 86400000L) } }
+            if (last7.isNotEmpty() || prev7.isNotEmpty()) {
+                val v1 = last7.sumOf { Calc.vol(it) }
+                val v2 = prev7.sumOf { Calc.vol(it) }
+                val delta = if (v2 > 0) ((v1 - v2) / v2 * 100).toInt() else null
+                Text(
+                    L10n.s("Last 7 days", "7 derniers jours") + " : ${Calc.fmtVol(v1, unit)} kg · ${last7.size} " +
+                        L10n.s("workouts", "séances") +
+                        (delta?.let { "  (" + (if (it >= 0) "+" else "") + "$it% " + L10n.s("vs previous week", "vs semaine précédente") + ")" } ?: "") +
+                        "\n" + L10n.s("Previous 7 days", "7 jours précédents") + " : ${Calc.fmtVol(v2, unit)} kg · ${prev7.size} " + L10n.s("workouts", "séances"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 19.sp,
+                    modifier = Modifier.padding(start = 16.dp, top = 10.dp),
+                )
+            }
+        }
         item(key = "monthly-chart") {
             val monthly = remember(rev) {
                 val cal = java.time.LocalDate.now().withDayOfMonth(1)
@@ -421,6 +439,24 @@ private fun SettingsSheet(onClose: () -> Unit) {
             }
             TextButton(onClick = { filePicker.launch("text/*") }, modifier = Modifier.padding(start = 8.dp)) {
                 Text(L10n.s("Import workouts (CSV)", "Importer des séances (CSV)"), fontWeight = FontWeight.SemiBold)
+            }
+            val restorePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.GetContent()
+            ) { uri ->
+                if (uri != null) {
+                    runCatching {
+                        ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    }.getOrNull()?.let { text ->
+                        val ok = Repo.restoreBackup(text)
+                        toast(ctx, if (ok) L10n.s("Backup restored", "Sauvegarde restaurée") else L10n.s("Invalid backup file", "Fichier de sauvegarde invalide"))
+                    }
+                }
+            }
+            TextButton(onClick = { shareBackup(ctx) }, modifier = Modifier.padding(start = 8.dp)) {
+                Text(L10n.s("Backup data (JSON)", "Sauvegarder les données (JSON)"), fontWeight = FontWeight.SemiBold)
+            }
+            TextButton(onClick = { restorePicker.launch("*/*") }, modifier = Modifier.padding(start = 8.dp)) {
+                Text(L10n.s("Restore backup", "Restaurer une sauvegarde"), fontWeight = FontWeight.SemiBold)
             }
             TextButton(onClick = { exportCsv(ctx) }, modifier = Modifier.padding(start = 8.dp)) {
                 Text(L10n.s("Export workouts (CSV)", "Exporter les séances (CSV)"), fontWeight = FontWeight.SemiBold)

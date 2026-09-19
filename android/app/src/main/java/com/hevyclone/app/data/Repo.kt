@@ -205,6 +205,22 @@ object Repo {
     fun setAccent(a: String) { settings.accent = a; persistSettings(); touch() }
     fun setTheme(t: String) { settings.theme = t; persistSettings(); touch() }
 
+    fun backupJson(): String = json.encodeToString(
+        BackupData.serializer(), BackupData(workouts.toList(), routines.toList())
+    )
+
+    fun restoreBackup(content: String): Boolean {
+        val data = runCatching { json.decodeFromString<BackupData>(content) }.getOrNull() ?: return false
+        db.writableDatabase.delete("workouts", null, null)
+        db.writableDatabase.delete("routines", null, null)
+        workouts.clear(); routines.clear()
+        data.workouts.forEach { workouts.add(it); persistWorkout(it) }
+        data.routines.forEach { routines.add(it); persistRoutine(it) }
+        prCache = Calc.rebuildPrs(workouts)
+        touch()
+        return true
+    }
+
     fun importCsv(content: String): Int {
         val imported = Calc.parseCsv(content)
         imported.forEach { w ->
