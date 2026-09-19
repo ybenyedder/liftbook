@@ -16,7 +16,7 @@ class LogicTest {
         Workout(
             id = id, name = "W$id", startedAt = startedAt, endedAt = startedAt + 3600000,
             exercises = exs.map { (name, sets) ->
-                ExEntry(name, "Quads", "", false, sets.map { SetEntry(it.first, it.second, it.third) }.toMutableList())
+                ExEntry(name, "Quads", "", false, null, sets.map { SetEntry(it.first, it.second, it.third) }.toMutableList())
             }.toMutableList(),
         )
 
