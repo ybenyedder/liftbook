@@ -185,11 +185,31 @@ object Repo {
 
     fun discardDraft() { draft = null; touch() }
 
+    fun restoreWorkout(w: Workout) {
+        workouts.removeAll { it.id == w.id }
+        workouts.add(w)
+        workouts.sortBy { it.startedAt }
+        persistWorkout(w)
+        prCache = Calc.rebuildPrs(workouts)
+        touch()
+    }
+
     fun deleteWorkout(id: Long) {
         workouts.removeAll { it.id == id }
         db.writableDatabase.delete("workouts", "id=?", arrayOf(id.toString()))
         prCache = Calc.rebuildPrs(workouts)
         touch()
+    }
+
+    fun duplicateRoutine(id: Long): Routine? {
+        val r = routineById(id) ?: return null
+        val copy = Routine(nextRoutineId(), r.name + " (2)", r.exercises.map { ex ->
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+        }.toMutableList())
+        routines.add(copy)
+        persistRoutine(copy)
+        touch()
+        return copy
     }
 
     fun deleteRoutine(id: Long) {
