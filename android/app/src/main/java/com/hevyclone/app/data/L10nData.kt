@@ -218,6 +218,26 @@ object L10nData {
     fun equip(e: String): String = if (lang == "fr") EQUIP_FR[e] ?: e else e
     fun cues(m: String): List<String> = if (lang == "fr") CUES_FR[m] ?: CUES[m] ?: emptyList() else CUES[m] ?: emptyList()
     
+    // ---------- fuzzy search (accent-insensitive, multi-token, FR + EN + muscle) ----------
+
+    fun normalize(s: String): String =
+        java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
+            .replace("\\p{Mn}+".toRegex(), "")
+            .replace("'", " ")
+
+    /** True if every word of the query appears in the exercise name (FR or EN), muscle or equipment. */
+    fun matches(q: String, nameEn: String): Boolean {
+        val nq = normalize(q).trim()
+        if (nq.isEmpty()) return true
+        val def = EX[nameEn]
+        val target = normalize(nameEn) + " " +
+            normalize(NAME_FR[nameEn] ?: nameEn) + " " +
+            normalize(def?.muscle ?: "") + " " +
+            normalize(MUSCLE_FR[def?.muscle] ?: "") + " " +
+            normalize(def?.equip ?: "")
+        return nq.split(" ").all { it.isBlank() || target.contains(it.trim()) }
+    }
+
     fun equipHint(e: String): String = when {
         lang != "fr" -> EQUIP_HINT[e] ?: ""
         else -> when (e) {

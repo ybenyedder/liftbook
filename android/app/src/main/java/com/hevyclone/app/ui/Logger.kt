@@ -158,10 +158,30 @@ fun LoggerScreen() {
                     )
                 }
             }
-            items(draft.exercises.size) { ei ->
+            items(draft.exercises.size, key = { "${draft.exercises[it].name}-$it" }) { ei ->
                 ExCard(draft.exercises[ei], ei, isWorkout, unit)
             }
-            item { Spacer(Modifier.height(170.dp)) }
+            item(key = "addEx") {
+                // Hevy-style full-width add button under the cards
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(MaterialTheme.colorScheme.surface)
+                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(999.dp))
+                        .clickable { showPicker = true },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.Add, null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text(L10n.s("Add Exercise", "Ajouter un Exercice", "Añadir Ejercicio", "Übung hinzufügen"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+            item(key = "dockspace") { Spacer(Modifier.height(140.dp)) }
         }
         // ---- bottom dock ----
         Column(
@@ -176,15 +196,8 @@ fun LoggerScreen() {
                 Spacer(Modifier.height(10.dp))
             }
             Row {
-                GhostButton(
-                    L10n.s("Add Exercise", "Ajouter un Exercice", "Añadir Ejercicio", "Übung hinzufügen"),
-                    onClick = { showPicker = true },
-                    modifier = Modifier.weight(1f),
-                    leading = { Icon(Icons.Rounded.Add, null, modifier = Modifier.size(16.dp)) },
-                )
-                Spacer(Modifier.width(10.dp))
                 PrimaryButton(
-                    if (isWorkout) L10n.s("Finish", "Terminer") else L10n.s("Save", "Enregistrer"),
+                    if (isWorkout) L10n.s("Finish Workout", "Terminer la séance") else L10n.s("Save Routine", "Enregistrer la routine"),
                     onClick = {
                         if (!isWorkout) {
                             val n = nameText.trim()
@@ -197,7 +210,7 @@ fun LoggerScreen() {
                             if (anyDone()) showFinish = true else showNoSets = true
                         }
                     },
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
                     leading = { Icon(Icons.Rounded.Check, null, modifier = Modifier.size(17.dp)) },
                 )
             }
@@ -609,8 +622,8 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
     var q by remember { mutableStateOf("") }
     var mus by remember { mutableStateOf("All") }
     val filtered = EXERCISES
-        .filter { (mus == "All" || it.muscle == mus) && (q.isBlank() || it.name.lowercase().contains(q.trim().lowercase())) }
-        .sortedBy { it.name }
+        .filter { (mus == "All" || it.muscle == mus) && com.hevyclone.app.data.L10nData.matches(q, it.name) }
+        .sortedBy { exName(it.name) }
     Column(Modifier.fillMaxWidth().fillMaxHeight(0.86f)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(L10n.s("Select Exercise", "Choisir un Exercice"), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
@@ -621,6 +634,7 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
             placeholder = { Text(L10n.s("Search exercises", "Rechercher des exercices"), color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp)) },
             singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrect = false),
             shape = RoundedCornerShape(12.dp),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,

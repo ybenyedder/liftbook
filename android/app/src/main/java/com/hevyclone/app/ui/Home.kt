@@ -114,7 +114,12 @@ private fun FeedPost(p: PostUi) {
     val shown = if (expanded) p.exerciseLines.size else minOf(3, p.exerciseLines.size)
     val hidden = p.exerciseLines.size - shown
 
-    Column(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clickable { Nav.push(Screen.WorkoutDetail(p.id)) }
+            .padding(vertical = 10.dp)
+    ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Avatar(Repo.settings.profileName.trim().take(1).uppercase(), 44)
             Spacer(Modifier.width(12.dp))

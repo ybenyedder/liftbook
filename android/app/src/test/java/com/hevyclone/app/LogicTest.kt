@@ -117,4 +117,19 @@ class LogicTest {
         assertEquals(stats.vol, series.last().second, 1e-6)
         assertTrue(series.all { it.second >= 0 })
     }
+    @Test
+    fun `fuzzy search matches french names accent-insensitive`() {
+        val m = com.hevyclone.app.data.L10nData::matches
+        assertTrue(m("developpe", "Barbell Bench Press"))
+        assertTrue(m("DEVELOPPE COUCHE", "Barbell Bench Press"))
+        assertTrue(m("dev", "Barbell Bench Press"))
+        assertTrue(m("couché haltères", "Dumbbell Bench Press"))
+        assertTrue(m("elevation", "Lateral Raise"))
+        assertTrue(m("tirage", "Lat Pulldown"))
+        assertTrue(m("bench press", "Barbell Bench Press"))
+        assertTrue(m("pec", "Barbell Bench Press"))          // via muscle "Pectoraux"
+        assertTrue(m("squat", "Barbell Squat"))
+        assertTrue(m("", "Barbell Squat"))
+        assertFalse(m("squat", "Barbell Bench Press"))
+    }
 }

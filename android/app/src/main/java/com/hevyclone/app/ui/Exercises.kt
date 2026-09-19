@@ -66,8 +66,8 @@ fun ExercisesScreen() {
     var q by remember { mutableStateOf("") }
     var mus by remember { mutableStateOf("All") }
     val filtered = EXERCISES
-        .filter { (mus == "All" || it.muscle == mus) && (q.isBlank() || it.name.lowercase().contains(q.trim().lowercase())) }
-        .sortedBy { it.name }
+        .filter { (mus == "All" || it.muscle == mus) && com.hevyclone.app.data.L10nData.matches(q, it.name) }
+        .sortedBy { exName(it.name) }
 
     Column(Modifier.fillMaxSize()) {
         Text("Exercises", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
@@ -78,6 +78,7 @@ fun ExercisesScreen() {
             placeholder = { Text("Search exercises", color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp)) },
             singleLine = true,
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrect = false),
             visualTransformation = VisualTransformation.None,
             shape = RoundedCornerShape(12.dp),
             colors = TextFieldDefaults.colors(
