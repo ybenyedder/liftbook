@@ -50,9 +50,9 @@ private data class TabDef(val screen: Screen, val label: String, val icon: Image
 @Composable
 fun App() {
     val tabs = listOf(
-        TabDef(Screen.HomeTab, "Accueil", Icons.Rounded.Home),
-        TabDef(Screen.TrainingTab, "Entraînement", Icons.Rounded.FitnessCenter),
-        TabDef(Screen.ProfileTab, "Profil", Icons.Rounded.Person),
+        TabDef(Screen.HomeTab, L10n.s("Home", "Accueil", "Inicio", "Startseite"), Icons.Rounded.Home),
+        TabDef(Screen.TrainingTab, L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), Icons.Rounded.FitnessCenter),
+        TabDef(Screen.ProfileTab, L10n.s("Profile", "Profil", "Perfil", "Profil"), Icons.Rounded.Person),
     )
 
     BackHandler(enabled = !Nav.atTab) { Nav.pop() }

@@ -61,10 +61,10 @@ fun TrainingScreen() {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Text("Entraînement", fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                Text(L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
                 Icon(Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp))
             }
-            IconButton(onClick = { Repo.touchPublic(); toast(ctx, "Synchronisé") }) { Icon(Icons.Rounded.Refresh, null) }
+            IconButton(onClick = { Repo.touchPublic(); toast(ctx, L10n.s("Synced", "Synchronisé")) }) { Icon(Icons.Rounded.Refresh, null) }
         }
         Spacer(Modifier.height(6.dp))
         // Start an empty workout — bordered dark button
@@ -86,12 +86,12 @@ fun TrainingScreen() {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Add, null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("Démarrer un Entraînement Vide", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(L10n.s("Start an Empty Workout", "Démarrer un Entraînement Vide", "Iniciar un Entrenamiento Vacío", "Leeres Workout starten"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         // Routines header
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Routines", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            Text(L10n.s("Routines", "Routines", "Rutinas", "Routinen"), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             IconButton(onClick = {
                 if (Repo.draft != null) { Nav.push(Screen.Logger); return@IconButton }
                 Repo.startRoutine(null)
@@ -100,12 +100,12 @@ fun TrainingScreen() {
         }
         // Nouv. Routine / Explorer buttons
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SecondaryButton("Nouv. Routine", Icons.Rounded.CreateNewFolder, Modifier.weight(1f)) {
+            SecondaryButton(L10n.s("New Routine", "Nouv. Routine", "Nueva Rutina", "Neue Routine"), Icons.Rounded.CreateNewFolder, Modifier.weight(1f)) {
                 if (Repo.draft != null) { Nav.push(Screen.Logger); return@SecondaryButton }
                 Repo.startRoutine(null)
                 Nav.push(Screen.Logger)
             }
-            SecondaryButton("Explorer", Icons.Rounded.Search, Modifier.weight(1f)) {
+            SecondaryButton(L10n.s("Explore", "Explorer", "Explorar", "Entdecken"), Icons.Rounded.Search, Modifier.weight(1f)) {
                 Nav.push(Screen.Exercises)
             }
         }
@@ -121,13 +121,13 @@ fun TrainingScreen() {
             )
             Spacer(Modifier.width(8.dp))
             Text(
-                "Mes routines (${routines.size})",
+                L10n.s("My routines (%1\$d)", "Mes routines (%1\$d)", "Mis rutinas (%1\$d)", "Meine Routinen (%1\$d)").format(routines.size),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.Medium,
             )
         }
         LazyColumn(Modifier.fillMaxSize()) {
             if (expanded) {
-                if (routines.isEmpty()) item { EmptyState("Aucune routine.\nTouche « Nouv. Routine » pour en créer une.") }
+                if (routines.isEmpty()) item { EmptyState(L10n.s("No routines.\nTap “New Routine” to create one.", "Aucune routine.\nTouche « Nouv. Routine » pour en créer une.")) }
                 else items(routines.size) { i ->
                     val r = routines[i]
                     RoutineCard(r)
@@ -167,13 +167,13 @@ private fun RoutineCard(r: Routine) {
                 .padding(16.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(r.name, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                IconButton(onClick = { toast(ctx, "Options de la routine") }, modifier = Modifier.size(28.dp)) {
+                Text(exName(r.name), fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                IconButton(onClick = { toast(ctx, L10n.s("Routine options", "Options de la routine")) }, modifier = Modifier.size(28.dp)) {
                     Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Text(
-                r.exercises.joinToString(", ") { it.name },
+                r.exercises.joinToString(", ") { exName(it.name) },
                 color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, lineHeight = 21.sp,
                 maxLines = 2, overflow = TextOverflow.Ellipsis,
             )
@@ -185,13 +185,13 @@ private fun RoutineCard(r: Routine) {
                     .clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.primary)
                     .clickable {
-                        if (Repo.draft != null) { toast(ctx, "Termine d'abord la séance en cours"); return@clickable }
+                        if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")); return@clickable }
                         Repo.startWorkout(r.id)
                         Nav.push(Screen.Logger)
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Commencer la Routine", color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(L10n.s("Start Routine", "Commencer la Routine", "Comenzar la Rutina", "Routine starten"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -211,15 +211,15 @@ fun RoutineDetailScreen(id: Long) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { Nav.pop() }) { Icon(Icons.Rounded.ArrowBack, null) }
-            Text("Routine", fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            IconButton(onClick = { toast(ctx, "Partagé !") }) { Icon(Icons.Rounded.IosShare, null) }
-            IconButton(onClick = { toast(ctx, "Options de la routine") }) { Icon(Icons.Rounded.MoreHoriz, null) }
+            Text(L10n.s("Routine", "Routine", "Rutina", "Routine"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            IconButton(onClick = { toast(ctx, L10n.s("Shared!", "Partagé !")) }) { Icon(Icons.Rounded.IosShare, null) }
+            IconButton(onClick = { toast(ctx, L10n.s("Routine options", "Options de la routine")) }) { Icon(Icons.Rounded.MoreHoriz, null) }
         }
         LazyColumn(Modifier.fillMaxSize()) {
             item {
                 Text(r.name, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(start = 16.dp, top = 8.dp))
                 Text(
-                    "Créée par ${Repo.settings.handle}",
+                    L10n.s("Created by %1\$s", "Créée par %1\$s").format(Repo.settings.handle),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
                     modifier = Modifier.padding(start = 16.dp, top = 2.dp, bottom = 12.dp),
                 )
@@ -258,13 +258,13 @@ fun RoutineDetailScreen(id: Long) {
                     Spacer(Modifier.width(8.dp))
                     Text(lastDate, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     Spacer(Modifier.weight(1f))
-                    Text("3 derniers mois ˅", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(L10n.s("3 months ˅", "3 derniers mois ˅"), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 LineChart(series, fmtLabel = { v ->
                     if (metric == 2) "${v.toInt()}m" else Calc.fmtVol(v, unit)
                 })
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Volume", "Réps", "Durée").forEachIndexed { i, label ->
+                    listOf(L10n.s("Volume", "Volume"), L10n.s("Reps", "Réps"), L10n.s("Duration", "Durée")).forEachIndexed { i, label ->
                         Box(
                             Modifier
                                 .clip(RoundedCornerShape(999.dp))
@@ -283,9 +283,9 @@ fun RoutineDetailScreen(id: Long) {
             }
             item {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Exercices", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    Text(L10n.s("Exercises", "Exercices", "Ejercicios", "Übungen"), fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                     Text(
-                        "Modifier la Routine",
+                        L10n.s("Edit Routine", "Modifier la Routine"),
                         color = MaterialTheme.colorScheme.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable {
                             if (Repo.draft != null) { toast(ctx, "Termine d'abord la séance en cours"); return@clickable }
@@ -303,11 +303,11 @@ fun RoutineDetailScreen(id: Long) {
                             Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
+                            IllIcon(ex.muscle, 34.dp)
                         }
                         Spacer(Modifier.width(14.dp))
                         Text(
-                            ex.name,
+                            exName(ex.name),
                             color = MaterialTheme.colorScheme.primary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.weight(1f).clickable { Nav.push(Screen.ExerciseDetail(ex.name)) },
                         )
@@ -318,14 +318,14 @@ fun RoutineDetailScreen(id: Long) {
                         val m = Repo.settings.restSec / 60
                         val s = Repo.settings.restSec % 60
                         Text(
-                            "Minuteur de Repos: ${if (m > 0) "${m}min " else ""}${s}s",
+                            L10n.s("Rest Timer: %1\$s", "Minuteur de Repos: %1\$s").format("${if (m > 0) "${m}min " else ""}${s}s"),
                             color = MaterialTheme.colorScheme.primary, fontSize = 14.5.sp, fontWeight = FontWeight.Medium,
                         )
                     }
                     Row(Modifier.padding(horizontal = 16.dp)) {
-                        Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
                         Text("KG", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                        Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     }
                     ex.sets.forEachIndexed { si, s ->
                         Row(

@@ -104,8 +104,8 @@ fun ExercisesScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text(e.name, fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${e.muscle} · ${e.equip}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Text(exName(e.name), fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("${muscleName(e.muscle)} · ${equipName(e.equip)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
                     Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
                 }
@@ -129,13 +129,13 @@ fun ExerciseDetailScreen(name: String) {
     Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { Nav.pop() }) { Icon(Icons.Rounded.ArrowBack, null) }
-            Text(name, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(exName(name), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         LazyColumn(Modifier.fillMaxSize()) {
             item {
                 Row(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    MuscleTag(muscle)
-                    MuscleTag(equip)
+                    MuscleTag(muscleName(muscle))
+                    MuscleTag(equipName(equip))
                 }
             }
             if (Repo.draft?.mode == "workout") item {
@@ -153,9 +153,12 @@ fun ExerciseDetailScreen(name: String) {
             item {
                 AppCard {
                     Column(Modifier.padding(14.dp)) {
-                        Text("How to", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                        Text(L10n.s("How to", "Comment réaliser l'exercice"), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                         Spacer(Modifier.height(6.dp))
-                        EQUIP_HINT[equip]?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 18.sp) }
+                        val hint = com.hevyclone.app.data.L10nData.equipHint(equip)
+                            if (hint.isNotEmpty()) {
+                                Text(hint, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 18.sp)
+                            }
                         Spacer(Modifier.height(6.dp))
                         cues.forEach { c ->
                             Row(Modifier.padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
@@ -174,11 +177,11 @@ fun ExerciseDetailScreen(name: String) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Rounded.EmojiEvents, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(7.dp))
-                                Text("Personal Records", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                                Text(L10n.s("Personal Records", "Records personnels"), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                             }
                             Spacer(Modifier.height(6.dp))
-                            PrRow("Heaviest set", "${Calc.fmtKg(pr.weight, unit)} ${Calc.unitLabel(unit)} · ${Calc.fmtDateShort(pr.weightDate)}")
-                            PrRow("Best est. 1RM", "${Calc.fmtKg(pr.e1rm, unit)} ${Calc.unitLabel(unit)} · ${Calc.fmtDateShort(pr.e1rmDate)}")
+                            PrRow(L10n.s("Heaviest set", "Série la plus lourde"), "${Calc.fmtKg(pr.weight, unit)} ${Calc.unitLabel(unit)} · ${Calc.fmtDateShort(pr.weightDate)}")
+                            PrRow(L10n.s("Best est. 1RM", "Meilleur 1RM est."), "${Calc.fmtKg(pr.e1rm, unit)} ${Calc.unitLabel(unit)} · ${Calc.fmtDateShort(pr.e1rmDate)}")
                         }
                     }
                 }
@@ -188,7 +191,7 @@ fun ExerciseDetailScreen(name: String) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Rounded.TrendingUp, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(7.dp))
-                                Text("Est. 1RM History", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                                Text(L10n.s("Est. 1RM History", "Historique 1RM est."), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                             }
                             LineChart(
                                 series.map { (l, v) -> l to Calc.toDisplay(v, unit) },
@@ -204,14 +207,14 @@ fun ExerciseDetailScreen(name: String) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Rounded.History, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Spacer(Modifier.width(7.dp))
-                            Text("History", fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+                            Text(L10n.s("History", "Historique"), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
                         }
                         Spacer(Modifier.height(4.dp))
                         val sessions = Repo.workoutsDesc().mapNotNull { w ->
                             w.exercises.firstOrNull { it.name == name }?.let { w to it }
                         }.take(8)
                         if (sessions.isEmpty()) {
-                            Text("No sessions logged yet.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                            Text(L10n.s("No sessions logged yet.", "Aucune séance enregistrée."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                         } else sessions.forEach { (w, ex) ->
                             val best = ex.sets.filter { (it.kg ?: 0.0) > 0 && (it.reps ?: 0) > 0 && it.done }
                                 .maxByOrNull { Calc.e1rm(it.kg!!, it.reps!!) }

@@ -259,7 +259,7 @@ fun WorkoutDetailScreen(id: Long) {
                         Column {
                             w.prs.forEach { p ->
                                 Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text(p.ex, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    Text(exName(p.ex), fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                     Text("${Calc.fmtKg(p.value, Repo.settings.unit)} ${Calc.unitLabel(Repo.settings.unit)} · ${p.kind}",
                                         color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp)
                                 }
@@ -273,7 +273,7 @@ fun WorkoutDetailScreen(id: Long) {
                 AppCard {
                     Column(Modifier.padding(14.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(ex.name, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            Text(exName(ex.name), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
                             MuscleTag(ex.muscle)
                         }
                         Spacer(Modifier.height(8.dp))

@@ -63,23 +63,23 @@ fun HomeScreen() {
                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Accueil", fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Text(L10n.s("Home", "Accueil", "Inicio", "Startseite"), fontSize = 27.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                 IconButton(onClick = { Nav.push(Screen.Exercises) }) { Icon(Icons.Rounded.Search, null) }
-                IconButton(onClick = { toast(ctx, "Pas de nouvelles notifications") }) { Icon(Icons.Rounded.Notifications, null) }
+                IconButton(onClick = { toast(ctx, L10n.s("No new notifications", "Pas de nouvelles notifications", "Sin notificaciones nuevas", "Keine neuen Benachrichtigungen")) }) { Icon(Icons.Rounded.Notifications, null) }
             }
         }
-        if (feed.isEmpty()) item { EmptyState("Aucune séance pour le moment.\nVa dans Entraînement pour démarrer !") }
+        if (feed.isEmpty()) item { EmptyState(L10n.s("No workouts yet.\nHead to Training to get started!", "Aucune séance pour le moment.\nVa dans Entraînement pour démarrer !", "Aún no hay entrenamientos.\n¡Ve a Entrenamiento para empezar!", "Noch keine Workouts.\nStarte unter Training!")) }
         else items(feed.size) { i ->
             FeedPost(feed[i])
             if (i < feed.size - 1) Box(Modifier.fillMaxWidth().height(8.dp).background(Color.Black))
         }
         item {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Athlètes Recommandés", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { toast(ctx, "Invitation copiée !") }) {
+                Text(L10n.s("Suggested Athletes", "Athlètes Recommandés", "Atletas Recomendados", "Empfohlene Athleten"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { toast(ctx, L10n.s("Invite copied!", "Invitation copiée !", "¡Invitación copiada!", "Einladung kopiert!")) }) {
                     Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Inviter un ami", color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(L10n.s("Invite a friend", "Inviter un ami", "Invitar a un amigo", "Freund einladen"), color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -120,11 +120,11 @@ fun HomeScreen() {
                                 .padding(horizontal = 14.dp)
                                 .clip(RoundedCornerShape(9.dp))
                                 .background(MaterialTheme.colorScheme.primary)
-                                .clickable { toast(ctx, "Demande envoyée à $name") }
+                                .clickable { toast(ctx, L10n.s("Request sent to $name", "Demande envoyée à $name")) }
                                 .padding(vertical = 9.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text("Suivre", color = MaterialTheme.colorScheme.onPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(L10n.s("Follow", "Suivre", "Seguir", "Folgen"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -149,7 +149,7 @@ private fun FeedPost(w: Workout) {
                 Text(Repo.settings.profileName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 Text(relativeTime(w.startedAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
             }
-            IconButton(onClick = { toast(ctx, "Options de la séance") }) {
+            IconButton(onClick = { toast(ctx, L10n.s("Workout options", "Options de la séance")) }) {
                 Text("•••", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.ExtraBold)
             }
         }
@@ -159,9 +159,9 @@ private fun FeedPost(w: Workout) {
             modifier = Modifier.padding(start = 16.dp, top = 10.dp, bottom = 8.dp),
         )
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            FeedStat("Temps", Calc.fmtDur(w.endedAt - w.startedAt), Modifier.weight(1.2f))
-            FeedStat("Volume", "${Calc.fmtVol(Calc.vol(w), Repo.settings.unit)} kg", Modifier.weight(1.2f))
-            FeedStat("Records", "", Modifier.weight(1f), medal = w.prs.size)
+            FeedStat(L10n.s("Time", "Temps", "Tiempo", "Zeit"), Calc.fmtDur(w.endedAt - w.startedAt), Modifier.weight(1.2f))
+            FeedStat(L10n.s("Volume", "Volume", "Volumen", "Volumen"), "${Calc.fmtVol(Calc.vol(w), Repo.settings.unit)} kg", Modifier.weight(1.2f))
+            FeedStat(L10n.s("Records", "Records", "Récords", "Rekorde"), "", Modifier.weight(1f), medal = w.prs.size)
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.outline)
         shown.forEach { ex ->
@@ -173,11 +173,11 @@ private fun FeedPost(w: Workout) {
                     Modifier.size(38.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                    IllIcon(ex.muscle, 30.dp)
                 }
                 Spacer(Modifier.width(14.dp))
                 Text(
-                    "${ex.sets.size} série${if (ex.sets.size > 1) "s" else ""} ${ex.name}",
+                    seriesLabel(ex.sets.size, exName(ex.name)),
                     fontSize = 16.sp, fontWeight = FontWeight.Medium,
                     maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
@@ -185,7 +185,7 @@ private fun FeedPost(w: Workout) {
         }
         if (hidden > 0) {
             Text(
-                "Voir $hidden exercice${if (hidden > 1) "s" else ""} en plus",
+                seeMoreExercises(hidden),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.5.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().clickable { expanded = true }.padding(vertical = 8.dp),
@@ -193,9 +193,9 @@ private fun FeedPost(w: Workout) {
         }
         HorizontalDivider(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), color = MaterialTheme.colorScheme.outline)
         Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { toast(ctx, "Ajouté aux favoris") }) { Icon(Icons.Rounded.ThumbUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-            IconButton(onClick = { toast(ctx, "Les commentaires arrivent bientôt") }) { Icon(Icons.Rounded.ChatBubbleOutline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-            IconButton(onClick = { toast(ctx, "Partagé !") }) { Icon(Icons.Rounded.IosShare, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton(onClick = { toast(ctx, L10n.s("Added to favorites", "Ajouté aux favoris")) }) { Icon(Icons.Rounded.ThumbUp, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton(onClick = { toast(ctx, L10n.s("Comments coming soon", "Les commentaires arrivent bientôt")) }) { Icon(Icons.Rounded.ChatBubbleOutline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            IconButton(onClick = { toast(ctx, L10n.s("Shared!", "Partagé !", "¡Compartido!", "Geteilt!")) }) { Icon(Icons.Rounded.IosShare, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
@@ -218,13 +218,24 @@ private fun FeedStat(label: String, value: String, modifier: Modifier = Modifier
 }
 
 private fun dayNameFr(ms: Long): String {
-    val s = Calc.localDate(ms).format(DateTimeFormatter.ofPattern("EEEE", Locale.FRANCE))
-    return s.replaceFirstChar { it.uppercase(Locale.FRANCE) }
+    val loc = if (L10n.lang == "fr") Locale.FRANCE else Locale.US
+    val s = Calc.localDate(ms).format(DateTimeFormatter.ofPattern("EEEE", loc))
+    return s.replaceFirstChar { it.uppercase(loc) }
 }
 
 private fun relativeTime(ms: Long): String {
     val diff = System.currentTimeMillis() - ms
     val hours = diff / 3600000
+    if (L10n.lang != "fr") {
+        return when {
+            hours < 1 -> "${maxOf(1, (diff / 60000).toInt())} min ago"
+            hours < 24 -> "$hours h ago"
+            else -> {
+                val days = (hours / 24).toInt()
+                if (days == 1) "1 day ago" else "$days days ago"
+            }
+        }
+    }
     return when {
         hours < 1 -> "il y a ${maxOf(1, (diff / 60000).toInt())} min"
         hours < 24 -> "il y a $hours h"

@@ -116,7 +116,7 @@ fun LoggerScreen() {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = {
                 if (hasData()) showDiscard = true
-                else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") }
+                else { Repo.discardDraft(); Nav.pop(); toast(ctx, L10n.s("Discarded", "Supprimée")) }
             }) { Icon(Icons.Rounded.ArrowBack, null) }
             if (isWorkout) {
                 Column(Modifier.weight(1f)) {
@@ -142,7 +142,7 @@ fun LoggerScreen() {
                         })
                     }
                     DropdownMenuItem(
-                        text = { Text(if (isWorkout) "Supprimer la séance" else "Ignorer les modifications", color = MaterialTheme.colorScheme.error) },
+                        text = { Text(if (isWorkout) L10n.s("Discard workout", "Supprimer la séance") else L10n.s("Discard changes", "Ignorer les modifications"), color = MaterialTheme.colorScheme.error) },
                         onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
                     )
                 }
@@ -177,22 +177,22 @@ fun LoggerScreen() {
             }
             Row {
                 GhostButton(
-                    "Ajouter un Exercice",
+                    L10n.s("Add Exercise", "Ajouter un Exercice", "Añadir Ejercicio", "Übung hinzufügen"),
                     onClick = { showPicker = true },
                     modifier = Modifier.weight(1f),
                     leading = { Icon(Icons.Rounded.Add, null, modifier = Modifier.size(16.dp)) },
                 )
                 Spacer(Modifier.width(10.dp))
                 PrimaryButton(
-                    if (isWorkout) "Terminer" else "Enregistrer",
+                    if (isWorkout) L10n.s("Finish", "Terminer") else L10n.s("Save", "Enregistrer"),
                     onClick = {
                         if (!isWorkout) {
                             val n = nameText.trim()
-                            if (n.isEmpty()) { toast(ctx, "Donne un nom à ta routine"); return@PrimaryButton }
-                            if (draft.exercises.isEmpty()) { toast(ctx, "Ajoute au moins un exercice"); return@PrimaryButton }
+                            if (n.isEmpty()) { toast(ctx, L10n.s("Name your routine first", "Donne un nom à ta routine")); return@PrimaryButton }
+                            if (draft.exercises.isEmpty()) { toast(ctx, L10n.s("Add at least one exercise", "Ajoute au moins un exercice")); return@PrimaryButton }
                             Repo.saveRoutine(n)
                             Nav.pop()
-                            toast(ctx, "Routine enregistrée")
+                            toast(ctx, L10n.s("Routine saved", "Routine enregistrée"))
                         } else {
                             if (anyDone()) showFinish = true else showNoSets = true
                         }
@@ -241,7 +241,7 @@ fun LoggerScreen() {
                     RestTimer.clear()
                     Nav.toTab(Screen.HomeTab)
                     if (w != null && w.prs.isNotEmpty()) toast(ctx, "Saved · ${w.prs.size} PR${if (w.prs.size > 1) "s" else ""}!")
-                    else toast(ctx, "Séance enregistrée")
+                    else toast(ctx, L10n.s("Workout saved", "Séance enregistrée"))
                 },
             )
         }
@@ -249,7 +249,7 @@ fun LoggerScreen() {
     if (showDiscard) {
         AlertDialog(
             onDismissRequest = { showDiscard = false },
-            title = { Text(if (isWorkout) "Supprimer la séance ?" else "Ignorer les modifications ?", fontWeight = FontWeight.ExtraBold) },
+            title = { Text(if (isWorkout) L10n.s("Discard workout?", "Supprimer la séance ?") else L10n.s("Discard changes?", "Ignorer les modifications ?"), fontWeight = FontWeight.ExtraBold) },
             text = { Text(if (isWorkout) "Your logged sets from this session will be lost." else "Changes to this routine will be lost.") },
             confirmButton = {
                 TextButton(onClick = {
@@ -260,13 +260,13 @@ fun LoggerScreen() {
                     toast(ctx, "Supprimée")
                 }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showDiscard = false }) { Text("Annuler") } },
+            dismissButton = { TextButton(onClick = { showDiscard = false }) { Text(L10n.s("Cancel", "Annuler")) } },
         )
     }
     if (showNoSets) {
         AlertDialog(
             onDismissRequest = { showNoSets = false },
-            title = { Text("Aucune série terminée", fontWeight = FontWeight.ExtraBold) },
+            title = { Text(L10n.s("No sets completed", "Aucune série terminée"), fontWeight = FontWeight.ExtraBold) },
             text = { Text("There is nothing to save yet. Discard this workout?") },
             confirmButton = {
                 TextButton(onClick = {
@@ -277,7 +277,7 @@ fun LoggerScreen() {
                     toast(ctx, "Supprimée")
                 }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showNoSets = false }) { Text("Continuer") } },
+            dismissButton = { TextButton(onClick = { showNoSets = false }) { Text(L10n.s("Keep editing", "Continuer")) } },
         )
     }
     if (showDeleteRoutine) {
@@ -293,7 +293,7 @@ fun LoggerScreen() {
                     Repo.discardDraft()
                     Nav.pop()
                     toast(ctx, "Routine deleted")
-                }) { Text("Supprimer", color = MaterialTheme.colorScheme.error) }
+                }) { Text(L10n.s("Discard", "Supprimer"), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showDeleteRoutine = false }) { Text("Annuler") } },
         )
@@ -320,10 +320,10 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
             }
             if (isWorkout) {
                 Row(Modifier.padding(horizontal = 12.dp)) {
-                    Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
-                    Text("PRÉCÉDENTE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1.1f), textAlign = TextAlign.Center)
+                    Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
+                    Text(L10n.s("PREVIOUS", "PRÉCÉDENTE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1.1f), textAlign = TextAlign.Center)
                     Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 }
             } else {
                 Row(Modifier.padding(horizontal = 12.dp)) {
@@ -338,7 +338,7 @@ private fun ExCard(ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String) {
             }
             // add set
             Text(
-                "+  Ajouter une Série",
+                L10n.s("+ Add Set", "+  Ajouter une Série"),
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
                 modifier = Modifier
@@ -423,14 +423,14 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
             }
             if (isWorkout) {
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text("Copier la série") }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(15.dp)) }, onClick = {
+                    DropdownMenuItem(text = { Text(L10n.s("Copy set", "Copier la série")) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(15.dp)) }, onClick = {
                         menuOpen = false
                         Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
                             if (si < ex.sets.size) ex.sets.add(si + 1, SetEntry(s.kg, s.reps, done = false))
                         }
                         Repo.touchPublic()
                     })
-                    DropdownMenuItem(text = { Text("Supprimer la série", color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(15.dp)) }, onClick = {
+                    DropdownMenuItem(text = { Text(L10n.s("Delete set", "Supprimer la série"), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(15.dp)) }, onClick = {
                         menuOpen = false
                         Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
                             if (ex.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else ex.sets.removeAt(si)
@@ -461,7 +461,7 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
         )
         SetField(
             init = s.reps?.toString() ?: "",
-            hint = "Réps",
+            hint = L10n.s("Reps", "Réps"),
             onChange = { v -> s.reps = v.filter { it.isDigit() }.take(4).toIntOrNull() },
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
         )
@@ -563,7 +563,7 @@ private fun RestBar() {
             .padding(horizontal = 12.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text("REPOS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold)
+        Text(L10n.s("REST", "REPOS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.width(12.dp))
         Text(
             text,
@@ -603,12 +603,12 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
         .sortedBy { it.name }
     Column(Modifier.fillMaxWidth().fillMaxHeight(0.86f)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Choisir un Exercice", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
+            Text(L10n.s("Select Exercise", "Choisir un Exercice"), fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f).padding(start = 8.dp))
             IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, null) }
         }
         TextField(
             value = q, onValueChange = { q = it },
-            placeholder = { Text("Rechercher des exercices", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            placeholder = { Text(L10n.s("Search exercises", "Rechercher des exercices"), color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp)) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
@@ -627,7 +627,7 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
             items(listOf("All") + MUSCLES) { m -> Chip(m, mus == m, onClick = { mus = m }) }
         }
         LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-            if (filtered.isEmpty()) item { EmptyState("Aucun exercice trouvé.") }
+            if (filtered.isEmpty()) item { EmptyState(L10n.s("No exercises found.", "Aucun exercice trouvé.")) }
             else items(filtered) { e ->
                 Row(
                     Modifier
@@ -671,7 +671,7 @@ private fun FinishSheet(draft: com.hevyclone.app.data.Draft, onCancel: () -> Uni
         if (be > pe) prs.add(com.hevyclone.app.data.PrRec(ex.name, "Est. 1RM", be))
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
-        Text("Résumé de la séance", fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+        Text(L10n.s("Workout Summary", "Résumé de la séance"), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
         Spacer(Modifier.height(10.dp))
         TextField(
             value = name, onValueChange = { name = it },
@@ -688,30 +688,30 @@ private fun FinishSheet(draft: com.hevyclone.app.data.Draft, onCancel: () -> Uni
         )
         Spacer(Modifier.height(12.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { Metric(Calc.fmtDur(System.currentTimeMillis() - (draft.startedAt ?: System.currentTimeMillis())), "Durée", tight = true) }
+            Box(Modifier.weight(1f)) { Metric(Calc.fmtDur(System.currentTimeMillis() - (draft.startedAt ?: System.currentTimeMillis())), L10n.s("Duration", "Durée"), tight = true) }
             Box(Modifier.weight(1f)) { Metric(Calc.fmtVol(vol, unit), "Volume", unit = unit, tight = true) }
         }
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { Metric("$sets", "Séries", tight = true) }
+            Box(Modifier.weight(1f)) { Metric("$sets", L10n.s("Sets", "Séries"), tight = true) }
             Box(Modifier.weight(1f)) { Metric("$reps", "Réps", tight = true) }
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            if (prs.isEmpty()) "Aucun nouveau record cette séance" else "${prs.size} new record${if (prs.size > 1) "s" else ""}",
+            if (prs.isEmpty()) L10n.s("No new records this session", "Aucun nouveau record cette séance") else "${prs.size} new record${if (prs.size > 1) "s" else ""}",
             color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold,
         )
         prs.forEach { p ->
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(p.ex, fontSize = 13.sp)
+                Text(exName(p.ex), fontSize = 13.sp)
                 Text("${Calc.fmtKg(p.value, unit)} ${Calc.unitLabel(unit)} · ${p.kind}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
             }
         }
         Spacer(Modifier.height(16.dp))
         Row {
-            GhostButton("Supprimer", onClick = onDiscard, modifier = Modifier.weight(1f))
+            GhostButton(L10n.s("Discard", "Supprimer"), onClick = onDiscard, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(10.dp))
-            PrimaryButton("Save", onClick = onSave, modifier = Modifier.weight(1f).height(44.dp))
+            PrimaryButton(L10n.s("Save", "Enregistrer"), onClick = onSave, modifier = Modifier.weight(1f).height(44.dp))
         }
     }
 }

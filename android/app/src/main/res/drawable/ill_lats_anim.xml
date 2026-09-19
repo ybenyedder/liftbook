@@ -1,0 +1,32 @@
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt">
+    <aapt:attr name="android:drawable">
+<vector android:width="108dp" android:height="140dp"
+    android:viewportWidth="200" android:viewportHeight="260">
+    <path android:name="head" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M100,11 a13,13 0 1,0 0.01,0 Z" />
+    <path android:name="neck" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M93,37 h14 v9 h-14 Z" />
+    <path android:name="hip_l" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M66,150 l14,-2 l-2,16 l-14,-2 Z" />
+    <path android:name="hip_r" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M134,150 l-14,-2 l2,16 l14,-2 Z" />
+    <path android:name="traps_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M100,42 L131,64 Q112,80 100,78 Q88,80 69,64 Z" />
+    <path android:name="delts_l_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M62,50 a13,14 0 1,0 0.1,0 Z" />
+    <path android:name="delts_r_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M138,50 a13,14 0 1,0 0.1,0 Z" />
+    <path android:name="lats_l_0" android:fillColor="#028CFD" android:fillAlpha="1.0" android:pathData="M70,66 Q94,72 96,102 Q94,124 78,114 Q64,92 70,66 Z" />
+    <path android:name="lats_r_0" android:fillColor="#028CFD" android:fillAlpha="1.0" android:pathData="M130,66 Q106,72 104,102 Q106,124 122,114 Q136,92 130,66 Z" />
+    <path android:name="lower_back_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M84,112 h32 v28 q-16,8 -32,0 Z" />
+    <path android:name="glute_l_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M72,146 a17,16 0 1,0 0.1,0 Z" />
+    <path android:name="glute_r_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M128,146 a17,16 0 1,0 0.1,0 Z" />
+    <path android:name="hams_l_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M70,164 Q66,192 72,212 L92,210 Q94,186 92,164 Z" />
+    <path android:name="hams_r_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M130,164 Q134,192 128,212 L108,210 Q106,186 108,164 Z" />
+    <path android:name="calf_l_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M72,216 Q68,234 72,248 L88,248 Q90,232 90,216 Z" />
+    <path android:name="calf_r_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M128,216 Q132,234 128,248 L112,248 Q110,232 110,216 Z" />
+    <path android:name="forearm_l_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M46,110 Q40,132 44,148 L56,146 Q54,128 59,110 Z" />
+    <path android:name="forearm_r_0" android:fillColor="#DDE4EC" android:fillAlpha="1.0" android:pathData="M154,110 Q160,132 156,148 L144,146 Q146,128 141,110 Z" />
+</vector>
+    </aapt:attr>
+    <target android:name="lats_l_0">
+        <objectAnimator android:propertyName="fillAlpha" android:duration="1100" android:repeatCount="infinite" android:repeatMode="reverse" android:valueFrom="1.0" android:valueTo="0.25" android:valueType="floatType" />
+    </target>
+    <target android:name="lats_r_0">
+        <objectAnimator android:propertyName="fillAlpha" android:duration="1100" android:repeatCount="infinite" android:repeatMode="reverse" android:valueFrom="1.0" android:valueTo="0.25" android:valueType="floatType" />
+    </target>
+</animated-vector>
