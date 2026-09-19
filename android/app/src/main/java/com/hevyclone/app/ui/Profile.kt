@@ -276,6 +276,39 @@ private fun SettingsSheet(onClose: () -> Unit) {
     ) {
         Column(Modifier.padding(bottom = 30.dp)) {
             Text("Réglages", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+            Text("PROFIL", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp))
+            var nameField by remember { mutableStateOf(Repo.settings.profileName) }
+            var handleField by remember { mutableStateOf(Repo.settings.handle) }
+            androidx.compose.material3.OutlinedTextField(
+                value = nameField,
+                onValueChange = { nameField = it },
+                label = { Text(L10n.s("Name", "Nom")) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+            androidx.compose.material3.OutlinedTextField(
+                value = handleField,
+                onValueChange = { handleField = it.filter { c -> c.isLetterOrDigit() || c == '.' || c == '_' }.take(20) },
+                label = { Text(L10n.s("Username", "Pseudo")) },
+                singleLine = true,
+                prefix = { Text("@") },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+            )
+            if (nameField.isNotBlank() && handleField.isNotBlank() && (nameField != Repo.settings.profileName || handleField != Repo.settings.handle)) {
+                androidx.compose.material3.Button(
+                    onClick = {
+                        Repo.settings.profileName = nameField.trim()
+                        Repo.settings.handle = handleField.trim()
+                        Repo.touchPublic()
+                        onClose()
+                    },
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) { Text(L10n.s("Save profile", "Enregistrer le profil")) }
+            }
             Text("UNITÉS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp))
             Row(Modifier.padding(horizontal = 20.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(3.dp)) {
                 listOf("kg", "lb").forEach { u ->
@@ -300,6 +333,9 @@ private fun SettingsSheet(onClose: () -> Unit) {
                 }
             }
             Text("DONNÉES", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp))
+            TextButton(onClick = { exportCsv(ctx) }, modifier = Modifier.padding(start = 8.dp)) {
+                Text(L10n.s("Export workouts (CSV)", "Exporter les séances (CSV)"), fontWeight = FontWeight.SemiBold)
+            }
             TextButton(onClick = { confirm = true }, modifier = Modifier.padding(start = 8.dp)) {
                 Text("Tout effacer", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
             }

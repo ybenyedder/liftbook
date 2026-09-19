@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Notes
@@ -239,7 +240,22 @@ fun WorkoutDetailScreen(id: Long) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { Nav.pop() }) { Icon(Icons.Rounded.ArrowBack, null) }
             Text(w.name, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Rounded.MoreHoriz, null) }
+            var detailMenu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { detailMenu = true }) { Icon(Icons.Rounded.MoreHoriz, null) }
+                androidx.compose.material3.DropdownMenu(expanded = detailMenu, onDismissRequest = { detailMenu = false }) {
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(L10n.s("Share workout", "Partager la séance")) },
+                        leadingIcon = { Icon(Icons.Rounded.IosShare, null, modifier = Modifier.size(16.dp)) },
+                        onClick = { detailMenu = false; shareWorkout(ctx, w) },
+                    )
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(L10n.s("Delete workout", "Supprimer la séance"), color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) },
+                        onClick = { detailMenu = false; confirmDelete = true },
+                    )
+                }
+            }
         }
         LazyColumn(Modifier.fillMaxSize()) {
             item {
