@@ -99,7 +99,7 @@ object Repo {
         val exs = r?.exercises?.map { ex ->
             ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.sets.map { SetEntry(it.kg, it.reps, done = false) }.toMutableList())
         }?.toMutableList() ?: mutableListOf()
-        draft = Draft("workout", routineId, r?.name ?: "Séance", System.currentTimeMillis(), exs)
+        draft = Draft("workout", routineId, r?.name ?: "Séance", System.currentTimeMillis(), "", exs)
         touch()
     }
 
@@ -108,7 +108,19 @@ object Repo {
         val exs = r?.exercises?.map { ex ->
             ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
         }?.toMutableList() ?: mutableListOf()
-        draft = Draft("routine", routineId, r?.name ?: "Nouvelle Routine", null, exs)
+        draft = Draft("routine", routineId, r?.name ?: "Nouvelle Routine", null, "", exs)
+        touch()
+    }
+
+    /** Start a new workout with the exercises of the most recent one (one-tap repeat). */
+    fun startRepeatLast() {
+        val last = workouts.maxByOrNull { it.startedAt } ?: return
+        draft = Draft(
+            "workout", null, last.name, System.currentTimeMillis(), last.notes,
+            last.exercises.map { ex ->
+                ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.sets.map { SetEntry(it.kg, it.reps, done = false) }.toMutableList())
+            }.toMutableList(),
+        )
         touch()
     }
 
@@ -144,6 +156,7 @@ object Repo {
             startedAt = d.startedAt ?: now - 3600000,
             endedAt = now,
             exercises = d.exercises,
+            notes = d.notes,
         )
         workouts.add(w)
         prCache = Calc.rebuildPrs(workouts)

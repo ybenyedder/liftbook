@@ -31,6 +31,7 @@ data class Workout(
     var endedAt: Long,
     val exercises: MutableList<ExEntry> = mutableListOf(),
     var prs: MutableList<PrRec> = mutableListOf(),
+    var notes: String = "",
 )
 
 @Serializable
@@ -63,6 +64,7 @@ data class Draft(
     val routineId: Long? = null,
     var name: String,
     var startedAt: Long? = null,
+    var notes: String = "",
     val exercises: MutableList<ExEntry> = mutableListOf(),
 )
 

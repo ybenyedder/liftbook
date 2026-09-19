@@ -388,6 +388,15 @@ fun WorkoutDetailScreen(id: Long) {
                     }
                 }
             }
+            if (w.notes.isNotBlank()) item(key = "notes") {
+                AppCard {
+                    Row(Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
+                        Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Text(w.notes, fontSize = 14.sp, lineHeight = 20.sp)
+                    }
+                }
+            }
             items(w.exercises.size, key = { w.exercises[it].name + it }) { ei ->
                 val ex = w.exercises[ei]
                 val prevSets = remember(ex.name, w.id) { Repo.prevSetsBefore(w.startedAt, ex.name) }

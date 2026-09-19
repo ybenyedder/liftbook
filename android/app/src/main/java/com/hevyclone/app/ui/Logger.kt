@@ -90,14 +90,34 @@ object RestTimer {
     var appContext: android.content.Context? = null
     private const val CHANNEL = "rest_timer"
     private const val NOTIF_ID = 4242
+    private const val PREFS = "rest_timer"
+
+    /** Restore a running timer after process death. Call once at app start. */
+    fun restore(ctx: android.content.Context) {
+        appContext = ctx
+        val saved = ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getLong("endAt", 0L)
+        if (saved > System.currentTimeMillis()) {
+            endAt = saved
+            postNotification()
+        } else if (saved > 0) {
+            ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().remove("endAt").apply()
+        }
+    }
+
+    private fun persist() {
+        appContext?.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)?.edit()
+            ?.putLong("endAt", if (endAt > 0) endAt else 0L)?.apply()
+    }
 
     fun start(sec: Int) {
         endAt = System.currentTimeMillis() + sec * 1000L
+        persist()
         postNotification()
     }
 
     fun clear() {
         endAt = 0
+        persist()
         appContext?.let {
             runCatching {
                 (it.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
@@ -145,6 +165,7 @@ fun LoggerScreen() {
     var showDiscard by remember { mutableStateOf(false) }
     var showNoSets by remember { mutableStateOf(false) }
     var showDeleteRoutine by remember { mutableStateOf(false) }
+    var showNotesDialog by remember { mutableStateOf(false) }
     var nameText by remember(draft) { mutableStateOf(draft.name) }
     var dragIndex by remember { mutableStateOf(-1) }   // exercise being dragged
 
@@ -211,6 +232,13 @@ fun LoggerScreen() {
                         DropdownMenuItem(text = { Text("Delete routine", color = MaterialTheme.colorScheme.error) }, onClick = {
                             showMenu = false; showDeleteRoutine = true
                         })
+                    }
+                    if (isWorkout) {
+                        DropdownMenuItem(
+                            text = { Text(L10n.s("Workout notes", "Notes de la séance")) },
+                            leadingIcon = { Icon(Icons.Rounded.Notes, null, modifier = Modifier.size(16.dp)) },
+                            onClick = { showMenu = false; showNotesDialog = true },
+                        )
                     }
                     DropdownMenuItem(
                         text = { Text(if (isWorkout) L10n.s("Discard workout", "Supprimer la séance") else L10n.s("Discard changes", "Ignorer les modifications"), color = MaterialTheme.colorScheme.error) },
@@ -358,6 +386,28 @@ fun LoggerScreen() {
                 }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showNoSets = false }) { Text(L10n.s("Keep editing", "Continuer")) } },
+        )
+    }
+    if (showNotesDialog) {
+        var notesText by remember { mutableStateOf(draft.notes) }
+        AlertDialog(
+            onDismissRequest = { showNotesDialog = false },
+            title = { Text(L10n.s("Workout notes", "Notes de la séance"), fontWeight = FontWeight.Bold) },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = notesText,
+                    onValueChange = { notesText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text(L10n.s("How did it feel?", "Comment ça s'est passé ?")) },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    draft.notes = notesText
+                    showNotesDialog = false
+                }) { Text(L10n.s("Save", "Enregistrer")) }
+            },
+            dismissButton = { TextButton(onClick = { showNotesDialog = false }) { Text(L10n.s("Cancel", "Annuler")) } },
         )
     }
     if (showDeleteRoutine) {
