@@ -574,12 +574,12 @@ private fun ExCard(
                     .padding(vertical = 12.dp),
                 textAlign = TextAlign.Center,
             )
-            // notes
+            // notes — opens a dialog
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { showNotes = !showNotes }) {
+                TextButton(onClick = { showNotes = true }) {
                     Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Notes", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                    Text(L10n.s("Notes", "Notes"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                     if (ex.notes.isNotEmpty()) {
                         Spacer(Modifier.width(5.dp))
                         Box(Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
@@ -587,18 +587,26 @@ private fun ExCard(
                 }
             }
             if (showNotes) {
-                BasicTextField(
-                    value = ex.notes,
-                    onValueChange = { ex.notes = it },
-                    textStyle = TextStyle(color = MaterialTheme.colorScheme.onBackground, fontSize = 13.sp),
-                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 10.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .padding(10.dp),
+                var exNotes by remember { mutableStateOf(ex.notes) }
+                AlertDialog(
+                    onDismissRequest = { showNotes = false },
+                    title = { Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    text = {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = exNotes,
+                            onValueChange = { exNotes = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text(L10n.s("Exercise notes…", "Notes de l'exercice…")) },
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            ex.notes = exNotes
+                            Repo.touchPublic()
+                            showNotes = false
+                        }) { Text(L10n.s("Save", "Enregistrer")) }
+                    },
+                    dismissButton = { TextButton(onClick = { showNotes = false }) { Text(L10n.s("Cancel", "Annuler")) } },
                 )
             }
         }

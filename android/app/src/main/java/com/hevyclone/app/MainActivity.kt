@@ -9,6 +9,16 @@ import com.hevyclone.app.ui.App
 import com.hevyclone.app.ui.HevyTheme
 
 class MainActivity : ComponentActivity() {
+    private val bootKey = androidx.compose.runtime.mutableIntStateOf(0)
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        if (intent.getBooleanExtra("start_empty_workout", false)) {
+            com.hevyclone.app.ui.Nav.pendingStartEmpty = true
+            bootKey.intValue += 1
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.hevyclone.app.ui.RestTimer.restore(applicationContext)
@@ -19,9 +29,12 @@ class MainActivity : ComponentActivity() {
         }
         Repo.init(applicationContext)
         enableEdgeToEdge()
+        if (intent?.getBooleanExtra("start_empty_workout", false) == true && savedInstanceState == null) {
+            com.hevyclone.app.ui.Nav.pendingStartEmpty = true
+        }
         setContent {
             HevyTheme {
-                App()
+                App(refreshKey = bootKey.intValue)
             }
         }
     }

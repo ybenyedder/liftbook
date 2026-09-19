@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -63,6 +64,14 @@ fun TrainingScreen() {
     val rev = Repo.rev
     val routines = Repo.routines
     var expanded by remember { mutableStateOf(true) }
+    var sortMode by remember { mutableStateOf(0) } // 0=A→Z 1=Dernière utilisée 2=Création
+    val sortedRoutines = remember(rev, sortMode) {
+        when (sortMode) {
+            0 -> routines.sortedBy { exName(it.name).lowercase() }
+            1 -> routines.sortedByDescending { Repo.routineLastPerformed(it) ?: 0L }
+            else -> routines.sortedByDescending { it.id }
+        }
+    }
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -120,6 +129,22 @@ fun TrainingScreen() {
         // Routines header
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(L10n.s("Routines", "Routines", "Rutinas", "Routinen"), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            var sortMenu by remember { mutableStateOf(false) }
+            Box {
+                IconButton(onClick = { sortMenu = true }) { Icon(Icons.Rounded.Sort, null) }
+                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
+                    listOf(
+                        L10n.s("Name A→Z", "Nom A→Z"),
+                        L10n.s("Last performed", "Dernière utilisée"),
+                        L10n.s("Most recent", "Plus récente"),
+                    ).forEachIndexed { i, label ->
+                        DropdownMenuItem(
+                            text = { Text(label, color = if (sortMode == i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground) },
+                            onClick = { sortMenu = false; sortMode = i },
+                        )
+                    }
+                }
+            }
             IconButton(onClick = {
                 if (Repo.draft != null) { Nav.push(Screen.Logger); return@IconButton }
                 Repo.startRoutine(null)
@@ -156,8 +181,8 @@ fun TrainingScreen() {
         LazyColumn(Modifier.fillMaxSize()) {
             if (expanded) {
                 if (routines.isEmpty()) item { EmptyState(L10n.s("No routines yet.\nTap “New routine” to create one.", "Aucune routine.\nTouche « Nouvelle routine » pour en créer une.")) }
-                else items(routines.size) { i ->
-                    val r = routines[i]
+                else items(sortedRoutines.size) { i ->
+                    val r = sortedRoutines[i]
                     RoutineCard(r)
                 }
             }

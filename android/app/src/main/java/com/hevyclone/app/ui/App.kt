@@ -16,6 +16,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import com.hevyclone.app.data.Repo
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
@@ -37,6 +38,8 @@ sealed interface Screen {
 }
 
 object Nav {
+    var pendingStartEmpty = false
+
     val stack = mutableStateListOf<Screen>(Screen.HomeTab)
     val current: Screen get() = stack.last()
     fun push(s: Screen) { stack.add(s) }
@@ -48,7 +51,14 @@ object Nav {
 private data class TabDef(val screen: Screen, val label: String, val icon: ImageVector)
 
 @Composable
-fun App() {
+fun App(refreshKey: Int = 0) {
+    androidx.compose.runtime.LaunchedEffect(refreshKey) {
+        if (Nav.pendingStartEmpty) {
+            Nav.pendingStartEmpty = false
+            if (Repo.draft == null) Repo.startWorkout(null)
+            Nav.push(Screen.Logger)
+        }
+    }
     val tabs = listOf(
         TabDef(Screen.HomeTab, L10n.s("Home", "Accueil", "Inicio", "Startseite"), Icons.Rounded.Home),
         TabDef(Screen.TrainingTab, L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), Icons.Rounded.FitnessCenter),
