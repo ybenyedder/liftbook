@@ -38,4 +38,9 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onStop() {
+        super.onStop()
+        com.hevyclone.app.data.Repo.persistDraftNow()
+    }
 }

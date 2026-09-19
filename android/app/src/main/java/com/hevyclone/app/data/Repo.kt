@@ -38,12 +38,29 @@ object Repo {
     private fun touch() {
         descCache = null
         prevCache.clear()
+        persistDraft()
         rev++
+    }
+
+    private var draftPrefs: android.content.SharedPreferences? = null
+
+    fun persistDraftNow() { persistDraft() }
+
+    private fun persistDraft() {
+        val prefs = draftPrefs ?: return
+        prefs.edit().apply {
+            if (draft != null) putString("draft", json.encodeToString(Draft.serializer(), draft!!))
+            else remove("draft")
+        }.apply()
     }
     fun touchPublic() { touch() }
 
     fun init(ctx: Context) {
         if (this::db.isInitialized) return
+        draftPrefs = ctx.getSharedPreferences("draft", Context.MODE_PRIVATE)
+        draft = draftPrefs?.getString("draft", null)?.let {
+            runCatching { json.decodeFromString<Draft>(it) }.getOrNull()
+        }
         db = Db(ctx)
         val sRow = db.readableDatabase.rawQuery("SELECT v FROM settings WHERE k='settings'", null).use { c ->
             if (c.moveToFirst()) c.getString(0) else null

@@ -59,6 +59,7 @@ data class PrBest(
 )
 
 /** In-progress workout or routine being edited */
+@Serializable
 data class Draft(
     val mode: String,           // "workout" | "routine"
     val routineId: Long? = null,

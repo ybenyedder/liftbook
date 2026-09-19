@@ -65,9 +65,12 @@ import com.hevyclone.app.data.Repo
 fun ExercisesScreen() {
     var q by remember { mutableStateOf("") }
     var mus by remember { mutableStateOf("All") }
-    val filtered = EXERCISES
-        .filter { (mus == "All" || it.muscle == mus) && com.hevyclone.app.data.L10nData.matches(q, it.name) }
-        .sortedBy { exName(it.name) }
+    val filtered = remember(q, mus) {
+        EXERCISES
+            .filter { (mus == "All" || it.muscle == mus) && com.hevyclone.app.data.L10nData.matches(q, it.name) }
+            .sortedBy { exName(it.name) }
+    }
+    val grouped = remember(filtered) { filtered.groupBy { it.muscle } }
 
     Column(Modifier.fillMaxSize()) {
         Text("Exercises", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
@@ -99,22 +102,21 @@ fun ExercisesScreen() {
             }
         }
         LazyColumn(Modifier.fillMaxSize()) {
-            if (filtered.isEmpty()) item { EmptyState("No exercises found.") }
-            else items(filtered.size) { i ->
-                val e = filtered[i]
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { Nav.push(Screen.ExerciseDetail(e.name)) }
-                        .padding(horizontal = 16.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(exName(e.name), fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text("${muscleName(e.muscle)} · ${equipName(e.equip)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            if (filtered.isEmpty()) item { EmptyState(L10n.s("No exercises found.", "Aucun exercice trouvé.")) }
+            else if (q.isBlank() && mus == "All") {
+                grouped.forEach { (muscle, exs) ->
+                    item(key = "hdr-$muscle") {
+                        Text(
+                            muscleName(muscle).uppercase(),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp),
+                        )
                     }
-                    Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    items(exs.size, key = { exs[it].name }) { i -> ExerciseRow(exs[i]) }
                 }
+            } else {
+                items(filtered.size, key = { filtered[it].name }) { i -> ExerciseRow(filtered[i]) }
             }
             item { Spacer(Modifier.height(12.dp)) }
         }
@@ -423,5 +425,22 @@ private fun AnimatedDemo(muscle: String) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ExerciseRow(e: com.hevyclone.app.data.ExerciseDef) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable { Nav.push(Screen.ExerciseDetail(e.name)) }
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(exName(e.name), fontWeight = FontWeight.SemiBold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("${muscleName(e.muscle)} · ${equipName(e.equip)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+        }
+        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
     }
 }
