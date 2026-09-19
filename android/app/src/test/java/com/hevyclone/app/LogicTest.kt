@@ -138,4 +138,29 @@ class LogicTest {
         assertTrue(m("tirrage", "Lat Pulldown"))
         assertTrue(m("elevaion", "Lateral Raise"))
     }
+    @Test
+    fun `csv import parses export format with multiple exercises`() {
+        val csv = """
+            Date;Heure;Exercice;Serie;KG;Reps
+            5 janv. 2026;17:30;Développé Couché (Barre);1;80;8
+            5 janv. 2026;17:30;Développé Couché (Barre);2;80;8
+            5 janv. 2026;17:30;Squat Barre;1;100;5
+            7 janv. 2026;18:00;Tirage Vertical (Machine);1;60;10
+        """.trimIndent()
+        val ws = Calc.parseCsv(csv)
+        assertEquals(2, ws.size)
+        assertEquals(2, ws[0].exercises.size)
+        // French names remapped to canonical EN keys
+        assertEquals("Barbell Bench Press", ws[0].exercises[0].name)
+        assertEquals("Barbell Squat", ws[0].exercises[1].name)
+        assertEquals(2, ws[0].exercises[0].sets.size)
+        assertEquals(80.0, ws[0].exercises[0].sets[0].kg!!, 1e-9)
+        assertEquals(8, ws[0].exercises[0].sets[0].reps)
+        assertEquals("Lat Pulldown", ws[1].exercises[0].name)
+        // comma separator accepted too
+        val csv2 = "Date,Heure,Exercice,Serie,KG,Reps\n5 janv. 2026;17:30;Squat Barre;1;90;6"
+        val ws2 = Calc.parseCsv(csv2)
+        assertEquals(1, ws2.size)
+        assertEquals(90.0, ws2[0].exercises[0].sets[0].kg!!, 1e-9)
+    }
 }

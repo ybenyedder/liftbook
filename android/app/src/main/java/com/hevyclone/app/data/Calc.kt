@@ -190,6 +190,39 @@ object Calc {
         return cache
     }
 
+    // ---------- CSV import ----------
+    // Format (export): Date;Heure;Exercice;Serie;KG;Reps — ';' or ',' accepted.
+    fun parseCsv(content: String): List<Workout> {
+        data class Key(val date: String, val time: String)
+
+        val groups = LinkedHashMap<Key, LinkedHashMap<String, MutableList<Triple<Int, Double?, Int?>>>>()
+        content.lines().drop(1).filter { it.isNotBlank() }.forEach { line ->
+            val sep = if (line.contains(';')) ';' else ','
+            val parts = line.split(sep)
+            if (parts.size < 6) return@forEach
+            val date = parts[0].trim(); val time = parts[1].trim(); val exName = parts[2].trim()
+            val si = parts[3].trim().toIntOrNull() ?: return@forEach
+            val kg = parts[4].trim().replace(',', '.').toDoubleOrNull()
+            val reps = parts[5].trim().toIntOrNull()
+            groups.getOrPut(Key(date, time)) { LinkedHashMap() }
+                .getOrPut(exName) { mutableListOf() }
+                .add(Triple(si, kg, reps))
+        }
+        val fmt = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.FRANCE)
+        return groups.entries.sortedBy { it.key.date }.mapIndexed { i, (key, exMap) ->
+            val ms = runCatching {
+                java.time.LocalDate.parse(key.date, fmt).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }.getOrElse { System.currentTimeMillis() - (groups.size - i) * 36_00_000L }
+            val exercises = exMap.entries.map { (frName, sets) ->
+                val canonical = L10nData.NAME_FR.entries.firstOrNull { it.value == frName }?.key ?: frName
+                val muscle = EX[canonical]?.muscle ?: ""
+                ExEntry(canonical, muscle, "", false, null,
+                    sets.sortedBy { it.first }.map { SetEntry(it.second, it.third, done = true) }.toMutableList())
+            }.toMutableList()
+            Workout(10_000_000L + i, "Séance", ms, ms + 3_600_000, exercises)
+        }
+    }
+
     // ---------- deterministic demo seed ----------
 
     private class SeedRow(val name: String, val nSets: Int, val reps: Int, val base: Double, val inc: Double)

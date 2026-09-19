@@ -86,6 +86,38 @@ import com.hevyclone.app.data.Repo
 import com.hevyclone.app.data.SetEntry
 import kotlinx.coroutines.delay
 
+object WorkoutNotif {
+    private const val CHANNEL = "workout_chrono"
+    private const val NOTIF_ID = 4243
+
+    fun post(startedAt: Long) {
+        val ctx = RestTimer.appContext ?: return
+        runCatching {
+            val nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            nm.createNotificationChannel(
+                android.app.NotificationChannel(CHANNEL, "Chronomètre de séance", android.app.NotificationManager.IMPORTANCE_LOW)
+            )
+            val notif = android.app.Notification.Builder(ctx, CHANNEL)
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .setContentTitle(L10n.s("Workout in progress", "Séance en cours"))
+                .setUsesChronometer(true)
+                .setWhen(startedAt)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .build()
+            nm.notify(NOTIF_ID, notif)
+        }
+    }
+
+    fun cancel() {
+        val ctx = RestTimer.appContext ?: return
+        runCatching {
+            (ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
+                .cancel(NOTIF_ID)
+        }
+    }
+}
+
 object RestTimer {
     var endAt by mutableStateOf(0L)
     var appContext: android.content.Context? = null
@@ -178,6 +210,10 @@ fun LoggerScreen() {
         Repo.touchPublic()
     }
 
+    LaunchedEffect(isWorkout, draft.startedAt) {
+        if (isWorkout && draft.startedAt != null) WorkoutNotif.post(draft.startedAt!!)
+        else WorkoutNotif.cancel()
+    }
     LaunchedEffect(RestTimer.endAt) {
         if (RestTimer.endAt > 0) {
             delay(kotlin.math.max(0L, RestTimer.endAt - System.currentTimeMillis()) + 4000L)

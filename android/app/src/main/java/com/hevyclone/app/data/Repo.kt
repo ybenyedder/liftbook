@@ -204,6 +204,19 @@ object Repo {
     fun setRest(sec: Int) { settings.restSec = sec; persistSettings(); touch() }
     fun setTheme(t: String) { settings.theme = t; persistSettings(); touch() }
 
+    fun importCsv(content: String): Int {
+        val imported = Calc.parseCsv(content)
+        imported.forEach { w ->
+            workouts.add(w)
+            persistWorkout(w)
+        }
+        if (imported.isNotEmpty()) {
+            prCache = Calc.rebuildPrs(workouts)
+            touch()
+        }
+        return imported.size
+    }
+
     fun wipe() {
         workouts.clear(); routines.clear(); draft = null
         db.writableDatabase.delete("workouts", null, null)

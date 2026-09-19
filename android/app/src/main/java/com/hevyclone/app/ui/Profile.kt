@@ -122,6 +122,39 @@ fun ProfileScreen() {
                 )
             }
         }
+        item(key = "monthly-chart") {
+            val monthly = remember(rev) {
+                val cal = java.time.LocalDate.now().withDayOfMonth(1)
+                (5 downTo 0).map { back ->
+                    val m = cal.minusMonths(back.toLong())
+                    val start = m.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    val end = m.plusMonths(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    val label = m.format(java.time.format.DateTimeFormatter.ofPattern("MMM", java.util.Locale.FRANCE))
+                    label to Repo.workouts.filter { it.startedAt in start until end }.sumOf { Calc.vol(it) }
+                }
+            }
+            val maxV = (monthly.maxOfOrNull { it.second } ?: 1.0).coerceAtLeast(1.0)
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Row(Modifier.fillMaxWidth().height(90.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    monthly.forEach { (label, vol) ->
+                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = androidx.compose.ui.Alignment.BottomCenter) {
+                                val frac = ((vol / maxV).toFloat()).coerceIn(0f, 1f)
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height((frac * 76f).dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(MaterialTheme.colorScheme.primary)
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Text(label.take(3), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+        }
         item(key = "history-link") {
             Spacer(Modifier.height(14.dp))
             AppCard {
@@ -351,6 +384,22 @@ private fun SettingsSheet(onClose: () -> Unit) {
                 }
             }
             Text("DONNÉES", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp))
+            val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.GetContent()
+            ) { uri ->
+                if (uri != null) {
+                    runCatching {
+                        ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                    }.getOrNull()?.let { text ->
+                        val n = Repo.importCsv(text)
+                        toast(ctx, if (n > 0) L10n.s("%1\$d workouts imported", "%1\$d séances importées").format(n)
+                               else L10n.s("Nothing imported (check format)", "Rien d'importé (vérifie le format)"))
+                    }
+                }
+            }
+            TextButton(onClick = { filePicker.launch("text/*") }, modifier = Modifier.padding(start = 8.dp)) {
+                Text(L10n.s("Import workouts (CSV)", "Importer des séances (CSV)"), fontWeight = FontWeight.SemiBold)
+            }
             TextButton(onClick = { exportCsv(ctx) }, modifier = Modifier.padding(start = 8.dp)) {
                 Text(L10n.s("Export workouts (CSV)", "Exporter les séances (CSV)"), fontWeight = FontWeight.SemiBold)
             }

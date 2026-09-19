@@ -93,6 +93,10 @@ fun App(refreshKey: Int = 0) {
         },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding()).statusBarsPadding()) {
+            androidx.compose.runtime.LaunchedEffect(Nav.current) {
+                val d = com.hevyclone.app.data.Repo.draft
+                if (Nav.current != Screen.Logger && (d == null || d.startedAt == null)) WorkoutNotif.cancel()
+            }
             androidx.compose.animation.Crossfade(
                 targetState = Nav.current,
                 animationSpec = androidx.compose.animation.core.tween(180),
