@@ -1,0 +1,213 @@
+package com.hevyclone.app.data
+
+import android.content.ContentValues
+import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.serialization.json.Json
+
+/** SQLite persistence. Workouts/routines are stored as JSON blobs (single source of truth = in-memory lists). */
+class Db(ctx: Context) : SQLiteOpenHelper(ctx, "hevy.db", null, 1) {
+    override fun onCreate(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE workouts(id INTEGER PRIMARY KEY AUTOINCREMENT, startedAt INTEGER NOT NULL, endedAt INTEGER NOT NULL, name TEXT NOT NULL, json TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE routines(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, json TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE settings(k TEXT PRIMARY KEY, v TEXT NOT NULL)")
+    }
+    override fun onUpgrade(db: SQLiteDatabase, oldV: Int, newV: Int) {}
+}
+
+/** In-memory repository with write-through persistence; `rev` bumps trigger Compose recomposition. */
+object Repo {
+    private lateinit var db: Db
+    private val json = Json { ignoreUnknownKeys = true }
+
+    val workouts = mutableListOf<Workout>()     // sorted by startedAt ASC
+    val routines = mutableListOf<Routine>()
+    var settings = Settings()
+    var draft: Draft? = null
+    var prCache: Map<String, PrBest> = emptyMap()
+    var rev by mutableStateOf(0)
+
+    private fun touch() { rev++ }
+    fun touchPublic() { touch() }
+
+    fun init(ctx: Context) {
+        if (this::db.isInitialized) return
+        db = Db(ctx)
+        val sRow = db.readableDatabase.rawQuery("SELECT v FROM settings WHERE k='settings'", null).use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+        settings = sRow?.let { runCatching { json.decodeFromString<Settings>(it) }.getOrNull() } ?: Settings()
+        db.readableDatabase.rawQuery("SELECT json FROM workouts ORDER BY startedAt ASC", null).use { c ->
+            while (c.moveToNext()) runCatching { json.decodeFromString<Workout>(c.getString(0)) }.getOrNull()?.let { workouts.add(it) }
+        }
+        db.readableDatabase.rawQuery("SELECT json FROM routines ORDER BY id ASC", null).use { c ->
+            while (c.moveToNext()) runCatching { json.decodeFromString<Routine>(c.getString(0)) }.getOrNull()?.let { routines.add(it) }
+        }
+        if (workouts.isEmpty() && routines.isEmpty()) {
+            val since = System.currentTimeMillis() - 84L * 86400000L
+            settings.since = since
+            val (ws, rs) = Calc.seed(System.currentTimeMillis())
+            workouts.addAll(ws); routines.addAll(rs)
+            ws.forEach { persistWorkout(it) }
+            rs.forEach { persistRoutine(it) }
+            persistSettings()
+        }
+        prCache = Calc.rebuildPrs(workouts)
+        persistSettings()
+        touch()
+    }
+
+    private fun persistWorkout(w: Workout) {
+        val cv = ContentValues().apply {
+            put("id", w.id); put("startedAt", w.startedAt); put("endedAt", w.endedAt)
+            put("name", w.name); put("json", json.encodeToString(Workout.serializer(), w))
+        }
+        db.writableDatabase.insertWithOnConflict("workouts", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    private fun persistRoutine(r: Routine) {
+        val cv = ContentValues().apply {
+            put("id", r.id); put("name", r.name); put("json", json.encodeToString(Routine.serializer(), r))
+        }
+        db.writableDatabase.insertWithOnConflict("routines", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    private fun persistSettings() {
+        val cv = ContentValues().apply { put("k", "settings"); put("v", json.encodeToString(Settings.serializer(), settings)) }
+        db.writableDatabase.insertWithOnConflict("settings", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    fun nextWorkoutId(): Long = (workouts.maxOfOrNull { it.id } ?: 0L) + 1
+    fun nextRoutineId(): Long = (routines.maxOfOrNull { it.id } ?: 0L) + 1
+
+    fun workoutById(id: Long): Workout? = workouts.firstOrNull { it.id == id }
+    fun routineById(id: Long): Routine? = routines.firstOrNull { it.id == id }
+    fun workoutsDesc(): List<Workout> = workouts.sortedByDescending { it.startedAt }
+
+    // ---------- draft lifecycle ----------
+
+    fun startWorkout(routineId: Long?) {
+        val r = routineId?.let { routineById(it) }
+        val exs = r?.exercises?.map { ex ->
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.sets.map { SetEntry(it.kg, it.reps, done = false) }.toMutableList())
+        }?.toMutableList() ?: mutableListOf()
+        draft = Draft("workout", routineId, r?.name ?: "Workout", System.currentTimeMillis(), exs)
+        touch()
+    }
+
+    fun startRoutine(routineId: Long?) {
+        val r = routineId?.let { routineById(it) }
+        val exs = r?.exercises?.map { ex ->
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+        }?.toMutableList() ?: mutableListOf()
+        draft = Draft("routine", routineId, r?.name ?: "New Routine", null, exs)
+        touch()
+    }
+
+    fun addExToDraft(name: String) {
+        val d = draft ?: return
+        d.exercises.add(ExEntry(name, EX[name]?.muscle ?: "", "", mutableListOf(SetEntry(null, null, done = false))))
+        touch()
+    }
+
+    fun saveRoutine(name: String): Routine? {
+        val d = draft ?: return null
+        if (d.exercises.isEmpty()) return null
+        val r: Routine = if (d.routineId != null) {
+            val existing = routineById(d.routineId!!) ?: return null
+            existing.name = name
+            existing.exercises = d.exercises
+            existing
+        } else {
+            Routine(nextRoutineId(), name, d.exercises).also { routines.add(it) }
+        }
+        persistRoutine(r)
+        draft = null
+        touch()
+        return r
+    }
+
+    fun finishWorkout(name: String): Workout? {
+        val d = draft ?: return null
+        val now = System.currentTimeMillis()
+        val w = Workout(
+            id = nextWorkoutId(),
+            name = name.trim().ifEmpty { "Workout" },
+            startedAt = d.startedAt ?: now - 3600000,
+            endedAt = now,
+            exercises = d.exercises,
+        )
+        workouts.add(w)
+        prCache = Calc.rebuildPrs(workouts)
+        persistWorkout(w)
+        draft = null
+        touch()
+        return w
+    }
+
+    fun discardDraft() { draft = null; touch() }
+
+    fun deleteWorkout(id: Long) {
+        workouts.removeAll { it.id == id }
+        db.writableDatabase.delete("workouts", "id=?", arrayOf(id.toString()))
+        prCache = Calc.rebuildPrs(workouts)
+        touch()
+    }
+
+    fun deleteRoutine(id: Long) {
+        routines.removeAll { it.id == id }
+        db.writableDatabase.delete("routines", "id=?", arrayOf(id.toString()))
+        touch()
+    }
+
+    // ---------- settings ----------
+
+    fun setUnit(u: String) { settings.unit = u; persistSettings(); touch() }
+    fun setRest(sec: Int) { settings.restSec = sec; persistSettings(); touch() }
+    fun setTheme(t: String) { settings.theme = t; persistSettings(); touch() }
+
+    fun reseed() {
+        workouts.clear(); routines.clear(); draft = null
+        db.writableDatabase.delete("workouts", null, null)
+        db.writableDatabase.delete("routines", null, null)
+        val (ws, rs) = Calc.seed(System.currentTimeMillis())
+        workouts.addAll(ws); routines.addAll(rs)
+        ws.forEach { persistWorkout(it) }
+        rs.forEach { persistRoutine(it) }
+        prCache = Calc.rebuildPrs(workouts)
+        touch()
+    }
+
+    fun wipe() {
+        workouts.clear(); routines.clear(); draft = null
+        db.writableDatabase.delete("workouts", null, null)
+        db.writableDatabase.delete("routines", null, null)
+        prCache = emptyMap()
+        touch()
+    }
+
+    // ---------- queries ----------
+
+    fun prFor(name: String): PrBest? = prCache[name]
+
+    fun e1rmSeries(name: String): List<Pair<String, Double>> = Calc.e1rmSeries(name, workouts)
+
+    /** Previous performance of an exercise: per set index, "82.5 × 8" in display units. */
+    fun prevFor(name: String): List<String>? {
+        for (w in workoutsDesc()) {
+            val ex = w.exercises.firstOrNull { e -> e.name == name && e.sets.any { it.kg != null || it.reps != null } }
+            if (ex != null) return ex.sets.map { s ->
+                if (s.kg == null && s.reps == null) "—"
+                else "${Calc.fmtKg(s.kg, settings.unit)} × ${s.reps ?: "—"}"
+            }
+        }
+        return null
+    }
+
+    fun routineLastPerformed(r: Routine): Long? =
+        workoutsDesc().firstOrNull { w -> w.name == r.name && w.exercises.any { e -> r.exercises.any { it.name == e.name } } }?.startedAt
+}
