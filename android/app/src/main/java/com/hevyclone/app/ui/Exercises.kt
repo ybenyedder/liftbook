@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
@@ -30,12 +31,15 @@ import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
@@ -122,7 +127,7 @@ fun ExerciseDetailScreen(name: String) {
     val unit = Repo.settings.unit
     val pr = Repo.prFor(name)
     val series = Repo.e1rmSeries(name)
-    val cues = CUES[com.hevyclone.app.data.EX[name]?.muscle] ?: emptyList()
+    val cues = com.hevyclone.app.data.L10nData.cues(com.hevyclone.app.data.EX[name]?.muscle ?: "")
     val equip = com.hevyclone.app.data.EX[name]?.equip ?: ""
     val muscle = com.hevyclone.app.data.EX[name]?.muscle ?: ""
 
@@ -138,6 +143,7 @@ fun ExerciseDetailScreen(name: String) {
                     MuscleTag(equipName(equip))
                 }
             }
+            item { AnimatedDemo(muscle) }
             if (Repo.draft?.mode == "workout") item {
                 PrimaryButton(
                     "Add to Current Workout",
@@ -236,6 +242,54 @@ fun ExerciseDetailScreen(name: String) {
                 }
             }
             item { Spacer(Modifier.height(16.dp)) }
+        }
+    }
+}
+
+/** Animated instruction demo: pulsing target muscle on the pictogram (play/pause). */
+@Composable
+private fun AnimatedDemo(muscle: String) {
+    var playing by remember { mutableStateOf(true) }
+    val ctx = LocalContext.current
+    val avd = remember(muscle) {
+        ctx.getDrawable(illAnimRes(muscle)) as? android.graphics.drawable.AnimatedVectorDrawable
+    }
+    LaunchedEffect(avd, playing) {
+        if (playing) avd?.start() else avd?.stop()
+    }
+    androidx.compose.runtime.DisposableEffect(avd) {
+        onDispose { avd?.stop() }
+    }
+    AppCard {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(androidx.compose.ui.graphics.Color.Black),
+            contentAlignment = Alignment.Center,
+        ) {
+            androidx.compose.ui.viewinterop.AndroidView(
+                factory = { viewCtx ->
+                    android.widget.ImageView(viewCtx).apply { setImageDrawable(avd) }
+                },
+                update = { iv -> if (iv.drawable !== avd) iv.setImageDrawable(avd) },
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+            )
+            IconButton(
+                onClick = { playing = !playing },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(10.dp)
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Icon(
+                    if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    null,
+                    tint = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
         }
     }
 }
