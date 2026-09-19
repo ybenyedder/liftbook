@@ -104,6 +104,24 @@ fun ProfileScreen() {
                 modifier = Modifier.padding(start = 16.dp, top = 6.dp),
             )
         }
+        item(key = "month-stats") {
+            val monthStart = remember {
+                val d = LocalDate.now().withDayOfMonth(1)
+                d.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }
+            val month = remember(rev) { Repo.workouts.filter { it.startedAt >= monthStart } }
+            if (month.isNotEmpty()) {
+                val mVol = month.sumOf { Calc.vol(it) }
+                val mPrs = month.sumOf { it.prs.size }
+                Text(
+                    L10n.s("This month", "Ce mois-ci") + " : ${month.size} " +
+                        L10n.s("workouts", "séances") + " · ${Calc.fmtVol(mVol, unit)} kg · ${mPrs} " +
+                        L10n.s("PRs", "records"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                    modifier = Modifier.padding(start = 16.dp, top = 10.dp),
+                )
+            }
+        }
         item(key = "history-link") {
             Spacer(Modifier.height(14.dp))
             AppCard {

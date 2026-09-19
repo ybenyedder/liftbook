@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -326,6 +327,19 @@ fun WorkoutDetailScreen(id: Long) {
             Box {
                 IconButton(onClick = { detailMenu = true }) { Icon(Icons.Rounded.MoreHoriz, null) }
                 androidx.compose.material3.DropdownMenu(expanded = detailMenu, onDismissRequest = { detailMenu = false }) {
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(L10n.s("Repeat this workout", "Refaire cette séance")) },
+                        leadingIcon = { Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(16.dp)) },
+                        onClick = {
+                            detailMenu = false
+                            if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")) }
+                            else {
+                                Repo.startRepeat(w.id)
+                                Nav.toTab(Screen.TrainingTab)
+                                Nav.push(Screen.Logger)
+                            }
+                        },
+                    )
                     androidx.compose.material3.DropdownMenuItem(
                         text = { Text(L10n.s("Share workout", "Partager la séance")) },
                         leadingIcon = { Icon(Icons.Rounded.IosShare, null, modifier = Modifier.size(16.dp)) },

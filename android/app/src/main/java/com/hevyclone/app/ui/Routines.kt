@@ -112,7 +112,7 @@ fun TrainingScreen() {
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
                     .clickable {
                         if (Repo.draft != null) { Nav.push(Screen.Logger); return@clickable }
-                        Repo.startRepeatLast()
+                        Repo.startRepeat()
                         Nav.push(Screen.Logger)
                     }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -398,8 +398,9 @@ fun RoutineDetailScreen(id: Long) {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
                         Spacer(Modifier.width(8.dp))
-                        val m = Repo.settings.restSec / 60
-                        val s = Repo.settings.restSec % 60
+                        val effective = ex.restSec ?: Repo.settings.restSec
+                        val m = effective / 60
+                        val s = effective % 60
                         Text(
                             L10n.s("Rest Timer: %1\$s", "Minuteur de Repos: %1\$s").format("${if (m > 0) "${m}min " else ""}${s}s"),
                             color = MaterialTheme.colorScheme.primary, fontSize = 14.5.sp, fontWeight = FontWeight.Medium,

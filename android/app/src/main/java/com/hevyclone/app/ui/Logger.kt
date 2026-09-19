@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -440,6 +441,7 @@ private fun ExCard(
 ) {
     var showNotes by remember { mutableStateOf(ex.notes.isNotEmpty()) }
     var menuOpen by remember { mutableStateOf(false) }
+    var showRestDialog by remember { mutableStateOf(false) }
     val view = androidx.compose.ui.platform.LocalView.current
     val isLast = Repo.draft?.exercises?.indexOfLast { it === ex }?.let { it >= (Repo.draft?.exercises?.size ?: 0) - 1 } ?: true
     var cardHeight by remember { mutableStateOf(1f) }
@@ -504,12 +506,22 @@ private fun ExCard(
                                 menuOpen = false
                                 Repo.draft?.exercises?.let { list ->
                                     if (ei < list.size) {
-                                        val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+                                        val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
                                         list.add(ei + 1, copy)
                                     }
                                 }
                                 Repo.touchPublic()
                             },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    L10n.s("Rest timer", "Minuteur de repos") +
+                                        (ex.restSec?.let { " : ${it}s" } ?: "")
+                                )
+                            },
+                            leadingIcon = { Icon(Icons.Rounded.Timer, null, modifier = Modifier.size(16.dp)) },
+                            onClick = { menuOpen = false; showRestDialog = true },
                         )
                         if (!isLast) {
                             DropdownMenuItem(
@@ -557,7 +569,7 @@ private fun ExCard(
             }
             val prev = if (isWorkout) Repo.prevFor(ex.name) else null
             ex.sets.forEachIndexed { si, s ->
-                SetRow(s, si, ei, isWorkout, unit, if (isWorkout) prev?.getOrNull(si) else null)
+                SetRow(s, si, ei, isWorkout, unit, if (isWorkout) prev?.getOrNull(si) else null, ex.restSec)
             }
             // add set
             Text(
@@ -585,6 +597,34 @@ private fun ExCard(
                         Box(Modifier.size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
                     }
                 }
+            }
+            if (showRestDialog) {
+                var restText by remember { mutableStateOf(ex.restSec?.toString() ?: "") }
+                AlertDialog(
+                    onDismissRequest = { showRestDialog = false },
+                    title = { Text(L10n.s("Rest timer (seconds)", "Minuteur de repos (secondes)"), fontWeight = FontWeight.Bold) },
+                    text = {
+                        androidx.compose.material3.OutlinedTextField(
+                            value = restText,
+                            onValueChange = { restText = it.filter { c -> c.isDigit() }.take(3) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            ex.restSec = restText.toIntOrNull()?.takeIf { it in 5..600 }
+                            Repo.touchPublic()
+                            showRestDialog = false
+                        }) { Text(L10n.s("Save", "Enregistrer")) }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = {
+                            ex.restSec = null
+                            showRestDialog = false
+                        }) { Text(L10n.s("Reset", "Réinitialiser")) }
+                    },
+                )
             }
             if (showNotes) {
                 var exNotes by remember { mutableStateOf(ex.notes) }
@@ -615,7 +655,7 @@ private fun ExCard(
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: String, prevText: String?) {
+private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: String, prevText: String?, restOverride: Int? = null) {
     var menuOpen by remember { mutableStateOf(false) }
     val rowView = androidx.compose.ui.platform.LocalView.current
     Row(
@@ -693,7 +733,7 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
                     .clickable {
                         s.done = !s.done
                         rowView.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
-                        if (s.done) RestTimer.start(Repo.settings.restSec)
+                        if (s.done) RestTimer.start(restOverride ?: Repo.settings.restSec)
                     },
             ) {
                 if (s.done) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))

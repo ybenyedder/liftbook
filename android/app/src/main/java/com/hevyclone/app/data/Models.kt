@@ -17,6 +17,7 @@ data class ExEntry(
     var muscle: String,
     var notes: String = "",
     var superset: Boolean = false,
+    var restSec: Int? = null,
     var sets: MutableList<SetEntry> = mutableListOf(),
 )
 
