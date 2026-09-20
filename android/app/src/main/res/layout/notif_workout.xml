@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- "Séance en cours" notification (Hevy style): true black + running chronometer. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/workout_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#FF000000"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/workout_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SÉANCE EN COURS"
+        android:textColor="#FF8D9399"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <Chronometer
+        android:id="@+id/workout_chrono"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:textColor="#FFFFFFFF"
+        android:textSize="30sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

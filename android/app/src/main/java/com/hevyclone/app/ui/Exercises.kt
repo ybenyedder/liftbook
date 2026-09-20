@@ -1,10 +1,16 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.hevyclone.app.ui
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -113,10 +120,14 @@ fun ExercisesScreen() {
                             modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 6.dp),
                         )
                     }
-                    items(exs.size, key = { exs[it].name }) { i -> ExerciseRow(exs[i]) }
+                    items(exs.size, key = { exs[it].name }) { i ->
+                        Box(Modifier.animateItemPlacement()) { ExerciseRow(exs[i]) }
+                    }
                 }
             } else {
-                items(filtered.size, key = { filtered[it].name }) { i -> ExerciseRow(filtered[i]) }
+                items(filtered.size, key = { filtered[it].name }) { i ->
+                    Box(Modifier.animateItemPlacement()) { ExerciseRow(filtered[i]) }
+                }
             }
             item { Spacer(Modifier.height(12.dp)) }
         }
@@ -144,34 +155,44 @@ fun ExerciseDetailScreen(name: String) {
                 modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
         }
-        // tab row with underline
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            listOf(
-                L10n.s("Summary", "Résumé"),
-                L10n.s("History", "Historique"),
-                L10n.s("Instructions", "Instructions"),
-            ).forEachIndexed { i, label ->
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .clickable { tab = i }
-                        .padding(vertical = 10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        label,
-                        color = if (tab == i) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = if (tab == i) FontWeight.Bold else FontWeight.Medium,
-                        fontSize = 14.sp,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(2.dp)
-                            .background(if (tab == i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
-                    )
+        // tab row with animated underline
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            val tabWidth = maxWidth / 3
+            Column {
+                Row(Modifier.fillMaxWidth()) {
+                    listOf(
+                        L10n.s("Summary", "Résumé"),
+                        L10n.s("History", "Historique"),
+                        L10n.s("Instructions", "Instructions"),
+                    ).forEachIndexed { i, label ->
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .clickable { tab = i }
+                                .padding(vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            Text(
+                                label,
+                                color = if (tab == i) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = if (tab == i) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 14.sp,
+                            )
+                        }
+                    }
                 }
+                val underline by animateDpAsState(
+                    targetValue = tabWidth * tab,
+                    animationSpec = tween(250, easing = FastOutSlowInEasing),
+                    label = "tabUnderline",
+                )
+                Box(
+                    Modifier
+                        .offset(x = underline)
+                        .width(tabWidth)
+                        .height(2.dp)
+                        .background(MaterialTheme.colorScheme.primary)
+                )
             }
         }
         LazyColumn(Modifier.fillMaxSize()) {

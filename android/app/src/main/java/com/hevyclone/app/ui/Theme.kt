@@ -23,7 +23,7 @@ val Inter = FontFamily(
 
 /** Palette sampled from the user's own Hevy screenshots (dark, blue accent). */
 object C {
-    val Bg = Color(0xFF111113)
+    val Bg = Color(0xFF000000)
     val Card = Color(0xFF1C1C1E)
     val Card2 = Color(0xFF2A2A2D)
     val Line = Color(0xFF2C2C2F)

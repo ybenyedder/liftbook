@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.hevyclone.app.ui
 
 import androidx.compose.foundation.background
@@ -182,9 +184,8 @@ fun TrainingScreen() {
         LazyColumn(Modifier.fillMaxSize()) {
             if (expanded) {
                 if (routines.isEmpty()) item { EmptyState(L10n.s("No routines yet.\nTap “New routine” to create one.", "Aucune routine.\nTouche « Nouvelle routine » pour en créer une.")) }
-                else items(sortedRoutines.size) { i ->
-                    val r = sortedRoutines[i]
-                    RoutineCard(r)
+                else items(sortedRoutines.size, key = { sortedRoutines[it].id }) { i ->
+                    Box(Modifier.animateItemPlacement()) { RoutineCard(sortedRoutines[i]) }
                 }
             }
             item { Spacer(Modifier.height(20.dp)) }

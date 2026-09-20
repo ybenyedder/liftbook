@@ -2,11 +2,11 @@
 
 Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (**609 exercices traduits** — 16 groupes dont Cardio —, noms alignés sur Hevy : « Tirage Poitrine », « Rowing », « Développé »…) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
 
-**Dernière version : v1.23** — https://github.com/ybenyedder/hevy-clone/releases
+**Dernière version : v1.24** — https://github.com/ybenyedder/hevy-clone/releases
 
 ## Installation
 
-Télécharge `hevy-clone-v1.23-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
+Télécharge `hevy-clone-v1.24-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
 
 ## Fonctions (toutes vérifiées par capture sur émulateur fr-FR ou par test unitaire)
 
@@ -24,7 +24,7 @@ Télécharge `hevy-clone-v1.23-release.apk` depuis la page Releases et installe-
 
 ### Entraînement
 - Supersets (menu ⋯, rail bleu + label), **drag-and-drop** des exercices (appui long)
-- Minuteurs : repos global, **par exercice**, notification système (chronomètre inversé), **persistant au redémarrage** ; chronomètre de séance en notification permanente
+- Minuteurs : repos global, **par exercice**, **notification système façon Hevy : fond vrai noir, barre de progression, boutons − 15s / + 15s / Passer directement dans la notification** (service foreground, persistant au redémarrage) ; chronomètre de séance en notification noire permanente
 - Brouillon de séance **persistant** (survit à la fermeture/kill de l'app) ; reprise de la dernière séance ou **de n'importe quelle séance passée** (menu ⋯ du détail)
 - Notes de séance et notes d'exercice (dialogues), états PR (Epley) avec badges WEIGHT/1RM PR
 

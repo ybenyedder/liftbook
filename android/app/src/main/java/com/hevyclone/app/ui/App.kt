@@ -1,11 +1,22 @@
 package com.hevyclone.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Home
@@ -17,13 +28,22 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import com.hevyclone.app.data.Repo
+import com.hevyclone.app.data.Workout
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 sealed interface Screen {
     data object HomeTab : Screen
@@ -46,6 +66,12 @@ object Nav {
     fun pop() { if (stack.size > 1) stack.removeAt(stack.size - 1) }
     fun toTab(s: Screen) { stack.clear(); stack.add(s) }
     val atTab: Boolean get() = stack.size == 1
+}
+
+/** Global 5-second undo for a deleted workout — survives navigation. */
+object DeletedUndo {
+    var workout by mutableStateOf<Workout?>(null)
+    fun set(w: Workout?) { workout = w }
 }
 
 private data class TabDef(val screen: Screen, val label: String, val icon: ImageVector)
@@ -112,6 +138,48 @@ fun App(refreshKey: Int = 0) {
                     Screen.History -> HistoryScreen()
                     Screen.Exercises -> ExercisesScreen()
                     Screen.Logger -> LoggerScreen()
+                }
+            }
+            // Global undo bar for a deleted workout — hosted in App so it survives navigation.
+            AnimatedVisibility(
+                visible = DeletedUndo.workout != null,
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut(),
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
+                DeletedUndo.workout?.let { victim ->
+                    LaunchedEffect(victim.id) {
+                        delay(5000)
+                        DeletedUndo.set(null)
+                    }
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .navigationBarsPadding()
+                            .padding(bottom = 12.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            L10n.s("Workout deleted", "Séance supprimée"),
+                            color = MaterialTheme.colorScheme.onBackground,
+                            fontSize = 14.sp,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            L10n.s("UNDO", "ANNULER"),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable {
+                                Repo.restoreWorkout(victim)
+                                DeletedUndo.set(null)
+                            },
+                        )
+                    }
                 }
             }
         }

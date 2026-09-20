@@ -8,7 +8,16 @@ import androidx.compose.material.icons.rounded.Link
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.layout.onGloballyPositioned
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +87,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hevyclone.app.MainActivity
+import com.hevyclone.app.R
+import com.hevyclone.app.RestNotifService
 import com.hevyclone.app.data.Calc
 import com.hevyclone.app.data.ExEntry
 import com.hevyclone.app.data.MUSCLES
@@ -97,13 +109,22 @@ object WorkoutNotif {
             nm.createNotificationChannel(
                 android.app.NotificationChannel(CHANNEL, "Chronomètre de séance", android.app.NotificationManager.IMPORTANCE_LOW)
             )
+            // Hevy-style true-black custom layout with a self-ticking chronometer.
+            val rv = android.widget.RemoteViews(ctx.packageName, R.layout.notif_workout)
+            rv.setChronometer(R.id.workout_chrono, startedAt, null, true)
+            val content = android.app.PendingIntent.getActivity(
+                ctx, 0,
+                android.content.Intent(ctx, MainActivity::class.java),
+                android.app.PendingIntent.FLAG_IMMUTABLE,
+            )
             val notif = android.app.Notification.Builder(ctx, CHANNEL)
                 .setSmallIcon(android.R.drawable.ic_media_play)
-                .setContentTitle(L10n.s("Workout in progress", "Séance en cours"))
-                .setUsesChronometer(true)
-                .setWhen(startedAt)
+                .setColor(android.graphics.Color.BLACK)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
+                .setContentIntent(content)
+                .setCustomContentView(rv)
+                .setCustomBigContentView(rv)
                 .build()
             nm.notify(NOTIF_ID, notif)
         }
@@ -121,68 +142,89 @@ object WorkoutNotif {
 object RestTimer {
     var endAt by mutableStateOf(0L)
     var appContext: android.content.Context? = null
-    private const val CHANNEL = "rest_timer"
-    private const val NOTIF_ID = 4242
     private const val PREFS = "rest_timer"
+
+    private fun prefs(ctx: android.content.Context) =
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
 
     /** Restore a running timer after process death. Call once at app start. */
     fun restore(ctx: android.content.Context) {
         appContext = ctx
-        val saved = ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getLong("endAt", 0L)
+        val p = prefs(ctx)
+        val saved = p.getLong("endAt", 0L)
         if (saved > System.currentTimeMillis()) {
             endAt = saved
-            postNotification()
+            val total = p.getInt("total", 0).takeIf { it > 0 }
+                ?: ((saved - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(1)
+            startService(ctx, total)
         } else if (saved > 0) {
-            ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().remove("endAt").apply()
+            p.edit().remove("endAt").remove("total").apply()
         }
-    }
-
-    private fun persist() {
-        appContext?.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)?.edit()
-            ?.putLong("endAt", if (endAt > 0) endAt else 0L)?.apply()
     }
 
     fun start(sec: Int) {
         endAt = System.currentTimeMillis() + sec * 1000L
-        persist()
-        postNotification()
+        appContext?.let {
+            prefs(it).edit().putLong("endAt", endAt).putInt("total", sec).apply()
+            startService(it, sec)
+        }
+    }
+
+    private fun startService(ctx: android.content.Context, totalSec: Int) {
+        androidx.core.content.ContextCompat.startForegroundService(
+            ctx,
+            android.content.Intent(ctx, RestNotifService::class.java)
+                .setAction(RestNotifService.ACTION_START)
+                .putExtra(RestNotifService.EXTRA_TOTAL, totalSec),
+        )
+    }
+
+    /** +15s from the notification button. */
+    fun plus15() {
+        if (endAt > 0) { endAt += 15_000L; persistEnd() }
+    }
+
+    /** −15s from the notification button (never below 0.5 s left). */
+    fun minus15() {
+        if (endAt > 0) {
+            endAt = maxOf(System.currentTimeMillis() + 500L, endAt - 15_000L)
+            persistEnd()
+        }
+    }
+
+    /** Jump straight to the finished state ("Passer"). */
+    fun skip() {
+        if (endAt > 0) { endAt = System.currentTimeMillis(); persistEnd() }
+    }
+
+    private fun persistEnd() {
+        appContext?.let { prefs(it).edit().putLong("endAt", if (endAt > 0) endAt else 0L).apply() }
     }
 
     fun clear() {
         endAt = 0
-        persist()
-        appContext?.let {
+        appContext?.let { ctx ->
+            prefs(ctx).edit().remove("endAt").remove("total").apply()
             runCatching {
-                (it.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
-                    .cancel(NOTIF_ID)
+                ctx.stopService(android.content.Intent(ctx, RestNotifService::class.java))
+                (ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
+                    .cancel(RestNotifService.NOTIF_ID)
             }
         }
     }
 
-    private fun postNotification() {
-        val ctx = appContext ?: run { android.util.Log.w("RestTimer", "no context"); return }
-        runCatching {
-            val nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            nm.createNotificationChannel(
-                android.app.NotificationChannel(CHANNEL, "Minuteur de repos", android.app.NotificationManager.IMPORTANCE_LOW)
-            )
-            val end = endAt
-            val notif = android.app.Notification.Builder(ctx, CHANNEL)
-                .setSmallIcon(android.R.drawable.ic_popup_reminder)
-                .setContentTitle("Repos")
-                .setContentText("Repos en cours")
-                .setUsesChronometer(true)
-                .setChronometerCountDown(true)
-                .setWhen(end)
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .build()
-            nm.notify(NOTIF_ID, notif)
-        }.onFailure { android.util.Log.e("RestTimer", "notif failed", it) }
+    /**
+     * Called by RestNotifService once the finished state has been shown long enough:
+     * resets the global state + prefs, but never starts nor stops the service itself
+     * (the caller manages its own shutdown).
+     */
+    fun onFinishedByService() {
+        endAt = 0
+        appContext?.let { prefs(it).edit().remove("endAt").remove("total").apply() }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun LoggerScreen() {
     val rev = Repo.rev
@@ -213,12 +255,6 @@ fun LoggerScreen() {
     LaunchedEffect(isWorkout, draft.startedAt) {
         if (isWorkout && draft.startedAt != null) WorkoutNotif.post(draft.startedAt!!)
         else WorkoutNotif.cancel()
-    }
-    LaunchedEffect(RestTimer.endAt) {
-        if (RestTimer.endAt > 0) {
-            delay(kotlin.math.max(0L, RestTimer.endAt - System.currentTimeMillis()) + 4000L)
-            if (RestTimer.endAt > 0 && System.currentTimeMillis() >= RestTimer.endAt + 3950) RestTimer.clear()
-        }
     }
 
     fun hasData(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.kg != null || it.reps != null } }
@@ -365,7 +401,9 @@ fun LoggerScreen() {
                 }
             }
             items(draft.exercises.size, key = { "${draft.exercises[it].name}-$it" }) { ei ->
-                ExCard(draft.exercises[ei], ei, isWorkout, unit, dragIndex == ei, ::moveExercise)
+                Box(Modifier.animateItemPlacement()) {
+                    ExCard(draft.exercises[ei], ei, isWorkout, unit, dragIndex == ei, ::moveExercise)
+                }
             }
             item(key = "addEx") {
                 // Hevy-style full-width add button under the cards
@@ -397,9 +435,15 @@ fun LoggerScreen() {
                 .navigationBarsPadding()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
         ) {
-            if (RestTimer.endAt > 0) {
-                RestBar()
-                Spacer(Modifier.height(10.dp))
+            AnimatedVisibility(
+                visible = RestTimer.endAt > 0,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut(),
+            ) {
+                Column {
+                    RestBar()
+                    Spacer(Modifier.height(10.dp))
+                }
             }
         }
     }
@@ -558,7 +602,7 @@ private fun ExCard(
             )
         }
     ) {
-        Column(Modifier.padding(vertical = 8.dp)) {
+        Column(Modifier.padding(vertical = 8.dp).animateContentSize()) {
             Row(
                 Modifier
                     .fillMaxWidth()
@@ -831,12 +875,21 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
         Spacer(Modifier.width(5.dp))
         if (isWorkout) {
             // dedicated completion check — toggles done + starts rest timer
+            val checkBg by animateColorAsState(
+                if (s.done) MaterialTheme.colorScheme.primary else Color.Transparent,
+                label = "checkBg",
+            )
+            val checkScale by animateFloatAsState(
+                if (s.done) 1f else 0f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                label = "checkScale",
+            )
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(30.dp)
                     .clip(CircleShape)
-                    .background(if (s.done) MaterialTheme.colorScheme.primary else Color.Transparent)
+                    .background(checkBg)
                     .border(
                         1.5.dp,
                         if (s.done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
@@ -848,7 +901,13 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
                         if (s.done) RestTimer.start(restOverride ?: Repo.settings.restSec)
                     },
             ) {
-                if (s.done) Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(15.dp))
+                Icon(
+                    Icons.Rounded.Check, null,
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier
+                        .size(15.dp)
+                        .graphicsLayer { scaleX = checkScale; scaleY = checkScale; alpha = checkScale },
+                )
             }
         } else {
             // routine editor: direct delete button

@@ -38,7 +38,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,7 +52,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hevyclone.app.data.Calc
 import com.hevyclone.app.data.Repo
-import kotlinx.coroutines.delay
 import com.hevyclone.app.data.Workout
 import java.time.LocalDate
 import java.time.YearMonth
@@ -318,9 +316,10 @@ fun HistoryRow(w: Workout, onClick: () -> Unit) {
 fun WorkoutDetailScreen(id: Long) {
     val rev = Repo.rev
     val w = Repo.workoutById(id)
-    if (w == null) { Nav.pop(); return }
+    // null after a delete: the delete flow already popped this screen — popping again
+    // during the crossfade-out would eject the underlying screen too.
+    if (w == null) return
     var confirmDelete by remember { mutableStateOf(false) }
-    var deleted by remember { mutableStateOf<Workout?>(null) }
     val ctx = androidx.compose.ui.platform.LocalContext.current
 
     Column(Modifier.fillMaxSize()) {
@@ -499,38 +498,6 @@ fun WorkoutDetailScreen(id: Long) {
 
         }
     }
-    deleted?.let { victim ->
-        LaunchedEffect(victim.id) {
-            kotlinx.coroutines.delay(5000)
-            Repo.deleteWorkout(victim.id)
-            deleted = null
-            Nav.toTab(Screen.History)
-        }
-        Box(Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    L10n.s("Workout deleted", "Séance supprimée"),
-                    color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    L10n.s("UNDO", "ANNULER"),
-                    color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable {
-                        deleted = null
-                        Repo.restoreWorkout(victim)
-                    },
-                )
-            }
-        }
-    }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -539,7 +506,9 @@ fun WorkoutDetailScreen(id: Long) {
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
-                    deleted = w
+                    Repo.deleteWorkout(w.id)
+                    DeletedUndo.set(w)
+                    Nav.pop()
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },

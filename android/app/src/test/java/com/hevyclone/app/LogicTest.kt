@@ -166,6 +166,10 @@ class LogicTest {
         assertTrue(m("kettlebell", "Kettlebell Swing"))
         assertTrue(m("dragon flag", "Dragon Flag"))
         assertTrue(m("tractions prise large", "Wide Grip Pull Up"))
+        // Hevy FR exact names: « Développé Militaire Haltères » family
+        assertTrue(m("developpe militaire halteres", "Seated Dumbbell Shoulder Press"))
+        assertTrue(m("developpe militaire", "Standing Dumbbell Shoulder Press"))
+        assertTrue(m("militaire machine", "Machine Shoulder Press"))
         // no typo-fuzzy on muscle words: « goblet » must not match « mollets » noise
         assertTrue(m("goblet", "Goblet Squat"))
         assertFalse(m("goblet", "Standing Calf Raise"))

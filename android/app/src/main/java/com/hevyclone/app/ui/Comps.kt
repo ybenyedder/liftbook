@@ -1,5 +1,11 @@
 package com.hevyclone.app.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -21,6 +27,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +39,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -182,13 +191,16 @@ fun MuscleTag(text: String) {
 
 @Composable
 fun EmptyState(text: String, slim: Boolean = false) {
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Text(
-            text, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.5.sp, textAlign = TextAlign.Center,
-            lineHeight = 20.sp,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = if (slim) 8.dp else 30.dp),
-        )
+    val visibleState = remember { MutableTransitionState(false).apply { targetState = true } }
+    AnimatedVisibility(visibleState = visibleState, enter = fadeIn(tween(300))) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Text(
+                text, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 13.5.sp, textAlign = TextAlign.Center,
+                lineHeight = 20.sp,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = if (slim) 8.dp else 30.dp),
+            )
+        }
     }
 }
 
@@ -197,6 +209,11 @@ fun EmptyState(text: String, slim: Boolean = false) {
 fun LineChart(points: List<Pair<String, Double>>, fmtLabel: (Double) -> String, modifier: Modifier = Modifier) {
     val accent = MaterialTheme.colorScheme.primary
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(points) {
+        progress.snapTo(0f)
+        progress.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
+    }
     Canvas(modifier = modifier.fillMaxWidth().height(150.dp).padding(top = 4.dp)) {
         if (points.size < 2) return@Canvas
         val padL = 6f; val padR = 54f; val padT = 16f; val padB = 20f
@@ -229,15 +246,17 @@ fun LineChart(points: List<Pair<String, Double>>, fmtLabel: (Double) -> String, 
             lineTo(x(0), padT + ih)
             close()
         }
-        drawPath(fill, Brush.verticalGradient(
-            listOf(accent.copy(alpha = 0.35f), Color.Transparent),
-            startY = padT, endY = padT + ih,
-        ))
-        drawPath(path, accent, style = Stroke(4f, cap = StrokeCap.Round))
-        // last point
-        val lx = x(points.size - 1); val ly = y(vals.last())
-        drawCircle(accent, 6f, Offset(lx, ly))
-        drawCircle(C.Bg, 3.5f, Offset(lx, ly))
+        clipRect(right = size.width * progress.value) {
+            drawPath(fill, Brush.verticalGradient(
+                listOf(accent.copy(alpha = 0.35f), Color.Transparent),
+                startY = padT, endY = padT + ih,
+            ))
+            drawPath(path, accent, style = Stroke(4f, cap = StrokeCap.Round))
+            // last point
+            val lx = x(points.size - 1); val ly = y(vals.last())
+            drawCircle(accent, 6f, Offset(lx, ly))
+            drawCircle(C.Bg, 3.5f, Offset(lx, ly))
+        }
     }
 }
 

@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.hevyclone.app.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -205,7 +208,7 @@ fun ProfileScreen() {
             items(dist.size, key = { dist[it].first }) { i ->
                 val (muscle, vol) = dist[i]
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
+                    Modifier.fillMaxWidth().animateItemPlacement().padding(horizontal = 16.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     IllIcon(muscle, 34.dp)
@@ -227,6 +230,7 @@ fun ProfileScreen() {
                                 Modifier
                                     .fillMaxHeight()
                                     .fillMaxWidth((vol / maxVol).toFloat().coerceIn(0.02f, 1f))
+                                    .animateContentSize()
                                     .clip(RoundedCornerShape(99.dp))
                                     .background(MaterialTheme.colorScheme.primary)
                             )
