@@ -10,13 +10,18 @@ import androidx.compose.runtime.setValue
 import kotlinx.serialization.json.Json
 
 /** SQLite persistence. Workouts/routines are stored as JSON blobs (single source of truth = in-memory lists). */
-class Db(ctx: Context) : SQLiteOpenHelper(ctx, "hevy.db", null, 1) {
+class Db(ctx: Context) : SQLiteOpenHelper(ctx, "hevy.db", null, 2) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE workouts(id INTEGER PRIMARY KEY AUTOINCREMENT, startedAt INTEGER NOT NULL, endedAt INTEGER NOT NULL, name TEXT NOT NULL, json TEXT NOT NULL)")
-        db.execSQL("CREATE TABLE routines(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, json TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE routines(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, pos INTEGER NOT NULL DEFAULT 0, json TEXT NOT NULL)")
         db.execSQL("CREATE TABLE settings(k TEXT PRIMARY KEY, v TEXT NOT NULL)")
     }
-    override fun onUpgrade(db: SQLiteDatabase, oldV: Int, newV: Int) {}
+    override fun onUpgrade(db: SQLiteDatabase, oldV: Int, newV: Int) {
+        if (oldV < 2) {
+            db.execSQL("ALTER TABLE routines ADD COLUMN pos INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("UPDATE routines SET pos = id")
+        }
+    }
 }
 
 /** In-memory repository with write-through persistence; `rev` bumps trigger Compose recomposition. */
@@ -69,7 +74,7 @@ object Repo {
         db.readableDatabase.rawQuery("SELECT json FROM workouts ORDER BY startedAt ASC", null).use { c ->
             while (c.moveToNext()) runCatching { json.decodeFromString<Workout>(c.getString(0)) }.getOrNull()?.let { workouts.add(it) }
         }
-        db.readableDatabase.rawQuery("SELECT json FROM routines ORDER BY id ASC", null).use { c ->
+        db.readableDatabase.rawQuery("SELECT json FROM routines ORDER BY pos ASC, id ASC", null).use { c ->
             while (c.moveToNext()) runCatching { json.decodeFromString<Routine>(c.getString(0)) }.getOrNull()?.let { routines.add(it) }
         }
         prCache = Calc.rebuildPrs(workouts)
@@ -87,7 +92,8 @@ object Repo {
 
     private fun persistRoutine(r: Routine) {
         val cv = ContentValues().apply {
-            put("id", r.id); put("name", r.name); put("json", json.encodeToString(Routine.serializer(), r))
+            put("id", r.id); put("name", r.name); put("pos", r.pos)
+            put("json", json.encodeToString(Routine.serializer(), r))
         }
         db.writableDatabase.insertWithOnConflict("routines", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
     }
@@ -99,6 +105,7 @@ object Repo {
 
     fun nextWorkoutId(): Long = (workouts.maxOfOrNull { it.id } ?: 0L) + 1
     fun nextRoutineId(): Long = (routines.maxOfOrNull { it.id } ?: 0L) + 1
+    fun nextPos(): Int = (routines.maxOfOrNull { it.pos } ?: 0) + 1
 
     fun workoutById(id: Long): Workout? = workouts.firstOrNull { it.id == id }
     fun routineById(id: Long): Routine? = routines.firstOrNull { it.id == id }
@@ -156,11 +163,12 @@ object Repo {
             existing.exercises = d.exercises
             existing
         } else {
-            Routine(nextRoutineId(), name, d.exercises).also { routines.add(it) }
+            Routine(nextRoutineId(), name, d.exercises, nextPos()).also { routines.add(it) }
         }
         persistRoutine(r)
         draft = null
         touch()
+        Cloud.markDirty()
         return r
     }
 
@@ -180,6 +188,7 @@ object Repo {
         persistWorkout(w)
         draft = null
         touch()
+        Cloud.markDirty()
         return w
     }
 
@@ -192,23 +201,27 @@ object Repo {
         persistWorkout(w)
         prCache = Calc.rebuildPrs(workouts)
         touch()
+        Cloud.markDirty()
     }
 
     fun deleteWorkout(id: Long) {
+        workoutById(id)?.let { Cloud.tombstoneWorkout(it.startedAt) }
         workouts.removeAll { it.id == id }
         db.writableDatabase.delete("workouts", "id=?", arrayOf(id.toString()))
         prCache = Calc.rebuildPrs(workouts)
         touch()
+        Cloud.markDirty()
     }
 
     fun routineFromWorkout(workoutId: Long, name: String): Routine? {
         val w = workoutById(workoutId) ?: return null
         val r = Routine(nextRoutineId(), name.trim().ifEmpty { w.name }, w.exercises.map { ex ->
             ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
-        }.toMutableList())
+        }.toMutableList(), nextPos())
         routines.add(r)
         persistRoutine(r)
         touch()
+        Cloud.markDirty()
         return r
     }
 
@@ -217,31 +230,50 @@ object Repo {
         r.name = name.trim().ifEmpty { r.name }
         persistRoutine(r)
         touch()
+        Cloud.markDirty()
     }
 
     fun duplicateRoutine(id: Long): Routine? {
         val r = routineById(id) ?: return null
         val copy = Routine(nextRoutineId(), r.name + " (2)", r.exercises.map { ex ->
             ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
-        }.toMutableList())
+        }.toMutableList(), nextPos())
         routines.add(copy)
         persistRoutine(copy)
         touch()
+        Cloud.markDirty()
         return copy
     }
 
     fun deleteRoutine(id: Long) {
+        routineById(id)?.let { Cloud.tombstoneRoutine(it.name) }
         routines.removeAll { it.id == id }
         db.writableDatabase.delete("routines", "id=?", arrayOf(id.toString()))
         touch()
+        Cloud.markDirty()
+    }
+
+    /** Drag & drop reorder (indices in routines list == manual pos order). */
+    fun moveRoutine(from: Int, to: Int) {
+        if (from == to || from !in routines.indices || to !in routines.indices) return
+        val item = routines.removeAt(from)
+        routines.add(to, item)
+        for (i in routines.indices) routines[i].pos = i
+        for (r in routines) persistRoutine(r)
+        touch()
+        Cloud.markDirty()
     }
 
     // ---------- settings ----------
 
-    fun setUnit(u: String) { settings.unit = u; persistSettings(); touch() }
-    fun setRest(sec: Int) { settings.restSec = sec; persistSettings(); touch() }
-    fun setAccent(a: String) { settings.accent = a; persistSettings(); touch() }
-    fun setTheme(t: String) { settings.theme = t; persistSettings(); touch() }
+    fun setUnit(u: String) { settings.unit = u; persistSettings(); touch(); Cloud.markDirty() }
+    fun setRest(sec: Int) { settings.restSec = sec; persistSettings(); touch(); Cloud.markDirty() }
+    fun setAccent(a: String) { settings.accent = a; persistSettings(); touch(); Cloud.markDirty() }
+    fun setTheme(t: String) { settings.theme = t; persistSettings(); touch(); Cloud.markDirty() }
+    fun setProfile(name: String, handle: String) {
+        settings.profileName = name; settings.handle = handle
+        persistSettings(); touch(); Cloud.markDirty()
+    }
 
     fun backupJson(): String = json.encodeToString(
         BackupData.serializer(), BackupData(workouts.toList(), routines.toList())
@@ -253,9 +285,10 @@ object Repo {
         db.writableDatabase.delete("routines", null, null)
         workouts.clear(); routines.clear()
         data.workouts.forEach { workouts.add(it); persistWorkout(it) }
-        data.routines.forEach { routines.add(it); persistRoutine(it) }
+        data.routines.forEachIndexed { i, r -> r.pos = i; routines.add(r); persistRoutine(r) }
         prCache = Calc.rebuildPrs(workouts)
         touch()
+        Cloud.markDirty()
         return true
     }
 
@@ -268,6 +301,7 @@ object Repo {
         if (imported.isNotEmpty()) {
             prCache = Calc.rebuildPrs(workouts)
             touch()
+            Cloud.markDirty()
         }
         return imported.size
     }
@@ -287,7 +321,7 @@ object Repo {
         val allRoutines = newRoutines +
             Calc.routinesFromWorkouts(newWorkouts, routines.map { it.name }.toSet())
         for (r in allRoutines) {
-            val fixed = r.copy(id = nextRoutineId())
+            val fixed = r.copy(id = nextRoutineId(), pos = nextPos())
             routines.add(fixed)
             persistRoutine(fixed)
         }
@@ -295,16 +329,74 @@ object Repo {
             workouts.sortBy { it.startedAt }
             prCache = Calc.rebuildPrs(workouts)
             touch()
+            Cloud.markDirty()
         }
         return added
     }
 
-    fun wipe() {
+    fun wipe(markDirty: Boolean = true) {
         workouts.clear(); routines.clear(); draft = null
         db.writableDatabase.delete("workouts", null, null)
         db.writableDatabase.delete("routines", null, null)
         prCache = emptyMap()
         touch()
+        if (markDirty) Cloud.markDirty()
+    }
+
+    // ---------- cloud sync ----------
+
+    /** Full snapshot of everything that syncs. */
+    fun snapshot(): SyncPayload = SyncPayload(
+        workouts = workouts.toList(),
+        routines = routines.toList(),
+        settings = settings,
+        delW = Cloud.currentTombW(),
+        delR = Cloud.currentTombR(),
+    )
+
+    /** Replace local state wholesale with a remote snapshot (clean pull). No dirty marking. */
+    fun replaceAll(p: SyncPayload) {
+        db.writableDatabase.delete("workouts", null, null)
+        db.writableDatabase.delete("routines", null, null)
+        workouts.clear(); routines.clear()
+        p.workouts.forEach { workouts.add(it); persistWorkout(it) }
+        p.routines.forEachIndexed { i, r -> r.pos = i; routines.add(r); persistRoutine(r) }
+        p.settings?.let {
+            settings = it
+            persistSettings()
+        }
+        prCache = Calc.rebuildPrs(workouts)
+        touch()
+    }
+
+    /** Union-merge a remote snapshot into local (conflict / first login). Local deletions win;
+     *  remote deletions are applied; duplicates skipped by startedAt (workouts) and name (routines). */
+    fun mergeRemote(p: SyncPayload): Boolean {
+        val localDelW = Cloud.currentTombW().toSet()
+        val localDelR = Cloud.currentTombR().toSet()
+        val remoteDelW = p.delW.toSet()
+        val remoteDelR = p.delR.toSet()
+
+        val keepW = workouts.filter { it.startedAt !in remoteDelW }
+        val keepR = routines.filter { it.name !in remoteDelR }
+        val knownW = keepW.map { it.startedAt }.toSet()
+        val knownR = keepR.map { it.name }.toSet()
+        val addW = p.workouts.filter { it.startedAt !in localDelW && it.startedAt !in knownW }
+        val addR = p.routines.filter { it.name !in localDelR && it.name !in knownR }
+
+        if (keepW.size == workouts.size && keepR.size == routines.size && addW.isEmpty() && addR.isEmpty()) return false
+
+        db.writableDatabase.delete("workouts", null, null)
+        db.writableDatabase.delete("routines", null, null)
+        workouts.clear(); routines.clear()
+        keepW.forEach { workouts.add(it); persistWorkout(it) }
+        addW.forEach { val f = it.copy(id = nextWorkoutId()); workouts.add(f); persistWorkout(f) }
+        workouts.sortBy { it.startedAt }
+        keepR.forEach { routines.add(it); persistRoutine(it) }
+        addR.forEach { val f = it.copy(id = nextRoutineId(), pos = nextPos()); routines.add(f); persistRoutine(f) }
+        prCache = Calc.rebuildPrs(workouts)
+        touch()
+        return true
     }
 
     // ---------- queries ----------

@@ -40,6 +40,7 @@ data class Routine(
     val id: Long,
     var name: String,
     var exercises: MutableList<ExEntry> = mutableListOf(),
+    var pos: Int = 0,   // manual order (drag & drop); legacy rows migrate to pos=id
 )
 
 @Serializable
@@ -77,4 +78,15 @@ data class WeekStats(val count: Int, val vol: Double, val reps: Int, val prs: In
 data class BackupData(
     val workouts: List<Workout>,
     val routines: List<Routine>,
+)
+
+/** Full cloud snapshot pushed/pulled per account (deletions ride along as tombstones). */
+@Serializable
+data class SyncPayload(
+    val workouts: List<Workout> = emptyList(),
+    val routines: List<Routine> = emptyList(),
+    val settings: Settings? = null,
+    val delW: List<Long> = emptyList(),
+    val delR: List<String> = emptyList(),
+    val v: Int = 1,
 )

@@ -4,8 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.hevyclone.app.data.Cloud
 import com.hevyclone.app.data.Repo
 import com.hevyclone.app.ui.App
+import com.hevyclone.app.ui.AuthScreen
 import com.hevyclone.app.ui.HevyTheme
 
 class MainActivity : ComponentActivity() {
@@ -28,15 +30,23 @@ class MainActivity : ComponentActivity() {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         Repo.init(applicationContext)
+        Cloud.init(applicationContext)
         enableEdgeToEdge()
         if (intent?.getBooleanExtra("start_empty_workout", false) == true && savedInstanceState == null) {
             com.hevyclone.app.ui.Nav.pendingStartEmpty = true
         }
         setContent {
             HevyTheme(accent = Repo.settings.accent) {
-                App(refreshKey = bootKey.intValue)
+                if (Cloud.session == null && !Cloud.skipped) AuthScreen()
+                else App(refreshKey = bootKey.intValue)
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // pull changes made on another device while the app was closed
+        Cloud.requestSync(debounceMs = 400)
     }
 
     override fun onStop() {

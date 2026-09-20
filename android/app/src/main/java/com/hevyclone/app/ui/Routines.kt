@@ -5,6 +5,7 @@ package com.hevyclone.app.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -25,13 +29,13 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DragIndicator
 import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Timer
@@ -46,21 +50,29 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import com.hevyclone.app.data.Calc
 import com.hevyclone.app.data.Repo
 import com.hevyclone.app.data.Routine
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun TrainingScreen() {
@@ -68,14 +80,21 @@ fun TrainingScreen() {
     val rev = Repo.rev
     val routines = Repo.routines
     var expanded by remember { mutableStateOf(true) }
-    var sortMode by remember { mutableStateOf(0) } // 0=A→Z 1=Dernière utilisée 2=Création
+    var sortMode by remember { mutableStateOf(0) } // 0=Personnalisé 1=A→Z 2=Dernière utilisée 3=Création
     val sortedRoutines = remember(rev, sortMode) {
         when (sortMode) {
-            0 -> routines.sortedBy { exName(it.name).lowercase() }
-            1 -> routines.sortedByDescending { Repo.routineLastPerformed(it) ?: 0L }
+            0 -> routines.toList() // Repo order == manual pos order
+            1 -> routines.sortedBy { exName(it.name).lowercase() }
+            2 -> routines.sortedByDescending { Repo.routineLastPerformed(it) ?: 0L }
             else -> routines.sortedByDescending { it.id }
         }
     }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val dd = rememberDragDropState(listState, scope) { from, to ->
+        if (from < Repo.routines.size && to < Repo.routines.size) Repo.moveRoutine(from, to)
+    }
+    dd.dragEnabled = sortMode == 0
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -107,29 +126,6 @@ fun TrainingScreen() {
                 Text(L10n.s("Start an Empty Workout", "Démarrer un Entraînement Vide", "Iniciar un Entrenamiento Vacío", "Leeres Workout starten"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
         }
-        if (Repo.workouts.isNotEmpty()) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f))
-                    .clickable {
-                        if (Repo.draft != null) { Nav.push(Screen.Logger); return@clickable }
-                        Repo.startRepeat()
-                        Nav.push(Screen.Logger)
-                    }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.Refresh, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    L10n.s("Repeat last workout", "Reprendre la dernière séance"),
-                    color = MaterialTheme.colorScheme.primary, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
         // Routines header
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(L10n.s("Routines", "Routines", "Rutinas", "Routinen"), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
@@ -138,6 +134,7 @@ fun TrainingScreen() {
                 IconButton(onClick = { sortMenu = true }) { Icon(Icons.Rounded.Sort, null) }
                 DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
                     listOf(
+                        L10n.s("Custom order", "Ordre personnalisé", "Orden personalizado", "Eigene Reihenfolge"),
                         L10n.s("Name A→Z", "Nom A→Z"),
                         L10n.s("Last performed", "Dernière utilisée"),
                         L10n.s("Most recent", "Plus récente"),
@@ -182,16 +179,109 @@ fun TrainingScreen() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, fontWeight = FontWeight.Medium,
             )
         }
-        LazyColumn(Modifier.fillMaxSize()) {
+        LazyColumn(Modifier.fillMaxSize(), state = listState) {
             if (expanded) {
                 if (routines.isEmpty()) item { EmptyState(L10n.s("No routines yet.\nTap “New routine” to create one.", "Aucune routine.\nTouche « Nouvelle routine » pour en créer une.")) }
                 else items(sortedRoutines.size, key = { sortedRoutines[it].id }) { i ->
-                    Box(Modifier.animateItemPlacement()) { RoutineCard(sortedRoutines[i]) }
+                    DraggableItem(dd, i) { dragging ->
+                        Box(if (dragging) Modifier else Modifier.animateItemPlacement()) {
+                            RoutineCard(sortedRoutines[i], dragging)
+                        }
+                    }
                 }
             }
             item { Spacer(Modifier.height(20.dp)) }
         }
     }
+}
+
+// ---------------- drag & drop (long press to reorder routines) ----------------
+
+/** Long-press drag reordering for a LazyColumn — swaps items live and auto-scrolls at the edges. */
+class DragDropState(
+    val listState: LazyListState,
+    private val scope: CoroutineScope,
+    private val onMove: (Int, Int) -> Unit,
+) {
+    var draggingItemIndex by mutableStateOf<Int?>(null)
+        private set
+    var dragEnabled: Boolean = true
+    private var draggedOffsetY by mutableFloatStateOf(0f)
+    val draggingItemOffsetY: Float get() = draggedOffsetY
+
+    fun onDragStart(index: Int) {
+        if (!dragEnabled) return
+        draggingItemIndex = index
+        draggedOffsetY = 0f
+    }
+
+    fun onDragInterrupted() {
+        draggingItemIndex = null
+        draggedOffsetY = 0f
+    }
+
+    fun onDrag(amount: Offset) {
+        val current = draggingItemIndex ?: return
+        draggedOffsetY += amount.y
+        val info = listState.layoutInfo
+        val currentInfo = info.visibleItemsInfo.firstOrNull { it.index == current } ?: return
+        val startOffset = currentInfo.offset + draggedOffsetY
+        val endOffset = startOffset + currentInfo.size
+        val middle = startOffset + (endOffset - startOffset) / 2f
+        val target = info.visibleItemsInfo
+            .filter { it.index != current }
+            .firstOrNull { middle.toInt() >= it.offset && middle.toInt() < it.offset + it.size }
+        if (target != null) {
+            if (current == listState.firstVisibleItemIndex || target.index == listState.firstVisibleItemIndex) {
+                scope.launch { listState.scrollToItem(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) }
+            }
+            onMove(current, target.index)
+            draggingItemIndex = target.index
+        } else {
+            // edge auto-scroll while dragging beyond the visible bounds
+            val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return
+            val bottom = lastVisible.offset + lastVisible.size
+            if (endOffset > bottom) {
+                listState.dispatchRawDelta((endOffset - bottom).coerceAtLeast(6f))
+            } else if (startOffset < info.visibleItemsInfo.first().offset) {
+                listState.dispatchRawDelta((startOffset - info.visibleItemsInfo.first().offset).coerceAtMost(-6f))
+            }
+        }
+    }
+}
+
+@Composable
+fun rememberDragDropState(listState: LazyListState, scope: CoroutineScope, onMove: (Int, Int) -> Unit): DragDropState =
+    remember(listState) { DragDropState(listState, scope, onMove) }
+
+/** Item wrapper: long-press picks the card up (lift + follow finger), release drops it. */
+@Composable
+fun LazyItemScope.DraggableItem(dd: DragDropState, index: Int, content: @Composable (Boolean) -> Unit) {
+    val dragging = dd.draggingItemIndex == index
+    Box(
+        Modifier
+            .zIndex(if (dragging) 1f else 0f)
+            .graphicsLayer {
+                if (dragging) {
+                    translationY = dd.draggingItemOffsetY
+                    scaleX = 1.02f
+                    scaleY = 1.02f
+                    shadowElevation = 28f
+                }
+            }
+            .pointerInput(dd.dragEnabled) {
+                if (!dd.dragEnabled) return@pointerInput
+                detectDragGesturesAfterLongPress(
+                    onDrag = { change, amount ->
+                        change.consume()
+                        dd.onDrag(amount)
+                    },
+                    onDragStart = { dd.onDragStart(index) },
+                    onDragEnd = { dd.onDragInterrupted() },
+                    onDragCancel = { dd.onDragInterrupted() },
+                )
+            }
+    ) { content(dragging) }
 }
 
 @Composable
@@ -213,7 +303,7 @@ private fun SecondaryButton(text: String, icon: androidx.compose.ui.graphics.vec
 }
 
 @Composable
-private fun RoutineCard(r: Routine) {
+private fun RoutineCard(r: Routine, dragging: Boolean = false) {
     val ctx = LocalContext.current
     var cardMenu by remember { mutableStateOf(false) }
     var confirmDel by remember { mutableStateOf(false) }
@@ -222,6 +312,7 @@ private fun RoutineCard(r: Routine) {
         Column(
             Modifier
                 .fillMaxWidth()
+                .background(if (dragging) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent, RoundedCornerShape(14.dp))
                 .clickable { Nav.push(Screen.RoutineDetail(r.id)) }
                 .padding(16.dp)
         ) {

@@ -98,7 +98,7 @@ fun App(refreshKey: Int = 0) {
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             if (Nav.atTab) {
-                NavigationBar(containerColor = MaterialTheme.colorScheme.background) {
+                NavigationBar(containerColor = C.NavBar, tonalElevation = 0.dp) {
                     tabs.forEach { t ->
                         NavigationBarItem(
                             selected = Nav.current == t.screen,

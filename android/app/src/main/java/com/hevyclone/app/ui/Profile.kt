@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hevyclone.app.data.Calc
+import com.hevyclone.app.data.Cloud
 import com.hevyclone.app.data.Repo
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -78,8 +80,20 @@ fun ProfileScreen() {
         item(key = "header") {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(st.profileName, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                    Text(L10n.s("Community", "Communauté"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Avatar(st.profileName.trim().take(1).uppercase(), 52)
+                        Spacer(Modifier.width(14.dp))
+                        Column {
+                            Text(st.profileName, fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                            Text("@" + st.handle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
+                        ProfileStat("${Repo.workouts.size}", L10n.s("Workouts", "Entraînements", "Entrenamientos", "Trainings"))
+                        ProfileStat("0", L10n.s("Followers", "Abonnés", "Seguidores", "Follower"))
+                        ProfileStat("0", L10n.s("Following", "Abonnements", "Seguidos", "Folgt"))
+                    }
                 }
                 IconButton(onClick = { showSettings.value = true }) { Icon(Icons.Rounded.Settings, null) }
             }
@@ -241,7 +255,9 @@ fun ProfileScreen() {
         }
         item(key = "foot") {
             Text(
-                L10n.s("Local app · your data stays on this device.", "Application locale · tes données restent sur cet appareil."),
+                if (Cloud.session != null)
+                    L10n.s("Synced to your account", "Synchronisé sur ton compte") + " · " + Cloud.session!!.email
+                else L10n.s("Local app · your data stays on this device.", "Application locale · tes données restent sur cet appareil."),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp,
                 modifier = Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 24.dp),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -249,6 +265,14 @@ fun ProfileScreen() {
         }
     }
     if (showSettings.value) SettingsSheet(onClose = { showSettings.value = false })
+}
+
+@Composable
+private fun ProfileStat(value: String, label: String) {
+    Column {
+        Text(value, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
+    }
 }
 
 @Composable
@@ -349,6 +373,30 @@ private fun SettingsSheet(onClose: () -> Unit) {
     ) {
         Column(Modifier.padding(bottom = 30.dp)) {
             Text("Réglages", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+            Text("COMPTE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp))
+            val sess = Cloud.session
+            if (sess != null) {
+                Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.CloudDone, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(sess.email, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                        Text(Cloud.syncStatus ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
+                    }
+                }
+                Row(Modifier.padding(horizontal = 12.dp)) {
+                    TextButton(onClick = { Cloud.requestSync(0); toast(ctx, L10n.s("Syncing…", "Synchronisation…")) }) {
+                        Text(L10n.s("Sync now", "Synchroniser maintenant"), fontWeight = FontWeight.SemiBold)
+                    }
+                    TextButton(onClick = { Cloud.signOut(); onClose() }) {
+                        Text(L10n.s("Sign out", "Se déconnecter", "Cerrar sesión", "Abmelden"), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            } else {
+                TextButton(onClick = { Cloud.skipped = false; Cloud.persistSkip(); onClose() }, modifier = Modifier.padding(start = 8.dp)) {
+                    Text(L10n.s("Sign in or create an account", "Se connecter ou créer un compte", "Iniciar sesión o crear una cuenta", "Anmelden oder Konto erstellen"), fontWeight = FontWeight.SemiBold)
+                }
+            }
             Text("PROFIL", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp))
             var nameField by remember { mutableStateOf(Repo.settings.profileName) }
             var handleField by remember { mutableStateOf(Repo.settings.handle) }
@@ -370,9 +418,7 @@ private fun SettingsSheet(onClose: () -> Unit) {
             if (nameField.isNotBlank() && handleField.isNotBlank() && (nameField != Repo.settings.profileName || handleField != Repo.settings.handle)) {
                 androidx.compose.material3.Button(
                     onClick = {
-                        Repo.settings.profileName = nameField.trim()
-                        Repo.settings.handle = handleField.trim()
-                        Repo.touchPublic()
+                        Repo.setProfile(nameField.trim(), handleField.trim())
                         onClose()
                     },
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
