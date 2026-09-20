@@ -263,6 +263,23 @@ class LogicTest {
         assertEquals("Seated Dumbbell Shoulder Press", routines[0].exercises[0].name)
     }
     @Test
+    fun `routines rebuilt from imported workout names use latest occurrence`() {
+        fun w(id: Long, at: Long, name: String, vararg exs: String) = Workout(
+            id, name, at, at + 3_600_000,
+            exs.map { ExEntry(it, "Quads", "", false, null, mutableListOf(SetEntry(50.0, 10, true))) }.toMutableList(),
+        )
+        val imported = listOf(
+            w(1, 1000L, "Push A", "Barbell Bench Press"),
+            w(2, 2000L, "Pull A", "Lat Pulldown"),
+            w(3, 9000L, "Push A", "Incline Dumbbell Bench Press", "Lateral Raise"),  // latest Push A
+            w(4, 3000L, "push a", "Dumbbell Curl"),  // same name, case-insensitive
+        )
+        val routines = Calc.routinesFromWorkouts(imported, existingRoutineNames = setOf("Pull A"))
+        assertEquals(1, routines.size)  // "Pull A" already exists, "push a" merged with "Push A"
+        assertEquals("Push A", routines[0].name)
+        assertEquals(listOf("Incline Dumbbell Bench Press", "Lateral Raise"), routines[0].exercises.map { it.name })
+    }
+    @Test
     fun `csv import parses export format with multiple exercises`() {
         val csv = """
             Date;Heure;Exercice;Serie;KG;Reps

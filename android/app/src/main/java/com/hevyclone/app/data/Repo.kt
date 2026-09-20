@@ -272,7 +272,8 @@ object Repo {
         return imported.size
     }
 
-    /** Merge a Hevy/Strong export: workouts are added once per start date, routines appended. Returns workouts added. */
+    /** Merge a Hevy/Strong export: workouts are added once per start date, routines appended.
+     * Hevy never exports templates, so routines are also rebuilt from distinct workout names. */
     fun importHevy(newWorkouts: List<Workout>, newRoutines: List<Routine>): Int {
         val knownDates = workouts.map { it.startedAt }.toSet()
         var added = 0
@@ -283,12 +284,14 @@ object Repo {
             persistWorkout(fixed)
             added++
         }
-        for (r in newRoutines) {
+        val allRoutines = newRoutines +
+            Calc.routinesFromWorkouts(newWorkouts, routines.map { it.name }.toSet())
+        for (r in allRoutines) {
             val fixed = r.copy(id = nextRoutineId())
             routines.add(fixed)
             persistRoutine(fixed)
         }
-        if (added > 0 || newRoutines.isNotEmpty()) {
+        if (added > 0 || allRoutines.isNotEmpty()) {
             workouts.sortBy { it.startedAt }
             prCache = Calc.rebuildPrs(workouts)
             touch()

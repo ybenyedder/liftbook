@@ -449,6 +449,33 @@ object Calc {
         return workouts.sortedBy { it.startedAt } to emptyList<Routine>()
     }
 
+    /**
+     * Hevy never exports templates — rebuild routines from imported workout names:
+     * each distinct workout name (case-insensitive, skipping existing routine names)
+     * becomes a routine mirroring its most recent occurrence (exercises, sets, supersets).
+     */
+    fun routinesFromWorkouts(workouts: List<Workout>, existingRoutineNames: Set<String>): List<Routine> {
+        val taken = existingRoutineNames.map { it.lowercase() }.toMutableSet()
+        val out = mutableListOf<Routine>()
+        var id = 10_000_000L
+        for ((name, group) in workouts.groupBy { it.name.trim() }) {
+            if (name.isEmpty() || name.lowercase() in taken) continue
+            val latest = group.maxByOrNull { it.startedAt } ?: continue
+            out.add(
+                Routine(
+                    id++,
+                    name,
+                    latest.exercises.map { ex ->
+                        ExEntry(ex.name, ex.muscle, "", ex.superset, ex.restSec,
+                            ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+                    }.toMutableList(),
+                )
+            )
+            taken.add(name.lowercase())
+        }
+        return out
+    }
+
     // ---------- deterministic demo seed ----------
 
     private class SeedRow(val name: String, val nSets: Int, val reps: Int, val base: Double, val inc: Double)

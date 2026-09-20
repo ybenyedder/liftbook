@@ -458,9 +458,9 @@ private fun SettingsSheet(onClose: () -> Unit) {
                         } else {
                             val n = Repo.importHevy(ws, rs)
                             toast(ctx, L10n.s(
-                                "%1\$d workouts + %2\$d routines imported from Hevy",
-                                "%1\$d séances + %2\$d routines importées depuis Hevy"
-                            ).format(n, rs.size))
+                                "%1\$d workouts imported from Hevy (routines rebuilt)",
+                                "%1\$d séances importées (routines reconstruites)"
+                            ).format(n))
                         }
                     }.onFailure { toast(ctx, L10n.s("Import failed (check format)", "Import échoué (vérifie le format)")) }
                 }
