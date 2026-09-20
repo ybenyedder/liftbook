@@ -2,11 +2,11 @@
 
 Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (**609 exercices traduits** — 16 groupes dont Cardio —, noms alignés sur Hevy : « Tirage Poitrine », « Rowing », « Développé »…) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
 
-**Dernière version : v1.26** — https://github.com/ybenyedder/hevy-clone/releases
+**Dernière version : v1.27** — https://github.com/ybenyedder/hevy-clone/releases
 
 ## Installation
 
-Télécharge `hevy-clone-v1.26-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
+Télécharge `hevy-clone-v1.27-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
 
 ## Fonctions (toutes vérifiées par capture sur émulateur fr-FR ou par test unitaire)
 
@@ -38,7 +38,7 @@ Télécharge `hevy-clone-v1.26-release.apk` depuis la page Releases et installe-
 
 ### Données & système
 - SQLite locale + persistance JSON du brouillon
-- **Import du compte Hevy** : Profil → Réglages → « Importer depuis Hevy » — export officiel Hevy (.csv ou .zip), noms FR remappés, lbs→kg, supersets, routines/templates, sans doublons (testé)
+- **Import du compte Hevy** : Profil → Réglages → « Importer depuis Hevy » — export officiel Hevy (.csv ou .zip) au format exact (title/start_time/exercise_title/weight_kg…, dates « 18 sept. 2026, 17:31 » localisées EN/FR/DE/IT/ES/PT/JA), noms FR remappés, lbs→kg, supersets, routines/templates, CSV multi-lignes quoté, sans doublons (testé unitairement ET en conditions réelles)
 - **Sauvegarde/restauration complète en fichier JSON** (roundtrip testé)
 - **Export CSV** des séances + **import CSV** (parseur groupant par date+heure, remap FR→EN, testé)
 - Partage réel d'une séance (share sheet Android avec résumé complet)

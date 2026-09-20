@@ -235,7 +235,30 @@ object Calc {
 
     // ---------- Hevy / Strong CSV import ----------
 
-    /** Parse a date as emitted by Hevy/Strong exports: ISO-8601 (with T, space, offset), epoch s/ms. */
+    /** Hevy's own export date: "18 Sep 2026, 17:31" — month names follow the app language. */
+    private val EXPORT_MONTH_LOCALES = listOf(Locale.US, Locale.FRENCH, Locale.GERMANY, Locale.ITALIAN, java.util.Locale.forLanguageTag("es"), java.util.Locale.forLanguageTag("pt"))
+    private val EN_MONTHS = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+    private fun parseLocalizedDate(s: String): Long? {
+        for (loc in EXPORT_MONTH_LOCALES) {
+            for (pat in listOf("d MMM yyyy, HH:mm", "d MMMM yyyy, HH:mm", "d MMM yyyy HH:mm")) {
+                runCatching {
+                    return java.time.LocalDateTime.parse(s, java.time.format.DateTimeFormatter.ofPattern(pat, loc))
+                        .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                }
+            }
+        }
+        // Japanese month form "5 9月 2026, 20:39"
+        val jp = Regex("(\\d{1,2})\\s*月").replace(s) { m -> EN_MONTHS[m.groupValues[1].toInt().coerceIn(1, 12) - 1] }
+        if (jp != s) runCatching {
+            return java.time.LocalDateTime.parse(jp, java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy, HH:mm", Locale.US))
+                .atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        }
+        return null
+    }
+
+    /** Parse a date as emitted by Hevy/Strong exports: ISO-8601 (with T, space, offset), epoch s/ms,
+     *  Hevy's localized "d MMM yyyy, HH:mm", Strong's "Mon Jan 02 17:00:00 GMT+01:00 2023". */
     fun parseExportDate(raw: String): Long? {
         val s = raw.trim().trim('"')
         if (s.isEmpty()) return null
@@ -246,6 +269,7 @@ object Calc {
         runCatching { return java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli() }
         runCatching { return java.time.OffsetDateTime.parse(if (iso.endsWith("Z")) iso else "${iso}Z").toInstant().toEpochMilli() }
         runCatching { return java.time.LocalDateTime.parse(iso).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }
+        parseLocalizedDate(s)?.let { return it }
         // Strong-style: "Mon Jan 02 17:00:00 GMT+01:00 2023"
         runCatching {
             return java.time.ZonedDateTime.parse(
@@ -260,6 +284,23 @@ object Calc {
         val reps: Int? = null, val order: Int? = null, val seconds: Int? = null, val done: Int? = null,
         val name: Int? = null, val unit: Int? = null, val notes: Int? = null, val superset: Int? = null,
     )
+
+    /** Full-file CSV reader (quotes with embedded commas/newlines honored); ';' or ',' accepted. */
+    private fun readCsvTable(content: String): List<List<String>> {
+        val rows = mutableListOf<MutableList<String>>()
+        var cur = mutableListOf<String>(); val cell = StringBuilder(); var inQ = false; var started = false
+        for (c in content) {
+            when {
+                c == '"' -> { inQ = !inQ; started = true }
+                !inQ && (c == ',' || c == ';') -> { cur.add(cell.toString().trim()); cell.setLength(0); started = false }
+                !inQ && c == '\n' -> { cur.add(cell.toString().trim()); cell.setLength(0); rows.add(cur); cur = mutableListOf(); started = false }
+                !inQ && c == '\r' -> {}
+                else -> { cell.append(c); started = true }
+            }
+        }
+        if (cur.isNotEmpty()) { cur.add(cell.toString().trim()); rows.add(cur) }
+        return rows.filter { r -> r.any { it.isNotEmpty() } }
+    }
 
     /** CSV cell splitter handling quotes + , or ; separators. */
     private fun splitCsv(line: String): List<String> {
@@ -316,16 +357,16 @@ object Calc {
      * Files without any date column are treated as routine/template definitions.
      */
     fun parseHevyCsv(content: String): Pair<List<Workout>, List<Routine>> {
-        val lines = content.lines().filter { it.isNotBlank() }
-        if (lines.size < 2) return emptyList<Workout>() to emptyList<Routine>()
-        val cols = mapColumns(splitCsv(lines.first())) ?: return emptyList<Workout>() to emptyList<Routine>()
+        val table = readCsvTable(content)
+        if (table.size < 2) return emptyList<Workout>() to emptyList<Routine>()
+        val cols = mapColumns(table.first()) ?: return emptyList<Workout>() to emptyList<Routine>()
         data class Row(
             val date: Long?, val endDate: Long?, val ex: String, val kg: Double?, val reps: Int?,
             val order: Int, val done: Boolean, val workoutName: String?, val notes: String, val superset: Boolean,
         )
         val rows = mutableListOf<Row>()
-        for (i in 1 until lines.size) {
-            val p = splitCsv(lines[i])
+        for (i in 1 until table.size) {
+            val p = table[i]
             if (p.size <= cols.exercise) continue
             val exRaw = p[cols.exercise]
             if (exRaw.isEmpty()) continue

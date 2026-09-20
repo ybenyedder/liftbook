@@ -188,6 +188,36 @@ class LogicTest {
         }
     }
     @Test
+    fun `hevy real export format with localized dates parses`() {
+        // Exact columns of Hevy's own export; dates "d MMM yyyy, HH:mm" with French month names,
+        // quoted commas, and a multi-line quoted note.
+        val csv = """
+            title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_kg,reps,distance_km,duration_seconds,rpe
+            Push A,"18 sept. 2026, 17:30","18 sept. 2026, 18:15","",Développé Couché (Barre),,,"1",normal,80,8,,,,"note
+            sur deux lignes"
+            Push A,"18 sept. 2026, 17:30","18 sept. 2026, 18:15","",Élévation Latérale (Haltères),,,"2",normal,10,15,,,,
+            Pull A,"20 Sep 2026, 18:00","20 Sep 2026, 19:00","",Tirage Poitrine (Machine),1,,1,normal,60,10,,,,
+            Pull A,"20 Sep 2026, 18:00","20 Sep 2026, 19:00","",Tirage Poitrine (Machine),1,,2,normal,62,10,,,,
+        """.trimIndent()
+        val (ws, rs) = Calc.parseHevyCsv(csv)
+        assertEquals(0, rs.size)
+        assertEquals(2, ws.size)
+        assertEquals("Push A", ws[0].name)
+        assertEquals(2, ws[0].exercises.size)
+        assertEquals("Barbell Bench Press", ws[0].exercises[0].name)
+        assertEquals(80.0, ws[0].exercises[0].sets[0].kg!!, 1e-9)
+        assertEquals(8, ws[0].exercises[0].sets[0].reps)
+        // localized month date actually parsed
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = ws[0].startedAt }
+        assertEquals(2026, cal.get(java.util.Calendar.YEAR))
+        assertEquals(java.util.Calendar.SEPTEMBER, cal.get(java.util.Calendar.MONTH))
+        // second workout grouped by its own date + superset preserved
+        assertEquals("Pull A", ws[1].name)
+        assertEquals("Chest Supported Row", ws[1].exercises[0].name)
+        assertEquals(2, ws[1].exercises[0].sets.size)
+        assertTrue(ws[1].exercises[0].superset)
+    }
+    @Test
     fun `hevy strong export csv import maps workouts exercises and units`() {
         // Strong-style header as produced by Hevy's export (FR exercise names, lbs on one workout)
         val csv = """

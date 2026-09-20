@@ -453,7 +453,8 @@ private fun SettingsSheet(onClose: () -> Unit) {
                             ws += w; rs += r
                         }
                         if (ws.isEmpty() && rs.isEmpty()) {
-                            toast(ctx, L10n.s("No Hevy data found in this file", "Aucune donnée Hevy trouvée dans ce fichier"))
+                            val head = csvs.firstOrNull()?.lineSequence()?.firstOrNull()?.take(90) ?: ""
+                            toast(ctx, L10n.s("No Hevy data found — header:", "Aucune donnée Hevy trouvée — en-tête :") + " " + head)
                         } else {
                             val n = Repo.importHevy(ws, rs)
                             toast(ctx, L10n.s(
@@ -474,7 +475,12 @@ private fun SettingsSheet(onClose: () -> Unit) {
                     runCatching {
                         ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
                     }.getOrNull()?.let { text ->
-                        val n = Repo.importCsv(text)
+                        var n = Repo.importCsv(text)
+                        if (n == 0) {
+                            // fallback: a Hevy account export fed to the generic importer
+                            val (ws, rs) = com.hevyclone.app.data.Calc.parseHevyCsv(text)
+                            if (ws.isNotEmpty() || rs.isNotEmpty()) n = Repo.importHevy(ws, rs)
+                        }
                         toast(ctx, if (n > 0) L10n.s("%1\$d workouts imported", "%1\$d séances importées").format(n)
                                else L10n.s("Nothing imported (check format)", "Rien d'importé (vérifie le format)"))
                     }
