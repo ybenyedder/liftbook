@@ -175,6 +175,19 @@ object Repo {
     fun finishWorkout(name: String): Workout? {
         val d = draft ?: return null
         val now = System.currentTimeMillis()
+        // records are evaluated against history strictly before this session
+        val prs = mutableListOf<PrRec>()
+        for (ex in d.exercises) {
+            val done = ex.sets.filter { (it.kg ?: 0.0) > 0 && (it.reps ?: 0) > 0 && it.done }
+            if (done.isEmpty()) continue
+            val prev = prFor(ex.name)
+            val pw = prev?.weight ?: 0.0
+            val pe = prev?.e1rm ?: 0.0
+            val bw = done.maxOf { it.kg!! }
+            val be = done.maxOf { Calc.e1rm(it.kg!!, it.reps!!) }
+            if (bw > pw) prs.add(PrRec(ex.name, "Weight", bw))
+            if (be > pe) prs.add(PrRec(ex.name, "Est. 1RM", be))
+        }
         val w = Workout(
             id = nextWorkoutId(),
             name = name.trim().ifEmpty { "Séance" },
@@ -182,6 +195,7 @@ object Repo {
             endedAt = now,
             exercises = d.exercises,
             notes = d.notes,
+            prs = prs.toMutableList(),
         )
         workouts.add(w)
         prCache = Calc.rebuildPrs(workouts)

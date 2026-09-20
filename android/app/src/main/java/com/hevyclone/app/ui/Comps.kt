@@ -282,6 +282,80 @@ fun LineChart(points: List<Pair<String, Double>>, fmtLabel: (Double) -> String, 
     }
 }
 
+/** Exercise photo (bundled, free-exercise-db) cropped to a rounded square/circle; muscle silhouette fallback. */
+@Composable
+fun ExPhoto(name: String, muscle: String, size: Dp, corner: Dp = 999.dp, modifier: Modifier = Modifier) {
+    val res = com.hevyclone.app.data.ExImages.res(name)
+    if (res != null) {
+        androidx.compose.foundation.Image(
+            painter = androidx.compose.ui.res.painterResource(res),
+            contentDescription = null,
+            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+            modifier = modifier.size(size).clip(RoundedCornerShape(corner)),
+        )
+    } else {
+        Box(
+            modifier.size(size).clip(RoundedCornerShape(corner)).background(C.Card2),
+            contentAlignment = Alignment.Center,
+        ) { IllIcon(muscle, size * 0.62f) }
+    }
+}
+
+/** Highlight positions per muscle, (isFront, x, y) normalized — kept alongside the pictogram below. */
+private val BODY_SPOTS: Map<String, List<Triple<Boolean, Float, Float>>> = mapOf(
+    "Chest" to listOf(Triple(true, .37f, .28f), Triple(true, .63f, .28f)),
+    "Shoulders" to listOf(Triple(true, .30f, .21f), Triple(true, .70f, .21f)),
+    "Biceps" to listOf(Triple(true, .23f, .32f), Triple(true, .77f, .32f)),
+    "Forearms" to listOf(Triple(true, .17f, .40f), Triple(true, .83f, .40f)),
+    "Abs" to listOf(Triple(true, .5f, .38f)),
+    "Quads" to listOf(Triple(true, .42f, .60f), Triple(true, .58f, .60f)),
+    "Adductors" to listOf(Triple(true, .46f, .52f), Triple(true, .54f, .52f)),
+    "Calves" to listOf(Triple(true, .41f, .82f), Triple(true, .59f, .82f), Triple(false, .41f, .82f), Triple(false, .59f, .82f)),
+    "Traps" to listOf(Triple(true, .5f, .17f), Triple(false, .5f, .17f)),
+    "Lats" to listOf(Triple(false, .37f, .30f), Triple(false, .63f, .30f)),
+    "Triceps" to listOf(Triple(false, .23f, .32f), Triple(false, .77f, .32f)),
+    "Lower back" to listOf(Triple(false, .5f, .38f)),
+    "Glutes" to listOf(Triple(false, .43f, .47f), Triple(false, .57f, .47f)),
+    "Hamstrings" to listOf(Triple(false, .42f, .60f), Triple(false, .58f, .60f)),
+    "Abductors" to listOf(Triple(false, .36f, .52f), Triple(false, .64f, .52f)),
+)
+
+/** Hevy-style mini body pictogram (front/back) with the worked muscles highlighted in accent. */
+@Composable
+fun BodyMap(front: Boolean, muscles: Set<String>, modifier: Modifier = Modifier) {
+    val accent = MaterialTheme.colorScheme.primary
+    val body = Color(0xFF43474D)
+    Box(
+        modifier
+            .size(width = 38.dp, height = 52.dp)
+            .clip(RoundedCornerShape(11.dp))
+            .background(C.Card2)
+    ) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize().padding(5.dp)) {
+            val w = size.width
+            val h = size.height
+            // silhouette pictogram
+            drawCircle(body, radius = w * 0.105f, center = Offset(w * 0.5f, h * 0.09f))
+            drawRoundRect(
+                body,
+                topLeft = Offset(w * 0.31f, h * 0.18f),
+                size = androidx.compose.ui.geometry.Size(w * 0.38f, h * 0.27f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.10f),
+            )
+            drawLine(body, Offset(w * 0.27f, h * 0.21f), Offset(w * 0.18f, h * 0.42f), strokeWidth = w * 0.115f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(body, Offset(w * 0.73f, h * 0.21f), Offset(w * 0.82f, h * 0.42f), strokeWidth = w * 0.115f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(body, Offset(w * 0.42f, h * 0.46f), Offset(w * 0.40f, h * 0.88f), strokeWidth = w * 0.13f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(body, Offset(w * 0.58f, h * 0.46f), Offset(w * 0.60f, h * 0.88f), strokeWidth = w * 0.13f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            // worked-muscle highlights
+            muscles.forEach { m ->
+                BODY_SPOTS[m]?.forEach { (f, x, y) ->
+                    if (f == front) drawCircle(accent, radius = w * 0.072f, center = Offset(w * x, h * y))
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun PrRow(left: String, right: String, subLeft: String? = null) {
     Row(

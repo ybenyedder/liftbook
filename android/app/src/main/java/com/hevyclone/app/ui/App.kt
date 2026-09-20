@@ -56,6 +56,7 @@ sealed interface Screen {
     data object History : Screen
     data object Exercises : Screen
     data object Logger : Screen
+    data object WorkoutSummary : Screen
 }
 
 object Nav {
@@ -140,6 +141,7 @@ fun App(refreshKey: Int = 0) {
                     Screen.History -> HistoryScreen()
                     Screen.Exercises -> ExercisesScreen()
                     Screen.Logger -> LoggerScreen()
+                    Screen.WorkoutSummary -> WorkoutSummaryScreen()
                 }
             }
             // Global undo bar for a deleted workout — hosted in App so it survives navigation.

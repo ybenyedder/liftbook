@@ -1,29 +1,54 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- "Séance en cours" notification (Hevy style): true black + running chronometer. -->
+<!-- "Séance en cours" notification, Hevy media-card style: app icon + title + chronometer. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/workout_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="#FF000000"
-    android:padding="16dp">
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:background="@drawable/notif_card"
+    android:padding="10dp">
 
-    <TextView
-        android:id="@+id/workout_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="SÉANCE EN COURS"
-        android:textColor="#FF8D9399"
-        android:textSize="12sp"
-        android:textStyle="bold" />
+    <ImageView
+        android:id="@+id/iv_app"
+        android:layout_width="46dp"
+        android:layout_height="46dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/notif_logo"
+        android:contentDescription="@null" />
 
-    <Chronometer
-        android:id="@+id/workout_chrono"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:textColor="#FFFFFFFF"
-        android:textSize="30sp"
-        android:textStyle="bold" />
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:layout_marginStart="12dp">
+
+        <TextView
+            android:id="@+id/workout_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Entraînement"
+            android:textColor="#FFFFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <Chronometer
+            android:id="@+id/workout_chrono"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textColor="#FF8D9399"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+    <ImageView
+        android:id="@+id/iv_chevron"
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:layout_marginStart="8dp"
+        android:src="@drawable/notif_chevron"
+        android:contentDescription="@null" />
 
 </LinearLayout>

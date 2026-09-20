@@ -8,6 +8,15 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Shader
+import android.graphics.drawable.VectorDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -15,12 +24,14 @@ import android.os.Looper
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import com.hevyclone.app.data.ExImages
 import com.hevyclone.app.ui.RestTimer
+import com.hevyclone.app.ui.illRes
 
 /**
  * Foreground service driving the Hevy-style rest-timer notification:
- * true-black custom layout, live countdown + progress bar, and −15s / +15s / Passer
- * buttons actionable straight from the notification.
+ * black media card (app icon, "Repos X:XX", blue progress, exercise illustration, chevron),
+ * with −15s / +15s / Passer actions in the expanded view.
  *
  * The state lives in [RestTimer] (single source of truth, observed by the in-app RestBar);
  * this service only renders it every 500 ms and handles the notification button actions.
@@ -39,7 +50,7 @@ class RestNotifService : Service() {
         private const val CHANNEL = "rest_timer"
         private const val TICK_MS = 500L
 
-        /** How long the "REPOS TERMINÉ" state is shown after the timer hits 0. */
+        /** How long the "Repos terminé" state is shown after the timer hits 0. */
         private const val FINISHED_LINGER_MS = 4000L
     }
 
@@ -113,26 +124,72 @@ class RestNotifService : Service() {
         return ((remainMs + 999L) / 1000L).toInt() // ceil, so "90" shows for the full 90 s
     }
 
+    /** Rounded illustration of the exercise being rested on (photo when bundled, muscle pictogram otherwise). */
+    private fun exIllustration(): Bitmap {
+        val dp = resources.displayMetrics.density
+        val size = (52 * dp).toInt().coerceAtLeast(96)
+        val radius = 10 * dp
+        val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bmp)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+        val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
+
+        val photoRes = RestTimer.exName?.let { ExImages.res(it) }
+        if (photoRes != null) {
+            runCatching {
+                val src = android.graphics.BitmapFactory.decodeResource(resources, photoRes)
+                if (src != null) {
+                    // center-crop to square, then round the corners via shader
+                    val side = minOf(src.width, src.height)
+                    val dx = (src.width - side) / 2f
+                    val dy = (src.height - side) / 2f
+                    val matrix = Matrix()
+                    matrix.setScale(size.toFloat() / side, size.toFloat() / side)
+                    matrix.postTranslate(-dx * (size.toFloat() / side), -dy * (size.toFloat() / side))
+                    paint.shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(matrix) }
+                    canvas.drawRoundRect(rect, radius, radius, paint)
+                    return bmp
+                }
+            }
+        }
+        // fallback: dark rounded tile + muscle pictogram
+        paint.shader = null
+        paint.color = 0xFF1C1C1E.toInt()
+        canvas.drawRoundRect(rect, radius, radius, paint)
+        val dr = RestTimer.exMuscle?.let { runCatching { resources.getDrawable(illRes(it), null) }.getOrNull() }
+        if (dr != null) {
+            val inset = (size * 0.12f).toInt()
+            dr.setBounds(inset, inset, size - inset, size - inset)
+            dr.draw(canvas)
+        }
+        return bmp
+    }
+
+    private fun buildBaseViews(expanded: Boolean): RemoteViews {
+        val rv = RemoteViews(packageName, R.layout.notif_rest)
+        val finished = RestTimer.endAt > 0 && System.currentTimeMillis() >= RestTimer.endAt
+        if (finished) {
+            rv.setTextViewText(R.id.rest_time, L10nText.restDone(this))
+            rv.setProgressBar(R.id.rest_progress, totalSec.coerceAtLeast(1), 0, false)
+        } else {
+            val remain = remainingSec()
+            rv.setTextViewText(R.id.rest_time, L10nText.restRemaining(this, remain))
+            rv.setProgressBar(R.id.rest_progress, totalSec.coerceAtLeast(1), remain, false)
+        }
+        rv.setImageViewResource(R.id.iv_app, R.drawable.notif_logo)
+        rv.setImageViewBitmap(R.id.iv_ex, exIllustration())
+        rv.setViewVisibility(R.id.btn_row, if (expanded) android.view.View.VISIBLE else android.view.View.GONE)
+        rv.setOnClickPendingIntent(R.id.btn_minus15, actionPendingIntent(ACTION_MINUS15, 1))
+        rv.setOnClickPendingIntent(R.id.btn_plus15, actionPendingIntent(ACTION_ADD15, 2))
+        rv.setOnClickPendingIntent(R.id.btn_skip, actionPendingIntent(ACTION_SKIP, 3))
+        return rv
+    }
+
     private fun buildNotification(): Notification {
         val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Minuteur de repos", NotificationManager.IMPORTANCE_LOW)
         )
-        val finished = RestTimer.endAt > 0 && System.currentTimeMillis() >= RestTimer.endAt
-        val rv = RemoteViews(packageName, R.layout.notif_rest)
-        if (finished) {
-            rv.setTextViewText(R.id.rest_label, "REPOS TERMINÉ")
-            rv.setTextViewText(R.id.rest_time, "0:00")
-            rv.setProgressBar(R.id.rest_progress, totalSec.coerceAtLeast(1), 0, false)
-        } else {
-            val remain = remainingSec()
-            rv.setTextViewText(R.id.rest_label, "REPOS")
-            rv.setTextViewText(R.id.rest_time, "${remain / 60}:${String.format("%02d", remain % 60)}")
-            rv.setProgressBar(R.id.rest_progress, totalSec.coerceAtLeast(1), remain, false)
-        }
-        rv.setOnClickPendingIntent(R.id.btn_minus15, actionPendingIntent(ACTION_MINUS15, 1))
-        rv.setOnClickPendingIntent(R.id.btn_plus15, actionPendingIntent(ACTION_ADD15, 2))
-        rv.setOnClickPendingIntent(R.id.btn_skip, actionPendingIntent(ACTION_SKIP, 3))
         val content = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java),
@@ -144,8 +201,8 @@ class RestNotifService : Service() {
             .setOnlyAlertOnce(true)
             .setColor(android.graphics.Color.BLACK)
             .setContentIntent(content)
-            .setCustomContentView(rv)
-            .setCustomBigContentView(rv)
+            .setCustomContentView(buildBaseViews(expanded = false))
+            .setCustomBigContentView(buildBaseViews(expanded = true))
             .build()
     }
 
@@ -170,4 +227,20 @@ class RestNotifService : Service() {
                 .notify(NOTIF_ID, buildNotification())
         }
     }
+}
+
+/** Tiny localizer for the notification texts (service-side, no Compose). */
+private object L10nText {
+    private fun fr(ctx: Context): Boolean =
+        ctx.resources.configuration.locales.get(0)?.language == "fr"
+
+    fun restRemaining(ctx: Context, sec: Int): String {
+        val m = sec / 60
+        val s = sec % 60
+        val t = "$m:${String.format("%02d", s)}"
+        return if (fr(ctx)) "Repos $t" else "Rest $t"
+    }
+
+    fun restDone(ctx: Context): String =
+        if (fr(ctx)) "Repos terminé" else "Rest complete"
 }

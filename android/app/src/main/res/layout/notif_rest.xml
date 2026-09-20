@@ -1,58 +1,93 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Rest-timer notification (Hevy style): true black, countdown, progress, −15s/+15s/Passer. -->
+<!-- Rest-timer notification, Hevy media-card style:
+     app icon | "Repos 1:56" + blue progress | exercise illustration | chevron.
+     The action buttons row only shows in the expanded (big) view. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/rest_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:background="#FF000000"
-    android:padding="16dp">
-
-    <TextView
-        android:id="@+id/rest_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="REPOS"
-        android:textColor="#FF8D9399"
-        android:textSize="12sp"
-        android:textStyle="bold" />
-
-    <TextView
-        android:id="@+id/rest_time"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:text="0:00"
-        android:textColor="#FFFFFFFF"
-        android:textSize="34sp"
-        android:textStyle="bold" />
-
-    <ProgressBar
-        android:id="@+id/rest_progress"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="8dp"
-        android:layout_marginTop="12dp"
-        android:indeterminate="false"
-        android:max="60"
-        android:progress="60"
-        android:progressDrawable="@drawable/notif_progress" />
+    android:background="@drawable/notif_card"
+    android:padding="10dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/iv_app"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/notif_logo"
+            android:contentDescription="@null" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="12dp"
+            android:layout_gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/rest_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Repos 1:56"
+                android:textColor="#FFFFFFFF"
+                android:textSize="19sp"
+                android:textStyle="bold" />
+
+            <ProgressBar
+                android:id="@+id/rest_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="5dp"
+                android:layout_marginTop="9dp"
+                android:indeterminate="false"
+                android:max="60"
+                android:progress="60"
+                android:progressDrawable="@drawable/notif_progress" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/iv_ex"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:layout_marginStart="10dp"
+            android:scaleType="fitCenter"
+            android:contentDescription="@null" />
+
+        <ImageView
+            android:id="@+id/iv_chevron"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginStart="8dp"
+            android:src="@drawable/notif_chevron"
+            android:contentDescription="@null" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/btn_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
 
         <TextView
             android:id="@+id/btn_minus15"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:background="@drawable/notif_btn"
             android:clickable="true"
             android:gravity="center"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp"
+            android:paddingTop="11dp"
+            android:paddingBottom="11dp"
             android:text="− 15s"
             android:textColor="#FFFFFFFF"
             android:textSize="14sp"
@@ -64,10 +99,11 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
+            android:background="@drawable/notif_btn"
             android:clickable="true"
             android:gravity="center"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp"
+            android:paddingTop="11dp"
+            android:paddingBottom="11dp"
             android:text="+ 15s"
             android:textColor="#FFFFFFFF"
             android:textSize="14sp"
@@ -79,10 +115,11 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
+            android:background="@drawable/notif_btn"
             android:clickable="true"
             android:gravity="center"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp"
+            android:paddingTop="11dp"
+            android:paddingBottom="11dp"
             android:text="Passer"
             android:textColor="#FFFFFFFF"
             android:textSize="14sp"

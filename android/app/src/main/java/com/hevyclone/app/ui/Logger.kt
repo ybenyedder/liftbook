@@ -18,6 +18,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -44,12 +46,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Search
@@ -67,7 +69,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -110,10 +111,11 @@ object WorkoutNotif {
             nm.createNotificationChannel(
                 android.app.NotificationChannel(CHANNEL, "Chronomètre de séance", android.app.NotificationManager.IMPORTANCE_LOW)
             )
-            // Hevy-style true-black custom layout with a self-ticking chronometer.
+            // Hevy-style media card: app icon, "Entraînement" + running chronometer.
             // NB: Chronometer bases run on elapsedRealtime, not wall clock — offset by the
             // session's age or it displays a huge negative value.
             val rv = android.widget.RemoteViews(ctx.packageName, R.layout.notif_workout)
+            rv.setImageViewResource(R.id.iv_app, R.drawable.notif_logo)
             rv.setChronometer(
                 R.id.workout_chrono,
                 android.os.SystemClock.elapsedRealtime() - (System.currentTimeMillis() - startedAt),
@@ -148,6 +150,11 @@ object WorkoutNotif {
 
 object RestTimer {
     var endAt by mutableStateOf(0L)
+    /** Total rest length (progress bar); maintained alongside endAt. */
+    var totalMs by mutableStateOf(0L)
+    /** Exercise currently resting — shown in the notification illustration. */
+    var exName: String? = null
+    var exMuscle: String? = null
     var appContext: android.content.Context? = null
     private const val PREFS = "rest_timer"
 
@@ -161,18 +168,19 @@ object RestTimer {
         val saved = p.getLong("endAt", 0L)
         if (saved > System.currentTimeMillis()) {
             endAt = saved
-            val total = p.getInt("total", 0).takeIf { it > 0 }
-                ?: ((saved - System.currentTimeMillis()) / 1000L).toInt().coerceAtLeast(1)
-            startService(ctx, total)
+            totalMs = p.getLong("totalMs", 0L).takeIf { it > 0 }
+                ?: ((saved - System.currentTimeMillis()) / 1000L) * 1000L
+            startService(ctx, (totalMs / 1000L).toInt())
         } else if (saved > 0) {
-            p.edit().remove("endAt").remove("total").apply()
+            p.edit().remove("endAt").remove("total").remove("totalMs").apply()
         }
     }
 
     fun start(sec: Int) {
         endAt = System.currentTimeMillis() + sec * 1000L
+        totalMs = sec * 1000L
         appContext?.let {
-            prefs(it).edit().putLong("endAt", endAt).putInt("total", sec).apply()
+            prefs(it).edit().putLong("endAt", endAt).putInt("total", sec).putLong("totalMs", totalMs).apply()
             startService(it, sec)
         }
     }
@@ -188,7 +196,7 @@ object RestTimer {
 
     /** +15s from the notification button. */
     fun plus15() {
-        if (endAt > 0) { endAt += 15_000L; persistEnd() }
+        if (endAt > 0) { endAt += 15_000L; totalMs += 15_000L; persistEnd() }
     }
 
     /** −15s from the notification button (never below 0.5 s left). */
@@ -210,8 +218,11 @@ object RestTimer {
 
     fun clear() {
         endAt = 0
+        totalMs = 0
+        exName = null
+        exMuscle = null
         appContext?.let { ctx ->
-            prefs(ctx).edit().remove("endAt").remove("total").apply()
+            prefs(ctx).edit().remove("endAt").remove("total").remove("totalMs").apply()
             runCatching {
                 ctx.stopService(android.content.Intent(ctx, RestNotifService::class.java))
                 (ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
@@ -227,7 +238,61 @@ object RestTimer {
      */
     fun onFinishedByService() {
         endAt = 0
-        appContext?.let { prefs(it).edit().remove("endAt").remove("total").apply() }
+        totalMs = 0
+        exName = null
+        exMuscle = null
+        appContext?.let { prefs(it).edit().remove("endAt").remove("total").remove("totalMs").apply() }
+    }
+}
+
+/** One-shot "record battu" pill shown at the top of the workout screen (Hevy PR badge). */
+object PrBadge {
+    class Badge(val ex: String, val muscle: String, val kind: String, val value: String)
+    var current by mutableStateOf<Badge?>(null)
+    fun show(ex: String, muscle: String, kind: String, value: String) {
+        current = Badge(ex, muscle, kind, value)
+    }
+}
+
+@Composable
+fun PrBadgeHost() {
+    val b = PrBadge.current ?: return
+    LaunchedEffect(b) {
+        delay(4200)
+        if (PrBadge.current === b) PrBadge.current = null
+    }
+    AnimatedVisibility(
+        visible = PrBadge.current != null,
+        enter = slideInVertically(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) { -it * 2 } + fadeIn(),
+        exit = slideOutVertically { -it } + fadeOut(),
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(C.Card2)
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White)) {
+                ExPhoto(b.ex, b.muscle, 36.dp)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(exName(b.ex), color = C.Text, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${b.kind} - ${b.value}", color = C.Gold, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(
+                Icons.Rounded.Close, null,
+                tint = C.Mut,
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .clickable { PrBadge.current = null }
+                    .padding(4.dp),
+            )
+        }
     }
 }
 
@@ -242,7 +307,6 @@ fun LoggerScreen() {
     val unit = Repo.settings.unit
 
     var showPicker by remember { mutableStateOf(false) }
-    var showFinish by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
     var showDiscard by remember { mutableStateOf(false) }
     var showNoSets by remember { mutableStateOf(false) }
@@ -276,182 +340,196 @@ fun LoggerScreen() {
         toast(ctx, L10n.s("Routine saved", "Routine enregistrée"))
     }
 
-    Column(Modifier.fillMaxSize().imePadding()) {
-        // ---- top bar ----
-        if (isWorkout) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = {
-                    if (hasData()) showDiscard = true
-                    else { Repo.discardDraft(); Nav.pop(); toast(ctx, L10n.s("Discarded", "Supprimée")) }
-                }) { Icon(Icons.Rounded.ArrowBack, null) }
-                Column(Modifier.weight(1f)) {
-                    Text(draft.name, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(11.dp))
-                        Spacer(Modifier.width(3.dp))
-                        DurationText(draft.startedAt)
-                    }
-                }
-                Box(
-                    Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(MaterialTheme.colorScheme.primary)
-                        .clickable { if (anyDone()) showFinish = true else showNoSets = true }
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                ) {
-                    Text(
-                        L10n.s("FINISH", "TERMINER"),
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                    )
-                }
-                Spacer(Modifier.width(8.dp))
-                Box {
-                    IconButton(onClick = { showMenu = true }) { Icon(Icons.Rounded.MoreHoriz, null) }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        DropdownMenuItem(
-                            text = { Text(L10n.s("Workout notes", "Notes de la séance")) },
-                            leadingIcon = { Icon(Icons.Rounded.Notes, null, modifier = Modifier.size(16.dp)) },
-                            onClick = { showMenu = false; showNotesDialog = true },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(L10n.s("Discard workout", "Supprimer la séance"), color = MaterialTheme.colorScheme.error) },
-                            onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
-                        )
-                    }
-                }
-            }
-            // ---- live stats row (Durée / Volume / Séries) ----
-            val tick = produceState(System.currentTimeMillis()) {
-                while (true) { value = System.currentTimeMillis(); delay(1000) }
-            }.value
-            var liveVol = 0.0; var liveSets = 0
-            for (ex in draft.exercises) for (s in ex.sets) {
-                if (s.done && s.kg != null && s.reps != null) { liveVol += s.kg!! * s.reps!!; liveSets++ }
-            }
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                LiveStat(Calc.fmtClock(maxOf(0, tick - (draft.startedAt ?: tick))), L10n.s("Duration", "Durée"), Modifier.weight(1f))
-                LiveStat("${Calc.fmtVol(liveVol, unit)} ${Calc.unitLabel(unit)}", L10n.s("Volume", "Volume"), Modifier.weight(1f))
-                LiveStat("$liveSets", L10n.s("Sets", "Séries"), Modifier.weight(1f))
-            }
-        } else {
-            // ---- routine editor top bar (Hevy: Annuler | Créer une Routine | Enregistrer) ----
-            Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    L10n.s("Cancel", "Annuler"),
-                    color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable {
+    Box(Modifier.fillMaxSize().imePadding()) {
+        Column(Modifier.fillMaxSize()) {
+            // ---- top bar ----
+            if (isWorkout) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
                             if (hasData()) showDiscard = true
-                            else { Repo.discardDraft(); Nav.pop() }
+                            else { Repo.discardDraft(); Nav.pop(); toast(ctx, L10n.s("Discarded", "Supprimée")) }
+                        },
+                        modifier = Modifier.size(34.dp),
+                    ) { Icon(Icons.Rounded.KeyboardArrowDown, null, modifier = Modifier.size(26.dp)) }
+                    Text(
+                        draft.name,
+                        fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                    )
+                    Box {
+                        IconButton(onClick = { showMenu = true }, modifier = Modifier.size(30.dp)) {
+                            Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
                         }
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                )
-                Text(
-                    if (draft.routineId != null) L10n.s("Edit Routine", "Modifier la Routine")
-                    else L10n.s("Create Routine", "Créer une Routine"),
-                    fontWeight = FontWeight.ExtraBold, fontSize = 16.sp,
-                    modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
-                )
-                Text(
-                    L10n.s("Save", "Enregistrer"),
-                    color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { trySaveRoutine() }
-                        .padding(horizontal = 8.dp, vertical = 8.dp),
-                )
-                Box {
-                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(34.dp)) { Icon(Icons.Rounded.MoreHoriz, null, modifier = Modifier.size(19.dp)) }
-                    DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
-                        if (draft.routineId != null) {
-                            DropdownMenuItem(text = { Text(L10n.s("Delete routine", "Supprimer la routine"), color = MaterialTheme.colorScheme.error) }, onClick = {
-                                showMenu = false; showDeleteRoutine = true
-                            })
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(L10n.s("Workout notes", "Notes de la séance")) },
+                                leadingIcon = { Icon(Icons.Rounded.Notes, null, modifier = Modifier.size(16.dp)) },
+                                onClick = { showMenu = false; showNotesDialog = true },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(L10n.s("Discard workout", "Supprimer la séance"), color = MaterialTheme.colorScheme.error) },
+                                onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
+                            )
                         }
-                        DropdownMenuItem(
-                            text = { Text(L10n.s("Discard changes", "Ignorer les modifications"), color = MaterialTheme.colorScheme.error) },
-                            onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Icon(Icons.Rounded.Timer, null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                            .clickable { if (anyDone()) Nav.push(Screen.WorkoutSummary) else showNoSets = true }
+                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                    ) {
+                        Text(
+                            L10n.s("FINISH", "TERMINER"),
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
                         )
                     }
                 }
-            }
-            TextField(
-                value = nameText,
-                onValueChange = { nameText = it; draft.name = it },
-                placeholder = { Text(L10n.s("Routine title", "Titre de la routine"), color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surface,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                ),
-                textStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).height(52.dp),
-            )
-        }
-        // ---- exercise cards ----
-        LazyColumn(Modifier.weight(1f)) {
-            if (draft.exercises.isEmpty()) {
-                item {
-                    EmptyState(
-                        if (isWorkout) "Aucun exercice.\nTouche « Ajouter un Exercice » pour commencer."
-                        else "Cette routine est vide.\nTouche « Ajouter un Exercice » pour la construire."
-                    )
+                // ---- live stats row (Durée / Volume / Séries + body pictograms) ----
+                val tick = produceState(System.currentTimeMillis()) {
+                    while (true) { value = System.currentTimeMillis(); delay(1000) }
+                }.value
+                var liveVol = 0.0; var liveSets = 0
+                for (ex in draft.exercises) for (s in ex.sets) {
+                    if (s.done && s.kg != null && s.reps != null) { liveVol += s.kg!! * s.reps!!; liveSets++ }
                 }
-            }
-            items(draft.exercises.size, key = { "${draft.exercises[it].name}-$it" }) { ei ->
-                Box(Modifier.animateItemPlacement()) {
-                    ExCard(draft.exercises[ei], ei, isWorkout, unit, dragIndex == ei, ::moveExercise)
-                }
-            }
-            item(key = "addEx") {
-                // Hevy-style full-width add button under the cards
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .height(52.dp)
-                        .clip(RoundedCornerShape(999.dp))
-                        .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(999.dp))
-                        .clickable { showPicker = true },
-                    contentAlignment = Alignment.Center,
+                val muscles = remember(rev) { draft.exercises.map { it.muscle }.toSet() }
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.Add, null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(10.dp))
-                        Text(L10n.s("Add Exercise", "Ajouter un Exercice", "Añadir Ejercicio", "Übung hinzufügen"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    LiveStat(Calc.fmtClock(maxOf(0, tick - (draft.startedAt ?: tick))), L10n.s("Duration", "Durée"), Modifier.weight(1f), accent = true)
+                    LiveStat("${Calc.fmtVol(liveVol, unit)} ${Calc.unitLabel(unit)}", L10n.s("Volume", "Volume"), Modifier.weight(1f))
+                    LiveStat("$liveSets", L10n.s("Sets", "Séries"), Modifier.weight(1f))
+                    BodyMap(front = true, muscles = muscles)
+                    BodyMap(front = false, muscles = muscles)
+                }
+            } else {
+                // ---- routine editor top bar (Hevy: Annuler | Créer une Routine | Enregistrer) ----
+                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        L10n.s("Cancel", "Annuler"),
+                        color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                if (hasData()) showDiscard = true
+                                else { Repo.discardDraft(); Nav.pop() }
+                            }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    )
+                    Text(
+                        if (draft.routineId != null) L10n.s("Edit Routine", "Modifier la Routine")
+                        else L10n.s("Create Routine", "Créer une Routine"),
+                        fontWeight = FontWeight.ExtraBold, fontSize = 16.sp,
+                        modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
+                    )
+                    Text(
+                        L10n.s("Save", "Enregistrer"),
+                        color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { trySaveRoutine() }
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    )
+                    Box {
+                        IconButton(onClick = { showMenu = true }, modifier = Modifier.size(34.dp)) { Icon(Icons.Rounded.MoreHoriz, null, modifier = Modifier.size(19.dp)) }
+                        DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+                            if (draft.routineId != null) {
+                                DropdownMenuItem(text = { Text(L10n.s("Delete routine", "Supprimer la routine"), color = MaterialTheme.colorScheme.error) }, onClick = {
+                                    showMenu = false; showDeleteRoutine = true
+                                })
+                            }
+                            DropdownMenuItem(
+                                text = { Text(L10n.s("Discard changes", "Ignorer les modifications"), color = MaterialTheme.colorScheme.error) },
+                                onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
+                            )
+                        }
+                    }
+                }
+                TextField(
+                    value = nameText,
+                    onValueChange = { nameText = it; draft.name = it },
+                    placeholder = { Text(L10n.s("Routine title", "Titre de la routine"), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surface,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent,
+                    ),
+                    textStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).height(52.dp),
+                )
+            }
+            // ---- exercise cards ----
+            LazyColumn(Modifier.weight(1f)) {
+                if (draft.exercises.isEmpty()) {
+                    item {
+                        EmptyState(
+                            if (isWorkout) "Aucun exercice.\nTouche « Ajouter un Exercice » pour commencer."
+                            else "Cette routine est vide.\nTouche « Ajouter un Exercice » pour la construire."
+                        )
+                    }
+                }
+                items(draft.exercises.size, key = { "${draft.exercises[it].name}-$it" }) { ei ->
+                    Box(Modifier.animateItemPlacement()) {
+                        ExCard(draft.exercises[ei], ei, isWorkout, unit, dragIndex == ei, ::moveExercise)
+                    }
+                }
+                item(key = "addEx") {
+                    // Hevy-style full-width add button under the cards
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 6.dp)
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(MaterialTheme.colorScheme.surface)
+                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(999.dp))
+                            .clickable { showPicker = true },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Rounded.Add, null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(L10n.s("Add Exercise", "Ajouter un Exercice", "Añadir Ejercicio", "Übung hinzufügen"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+                item(key = "dockspace") { Spacer(Modifier.height(140.dp)) }
+            }
+            // ---- bottom dock ----
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.background)
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+            ) {
+                AnimatedVisibility(
+                    visible = RestTimer.endAt > 0,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut(),
+                ) {
+                    Column {
+                        RestBar()
+                        Spacer(Modifier.height(10.dp))
                     }
                 }
             }
-            item(key = "dockspace") { Spacer(Modifier.height(140.dp)) }
         }
-        // ---- bottom dock ----
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.background)
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-        ) {
-            AnimatedVisibility(
-                visible = RestTimer.endAt > 0,
-                enter = expandVertically() + fadeIn(),
-                exit = shrinkVertically() + fadeOut(),
-            ) {
-                Column {
-                    RestBar()
-                    Spacer(Modifier.height(10.dp))
-                }
-            }
+        // PR pill overlays the top of the workout screen
+        if (isWorkout) {
+            Box(Modifier.align(Alignment.TopCenter)) { PrBadgeHost() }
         }
     }
 
@@ -467,32 +545,6 @@ fun LoggerScreen() {
                     Repo.addExToDraft(name)
                     showPicker = false
                     toast(ctx, "$name ajouté")
-                },
-            )
-        }
-    }
-    if (showFinish) {
-        ModalBottomSheet(
-            onDismissRequest = { showFinish = false },
-            containerColor = MaterialTheme.colorScheme.surface,
-        ) {
-            FinishSheet(
-                draft = draft,
-                onCancel = { showFinish = false },
-                onDiscard = {
-                    showFinish = false
-                    RestTimer.clear()
-                    Repo.discardDraft()
-                    Nav.pop()
-                    toast(ctx, "Supprimée")
-                },
-                onSave = {
-                    val w = Repo.finishWorkout(nameText)
-                    showFinish = false
-                    RestTimer.clear()
-                    Nav.toTab(Screen.HomeTab)
-                    if (w != null && w.prs.isNotEmpty()) toast(ctx, "Saved · ${w.prs.size} PR${if (w.prs.size > 1) "s" else ""}!")
-                    else toast(ctx, L10n.s("Workout saved", "Séance enregistrée"))
                 },
             )
         }
@@ -627,34 +679,26 @@ private fun ExCard(
                     )
                     Spacer(Modifier.width(8.dp))
                 }
-                Column(Modifier.weight(1f)) {
-                    Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isWorkout) {
+                    // Hevy-style round exercise photo + blue title
+                    ExPhoto(ex.name, ex.muscle, 46.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        exName(ex.name),
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold, fontSize = 16.sp,
+                        modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                } else {
+                    Column(Modifier.weight(1f)) {
+                        Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
-                            if (ex.superset) L10n.s("SUPERSET", "SUPERSET")
-                            else "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
-                            color = if (ex.superset) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp, fontWeight = if (ex.superset) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier.weight(1f),
+                            "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
                         )
-                        // Hevy-style rest label on the card — tap opens the picker
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { showRestDialog = true }
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                        ) {
-                            Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(13.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text(
-                                L10n.s("Rest: %1\$s", "Repos : %1\$s").format(fmtRestLabel(ex.restSec ?: Repo.settings.restSec)),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp, fontWeight = FontWeight.Medium,
-                            )
-                        }
                     }
                 }
-                Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 Box {
                     IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(30.dp)) {
                         Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
@@ -718,9 +762,55 @@ private fun ExCard(
                 }
             }
             if (isWorkout) {
+                // notes placeholder (Hevy position: between title and rest line)
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { showNotes = true }
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                ) {
+                    if (ex.notes.isEmpty()) {
+                        Text(
+                            L10n.s("Add notes here…", "Ajouter des notes ici…"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                            fontSize = 13.sp,
+                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp).padding(top = 1.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                ex.notes,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp, lineHeight = 18.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+                // blue rest line
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp, vertical = 2.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showRestDialog = true }
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                ) {
+                    Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        L10n.s("Rest: %1\$s", "Repos : %1\$s").format(fmtRestLabel(ex.restSec ?: Repo.settings.restSec)),
+                        color = MaterialTheme.colorScheme.primary, fontSize = 12.5.sp, fontWeight = FontWeight.Medium,
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+            }
+            if (isWorkout) {
                 Row(Modifier.padding(horizontal = 12.dp)) {
                     Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
-                    Text(L10n.s("PREVIOUS", "PRÉCÉDENTE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1.1f), textAlign = TextAlign.Center)
+                    Text(L10n.s("PREVIOUS", "PRÉCÉDENT"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1.15f), textAlign = TextAlign.Center)
                     Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                     Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                     Spacer(Modifier.width(40.dp))
@@ -735,47 +825,55 @@ private fun ExCard(
             }
             val prev = if (isWorkout) Repo.prevFor(ex.name) else null
             ex.sets.forEachIndexed { si, s ->
-                SetRow(s, si, ei, isWorkout, unit, if (isWorkout) prev?.getOrNull(si) else null, ex.restSec)
+                SetRow(s, si, ei, isWorkout, unit, ex, if (isWorkout) prev?.getOrNull(si) else null, ex.restSec)
             }
-            // add set
-            Text(
-                L10n.s("+ ADD SET", "+ AJOUTER UNE SÉRIE"),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
-                modifier = Modifier
+            // add set — Hevy dark full-width button
+            Box(
+                Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .background(C.Card2)
                     .clickable {
                         val last = ex.sets.lastOrNull()
                         ex.sets.add(SetEntry(last?.kg, last?.reps, done = false))
                         Repo.touchPublic()
                     }
-                    .padding(vertical = 12.dp),
-                textAlign = TextAlign.Center,
-            )
-            // notes — inline Hevy-style placeholder / preview, tap opens the editor
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { showNotes = true }
-                    .padding(horizontal = 10.dp, vertical = 10.dp),
+                    .padding(vertical = 11.dp),
+                contentAlignment = Alignment.Center,
             ) {
-                if (ex.notes.isEmpty()) {
-                    Text(
-                        L10n.s("Add notes here…", "Ajouter des notes ici…"),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                        fontSize = 13.sp,
-                    )
-                } else {
-                    Row(verticalAlignment = Alignment.Top) {
-                        Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp).padding(top = 1.dp))
-                        Spacer(Modifier.width(6.dp))
+                Text(
+                    L10n.s("+ ADD SET", "+ AJOUTER UNE SÉRIE"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                )
+            }
+            if (!isWorkout) {
+                // notes — inline Hevy-style placeholder / preview, tap opens the editor
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { showNotes = true }
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
+                ) {
+                    if (ex.notes.isEmpty()) {
                         Text(
-                            ex.notes,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp, lineHeight = 18.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
+                            L10n.s("Add notes here…", "Ajouter des notes ici…"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                            fontSize = 13.sp,
                         )
+                    } else {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp).padding(top = 1.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                ex.notes,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 13.sp, lineHeight = 18.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                     }
                 }
             }
@@ -838,15 +936,51 @@ private fun ExCard(
     }
 }
 
+/**
+ * PR evaluation at check-time, against history strictly before this workout.
+ * Announces the badge once per new record; flags the set for the green row + recap.
+ */
+fun evaluatePr(ex: ExEntry, s: SetEntry) {
+    val kg = s.kg ?: return
+    val reps = s.reps ?: return
+    if (kg <= 0 || reps <= 0) return
+    val pr = Repo.prFor(ex.name)
+    val bestW = pr?.weight ?: 0.0
+    val bestE = pr?.e1rm ?: 0.0
+    val e = Calc.e1rm(kg, reps)
+    if (kg > bestW && !s.prW) {
+        s.prW = true
+        PrBadge.show(ex.name, ex.muscle, L10n.s("Heaviest Weight", "Plus Gros Poids"), "${Calc.fmtKg(kg, Repo.settings.unit)}${Calc.unitLabel(Repo.settings.unit)}")
+    } else if (e > bestE && !s.prE) {
+        s.prE = true
+        PrBadge.show(ex.name, ex.muscle, L10n.s("Best Est. 1RM", "Meilleure Est. 1RM"), "${Calc.fmtKg(e, Repo.settings.unit)}${Calc.unitLabel(Repo.settings.unit)}")
+    }
+}
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: String, prevText: String?, restOverride: Int? = null) {
+private fun SetRow(
+    s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: String,
+    ex: ExEntry, prevText: String?, restOverride: Int? = null,
+) {
     var menuOpen by remember { mutableStateOf(false) }
     val rowView = androidx.compose.ui.platform.LocalView.current
+    val isPr = isWorkout && (s.prW || s.prE)
+    val prGreen = Color(0xFF1F3B2C)
+    val checkGreen = Color(0xFF34C759)
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (isPr) prGreen else Color.Transparent)
+            .padding(horizontal = if (isPr) 4.dp else 0.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (isPr) {
+            Icon(Icons.Rounded.EmojiEvents, null, tint = C.Gold, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(5.dp))
+        }
         // set number chip — tap opens options (copy / delete)
         Box {
             Text(
@@ -856,23 +990,23 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .size(30.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(C.Card2)
                     .clickable { menuOpen = true }
                     .wrapContentHeight(Alignment.CenterVertically),
             )
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(text = { Text(L10n.s("Copy set", "Copier la série")) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(15.dp)) }, onClick = {
                     menuOpen = false
-                    Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
-                        if (si < ex.sets.size) ex.sets.add(si + 1, SetEntry(s.kg, s.reps, done = false))
+                    Repo.draft?.exercises?.getOrNull(ei)?.let { exx ->
+                        if (si < exx.sets.size) exx.sets.add(si + 1, SetEntry(s.kg, s.reps, done = false))
                     }
                     Repo.touchPublic()
                 })
                 DropdownMenuItem(text = { Text(L10n.s("Delete set", "Supprimer la série"), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(15.dp)) }, onClick = {
                     menuOpen = false
-                    Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
-                        if (ex.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else ex.sets.removeAt(si)
+                    Repo.draft?.exercises?.getOrNull(ei)?.let { exx ->
+                        if (exx.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else exx.sets.removeAt(si)
                     }
                     Repo.touchPublic()
                 })
@@ -885,7 +1019,7 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 12.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1.1f).padding(horizontal = 2.dp),
+                modifier = Modifier.weight(1.15f).padding(horizontal = 2.dp),
                 textAlign = TextAlign.Center,
             )
         }
@@ -903,9 +1037,13 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
         )
         Spacer(Modifier.width(5.dp))
         if (isWorkout) {
-            // dedicated completion check — toggles done + starts rest timer
+            // dedicated completion check — toggles done + starts rest timer (+ PR detection)
             val checkBg by animateColorAsState(
-                if (s.done) MaterialTheme.colorScheme.primary else Color.Transparent,
+                when {
+                    s.done && isPr -> checkGreen
+                    s.done -> MaterialTheme.colorScheme.primary
+                    else -> Color.Transparent
+                },
                 label = "checkBg",
             )
             val checkScale by animateFloatAsState(
@@ -921,13 +1059,22 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
                     .background(checkBg)
                     .border(
                         1.5.dp,
-                        if (s.done) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        when {
+                            s.done && isPr -> checkGreen
+                            s.done -> MaterialTheme.colorScheme.primary
+                            else -> MaterialTheme.colorScheme.outlineVariant
+                        },
                         CircleShape,
                     )
                     .clickable {
                         s.done = !s.done
                         rowView.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
-                        if (s.done) RestTimer.start(restOverride ?: Repo.settings.restSec)
+                        if (s.done) {
+                            evaluatePr(ex, s)
+                            RestTimer.exName = ex.name
+                            RestTimer.exMuscle = ex.muscle
+                            RestTimer.start(restOverride ?: Repo.settings.restSec)
+                        }
                     },
             ) {
                 Icon(
@@ -942,8 +1089,8 @@ private fun SetRow(s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: Stri
             // routine editor: direct delete button
             IconButton(
                 onClick = {
-                    Repo.draft?.exercises?.getOrNull(ei)?.let { ex ->
-                        if (ex.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else ex.sets.removeAt(si)
+                    Repo.draft?.exercises?.getOrNull(ei)?.let { exx ->
+                        if (exx.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else exx.sets.removeAt(si)
                     }
                     Repo.touchPublic()
                 },
@@ -971,8 +1118,9 @@ private fun SetField(init: String, hint: String, onChange: (String) -> Unit, mod
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = modifier
             .height(38.dp)
-            .clip(RoundedCornerShape(10.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(9.dp))
+            .background(C.Card2)
+            .border(1.dp, C.Line2, RoundedCornerShape(9.dp))
             .wrapContentHeight(Alignment.CenterVertically),
         decorationBox = { inner ->
             Box(contentAlignment = Alignment.Center) {
@@ -991,7 +1139,7 @@ fun fmtRestLabel(sec: Int): String =
 
 /** Compact live stat cell for the Durée / Volume / Séries row. */
 @Composable
-private fun LiveStat(value: String, label: String, modifier: Modifier = Modifier) {
+private fun LiveStat(value: String, label: String, modifier: Modifier = Modifier, accent: Boolean = false) {
     Column(
         modifier
             .clip(RoundedCornerShape(10.dp))
@@ -1000,7 +1148,11 @@ private fun LiveStat(value: String, label: String, modifier: Modifier = Modifier
             .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(value, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        Text(
+            value,
+            color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
+            fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+        )
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -1074,62 +1226,67 @@ fun RestSheet(
     }
 }
 
-/** Elapsed-workout label; ticks once per second without recomposing the whole logger. */
-@Composable
-private fun DurationText(startedAt: Long?) {
-    val now = produceState(System.currentTimeMillis()) {
-        while (true) { value = System.currentTimeMillis(); delay(1000) }
-    }.value
-    Text(
-        "${Calc.fmtClock(maxOf(0, now - (startedAt ?: now)))}",
-        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
-    )
-}
-
+/** Hevy rest bar: thin blue progress line, −15 / big timer / +15, blue Passer pill. */
 @Composable
 private fun RestBar() {
     val now = produceState(System.currentTimeMillis()) {
         while (true) { value = System.currentTimeMillis(); delay(250) }
     }.value
-    val remainingMs = RestTimer.endAt - now
-    val remSec = remainingMs / 1000.0
-    val over = remSec <= 0
-    val shown = if (over) 0 else remSec.toLong()
+    val remainingMs = (RestTimer.endAt - now).coerceAtLeast(0)
+    val over = RestTimer.endAt - now <= 0
+    val shown = (remainingMs / 1000L)
     val text = "${shown / 60}:${String.format("%02d", shown % 60)}"
-    Row(
+    val fraction = if (RestTimer.totalMs > 0) (remainingMs.toFloat() / RestTimer.totalMs).coerceIn(0f, 1f) else 0f
+    Column(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
-            .padding(horizontal = 12.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp)),
     ) {
-        Text(L10n.s("REST", "REPOS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold)
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text,
-            color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground,
-            fontSize = 23.sp, fontWeight = FontWeight.ExtraBold,
-        )
-        Spacer(Modifier.weight(1f))
-        listOf(-10000L to "−10s", 15000L to "+15s").forEach { (delta, label) ->
+        // progress line on top
+        Box(Modifier.fillMaxWidth().height(3.dp).background(C.Line)) {
+            Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(MaterialTheme.colorScheme.primary))
+        }
+        Row(
+            Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "−15",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { RestTimer.minus15() }
+                    .padding(horizontal = 6.dp, vertical = 6.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text,
+                color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground,
+                fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                "+15",
+                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { RestTimer.plus15() }
+                    .padding(horizontal = 6.dp, vertical = 6.dp),
+            )
+            Spacer(Modifier.width(10.dp))
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable { RestTimer.endAt += delta }
-                    .padding(horizontal = 11.dp, vertical = 8.dp),
-            ) { Text(label, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold) }
-            Spacer(Modifier.width(7.dp))
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable { RestTimer.clear() }
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                Text(L10n.s("Skip", "Passer"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
         }
-        Box(
-            Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-                .clickable { RestTimer.clear() }
-                .padding(8.dp),
-        ) { Icon(Icons.Rounded.Close, null, modifier = Modifier.size(14.dp)) }
     }
 }
 
@@ -1188,7 +1345,7 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    IllIcon(e.muscle, 46.dp)
+                    ExPhoto(e.name, e.muscle, 46.dp, corner = 10.dp)
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text(exName(e.name), fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2)
@@ -1206,75 +1363,6 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
                     }
                 }
             }
-        }
-    }
-}
-
-// ---------------- finish summary ----------------
-
-@Composable
-private fun FinishSheet(draft: com.hevyclone.app.data.Draft, onCancel: () -> Unit, onDiscard: () -> Unit, onSave: () -> Unit) {
-    val unit = Repo.settings.unit
-    var name by remember { mutableStateOf(draft.name) }
-    var vol = 0.0; var reps = 0; var sets = 0
-    for (ex in draft.exercises) for (s in ex.sets) {
-        if (!s.done || s.kg == null || s.reps == null) continue
-        vol += s.kg!! * s.reps!!; reps += s.reps!!; sets++
-    }
-    val prs = mutableListOf<com.hevyclone.app.data.PrRec>()
-    for (ex in draft.exercises) {
-        val done = ex.sets.filter { (it.kg ?: 0.0) > 0 && (it.reps ?: 0) > 0 && it.done }
-        if (done.isEmpty()) continue
-        val prev = Repo.prFor(ex.name)
-        val pw = prev?.weight ?: 0.0
-        val pe = prev?.e1rm ?: 0.0
-        val bw = done.maxOf { it.kg!! }
-        val be = done.maxOf { Calc.e1rm(it.kg!!, it.reps!!) }
-        if (bw > pw) prs.add(com.hevyclone.app.data.PrRec(ex.name, "Weight", bw))
-        if (be > pe) prs.add(com.hevyclone.app.data.PrRec(ex.name, "Est. 1RM", be))
-    }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
-        Text(L10n.s("Workout Summary", "Résumé de la séance"), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
-        Spacer(Modifier.height(10.dp))
-        TextField(
-            value = name, onValueChange = { name = it },
-            singleLine = true,
-            shape = RoundedCornerShape(11.dp),
-            textStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground),
-            colors = TextFieldDefaults.colors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                focusedIndicatorColor = MaterialTheme.colorScheme.primary,
-                unfocusedIndicatorColor = Color.Transparent,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { Metric(Calc.fmtDur(System.currentTimeMillis() - (draft.startedAt ?: System.currentTimeMillis())), L10n.s("Duration", "Durée"), tight = true) }
-            Box(Modifier.weight(1f)) { Metric(Calc.fmtVol(vol, unit), "Volume", unit = unit, tight = true) }
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(Modifier.weight(1f)) { Metric("$sets", L10n.s("Sets", "Séries"), tight = true) }
-            Box(Modifier.weight(1f)) { Metric("$reps", "Réps", tight = true) }
-        }
-        Spacer(Modifier.height(12.dp))
-        Text(
-            if (prs.isEmpty()) L10n.s("No new records this session", "Aucun nouveau record cette séance") else "${prs.size} new record${if (prs.size > 1) "s" else ""}",
-            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold,
-        )
-        prs.forEach { p ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(exName(p.ex), fontSize = 13.sp)
-                Text("${Calc.fmtKg(p.value, unit)} ${Calc.unitLabel(unit)} · ${p.kind}", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-        Row {
-            GhostButton(L10n.s("Discard", "Supprimer"), onClick = onDiscard, modifier = Modifier.weight(1f))
-            Spacer(Modifier.width(10.dp))
-            PrimaryButton(L10n.s("Save", "Enregistrer"), onClick = onSave, modifier = Modifier.weight(1f).height(44.dp))
         }
     }
 }

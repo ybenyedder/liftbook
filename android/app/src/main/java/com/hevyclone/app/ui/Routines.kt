@@ -14,18 +14,24 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
@@ -120,15 +126,39 @@ fun TrainingScreen() {
                             .graphicsLayer { rotationZ = if (viewMenu) 180f else 0f },
                     )
                 }
+                // m3 1.3 menus read their container from the color scheme — force true-dark (no blue-gray)
+                androidx.compose.material3.MaterialTheme(
+                    colorScheme = MaterialTheme.colorScheme.copy(
+                        surfaceContainer = C.Card,
+                        surfaceContainerHigh = C.Card,
+                        surfaceContainerHighest = C.Card,
+                    ),
+                ) {
                 DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text(L10n.s("Routines", "Routines", "Rutinas", "Routinen"), color = if (view == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, fontWeight = if (view == 0) FontWeight.Bold else FontWeight.Normal) },
-                        onClick = { viewMenu = false; view = 0 },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(L10n.s("Calendar", "Calendrier", "Calendario", "Kalender"), color = if (view == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, fontWeight = if (view == 1) FontWeight.Bold else FontWeight.Normal) },
-                        onClick = { viewMenu = false; view = 1 },
-                    )
+                    listOf(
+                        L10n.s("Training", "Entraînement", "Entrenamiento", "Training") to 0,
+                        L10n.s("Calendar", "Calendrier", "Calendario", "Kalender") to 1,
+                    ).forEach { (label, idx) ->
+                        DropdownMenuItem(
+                            modifier = Modifier.heightIn(min = 56.dp).widthIn(min = 200.dp),
+                            text = {
+                                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        label,
+                                        fontSize = 17.sp,
+                                        color = if (view == idx) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
+                                        fontWeight = if (view == idx) FontWeight.Bold else FontWeight.Medium,
+                                    )
+                                    Spacer(Modifier.weight(1f))
+                                    if (view == idx) {
+                                        Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                                    }
+                                }
+                            },
+                            onClick = { viewMenu = false; view = idx },
+                        )
+                    }
+                }
                 }
             }
         }
@@ -362,28 +392,31 @@ private fun RoutineCard(r: Routine, dragging: Boolean = false) {
             Modifier
                 .fillMaxWidth()
                 .background(if (dragging) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent, RoundedCornerShape(14.dp))
-                .clickable { Nav.push(Screen.RoutineDetail(r.id)) }
-                .padding(16.dp)
+                .clickable {
+                    // Hevy behaviour: tapping the card starts the workout right away
+                    if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")); return@clickable }
+                    Repo.startWorkout(r.id)
+                    Nav.push(Screen.Logger)
+                }
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(exName(r.name), fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(exName(r.name), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Box {
                     IconButton(onClick = { cardMenu = true }, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     DropdownMenu(expanded = cardMenu, onDismissRequest = { cardMenu = false }) {
+                        DropdownMenuItem(text = { Text(L10n.s("View routine", "Voir la routine")) }, leadingIcon = { Icon(Icons.Rounded.ChevronRight, null, modifier = Modifier.size(16.dp)) }, onClick = {
+                            cardMenu = false
+                            Nav.push(Screen.RoutineDetail(r.id))
+                        })
                         DropdownMenuItem(text = { Text(L10n.s("Rename routine", "Renommer la routine")) }, leadingIcon = { Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp)) }, onClick = {
                             cardMenu = false; renameTarget = r.id
                         })
                         DropdownMenuItem(text = { Text(L10n.s("Duplicate routine", "Dupliquer la routine")) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp)) }, onClick = {
                             cardMenu = false
                             Repo.duplicateRoutine(r.id)
-                        })
-                        DropdownMenuItem(text = { Text(L10n.s("Edit routine", "Modifier la routine")) }, leadingIcon = { Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp)) }, onClick = {
-                            cardMenu = false
-                            if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")); return@DropdownMenuItem }
-                            Repo.startRoutine(r.id)
-                            Nav.push(Screen.Logger)
                         })
                         DropdownMenuItem(text = { Text(L10n.s("Delete routine", "Supprimer la routine"), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) }, onClick = {
                             cardMenu = false
@@ -392,26 +425,19 @@ private fun RoutineCard(r: Routine, dragging: Boolean = false) {
                     }
                 }
             }
-            Text(
-                r.exercises.joinToString(", ") { exName(it.name) },
-                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, lineHeight = 21.sp,
-                maxLines = 2, overflow = TextOverflow.Ellipsis,
-            )
-            Spacer(Modifier.height(14.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(46.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primary)
-                    .clickable {
-                        if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")); return@clickable }
-                        Repo.startWorkout(r.id)
-                        Nav.push(Screen.Logger)
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(L10n.s("Start routine", "Commencer la routine", "Comenzar la rutina", "Routine starten"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            if (r.exercises.isEmpty()) {
+                Text(
+                    L10n.s("No exercises yet", "Aucun exercice pour l'instant"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
+                )
+            } else {
+                // Hevy-style strip of exercise thumbnails — see the exercises at a glance
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(r.exercises) { ex ->
+                        ExPhoto(ex.name, ex.muscle, size = 64.dp, corner = 10.dp)
+                    }
+                }
             }
         }
     }
@@ -580,12 +606,7 @@ fun RoutineDetailScreen(id: Long) {
                 val ex = r.exercises[ei]
                 Column(Modifier.padding(bottom = 18.dp)) {
                     Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            IllIcon(ex.muscle, 34.dp)
-                        }
+                        ExPhoto(ex.name, ex.muscle, 42.dp)
                         Spacer(Modifier.width(14.dp))
                         Text(
                             exName(ex.name),
