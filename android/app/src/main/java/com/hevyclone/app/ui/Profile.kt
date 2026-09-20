@@ -428,6 +428,45 @@ private fun SettingsSheet(onClose: () -> Unit) {
                 }
             }
             Text("DONNÉES", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp))
+            // Hevy / Strong full-account import (.csv or the exported .zip)
+            val hevyPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+                androidx.activity.result.contract.ActivityResultContracts.GetContent()
+            ) { uri ->
+                if (uri != null) {
+                    runCatching {
+                        val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching
+                        val csvs: List<String> = if (bytes.size > 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
+                            java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(bytes)).use { z ->
+                                val out = mutableListOf<String>()
+                                var e = z.nextEntry
+                                while (e != null) {
+                                    if (!e.isDirectory && e.name.endsWith(".csv", true)) out.add(String(z.readBytes()))
+                                    e = z.nextEntry
+                                }
+                                out
+                            }
+                        } else listOf(String(bytes))
+                        var ws = listOf<com.hevyclone.app.data.Workout>()
+                        var rs = listOf<com.hevyclone.app.data.Routine>()
+                        for (csv in csvs) {
+                            val (w, r) = com.hevyclone.app.data.Calc.parseHevyCsv(csv)
+                            ws += w; rs += r
+                        }
+                        if (ws.isEmpty() && rs.isEmpty()) {
+                            toast(ctx, L10n.s("No Hevy data found in this file", "Aucune donnée Hevy trouvée dans ce fichier"))
+                        } else {
+                            val n = Repo.importHevy(ws, rs)
+                            toast(ctx, L10n.s(
+                                "%1\$d workouts + %2\$d routines imported from Hevy",
+                                "%1\$d séances + %2\$d routines importées depuis Hevy"
+                            ).format(n, rs.size))
+                        }
+                    }.onFailure { toast(ctx, L10n.s("Import failed (check format)", "Import échoué (vérifie le format)")) }
+                }
+            }
+            TextButton(onClick = { hevyPicker.launch("*/*") }, modifier = Modifier.padding(start = 8.dp)) {
+                Text(L10n.s("Import from Hevy (account export)", "Importer depuis Hevy (export du compte)"), fontWeight = FontWeight.SemiBold)
+            }
             val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
                 androidx.activity.result.contract.ActivityResultContracts.GetContent()
             ) { uri ->

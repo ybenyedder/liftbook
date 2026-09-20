@@ -272,6 +272,30 @@ object Repo {
         return imported.size
     }
 
+    /** Merge a Hevy/Strong export: workouts are added once per start date, routines appended. Returns workouts added. */
+    fun importHevy(newWorkouts: List<Workout>, newRoutines: List<Routine>): Int {
+        val knownDates = workouts.map { it.startedAt }.toSet()
+        var added = 0
+        for (w in newWorkouts) {
+            if (w.startedAt in knownDates) continue
+            val fixed = w.copy(id = nextWorkoutId())
+            workouts.add(fixed)
+            persistWorkout(fixed)
+            added++
+        }
+        for (r in newRoutines) {
+            val fixed = r.copy(id = nextRoutineId())
+            routines.add(fixed)
+            persistRoutine(fixed)
+        }
+        if (added > 0 || newRoutines.isNotEmpty()) {
+            workouts.sortBy { it.startedAt }
+            prCache = Calc.rebuildPrs(workouts)
+            touch()
+        }
+        return added
+    }
+
     fun wipe() {
         workouts.clear(); routines.clear(); draft = null
         db.writableDatabase.delete("workouts", null, null)

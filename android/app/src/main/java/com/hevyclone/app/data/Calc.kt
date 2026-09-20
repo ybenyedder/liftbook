@@ -233,6 +233,181 @@ object Calc {
         }
     }
 
+    // ---------- Hevy / Strong CSV import ----------
+
+    /** Parse a date as emitted by Hevy/Strong exports: ISO-8601 (with T, space, offset), epoch s/ms. */
+    fun parseExportDate(raw: String): Long? {
+        val s = raw.trim().trim('"')
+        if (s.isEmpty()) return null
+        // epoch seconds / millis
+        s.toLongOrNull()?.let { n -> return if (n > 10_000_000_000L) n else n * 1000L }
+        val iso = s.replace(' ', 'T')
+        // trailing zone like +01:00 / GMT+01:00 / Z
+        runCatching { return java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli() }
+        runCatching { return java.time.OffsetDateTime.parse(if (iso.endsWith("Z")) iso else "${iso}Z").toInstant().toEpochMilli() }
+        runCatching { return java.time.LocalDateTime.parse(iso).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }
+        // Strong-style: "Mon Jan 02 17:00:00 GMT+01:00 2023"
+        runCatching {
+            return java.time.ZonedDateTime.parse(
+                s, java.time.format.DateTimeFormatter.ofPattern("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US)
+            ).toInstant().toEpochMilli()
+        }
+        return null
+    }
+
+    private data class HevyCols(
+        val date: Int? = null, val endDate: Int? = null, val exercise: Int, val weight: Int? = null,
+        val reps: Int? = null, val order: Int? = null, val seconds: Int? = null, val done: Int? = null,
+        val name: Int? = null, val unit: Int? = null, val notes: Int? = null, val superset: Int? = null,
+    )
+
+    /** CSV cell splitter handling quotes + , or ; separators. */
+    private fun splitCsv(line: String): List<String> {
+        val out = mutableListOf<String>()
+        val cur = StringBuilder(); var inQ = false
+        for (c in line) when {
+            c == '"' -> inQ = !inQ
+            (c == ',' || c == ';') && !inQ -> { out.add(cur.toString().trim()); cur.clear() }
+            else -> cur.append(c)
+        }
+        out.add(cur.toString().trim())
+        return out
+    }
+
+    private fun norm(s: String) = s.lowercase().replace("_", "").replace(" ", "").replace(".", "")
+
+    /** Fuzzy column mapping — accepts Strong-style headers (Date, Workout Name, Exercise Name, Set Order,
+     *  Weight, Weight Unit, Reps, Seconds…) as well as snake_case ones (exercise_name, weight_kg, set_index…). */
+    private fun mapColumns(header: List<String>): HevyCols? {
+        val cols = header.map { norm(it) }
+        fun findFirst(vararg keys: String, not: List<String> = emptyList()): Int? =
+            cols.indexOfFirst { c -> keys.any { k -> c.contains(k) } && not.none { c.contains(it) } }.takeIf { it >= 0 }
+        val exercise = findFirst("exercisename", "exercise") ?: return null
+        return HevyCols(
+            exercise = exercise,
+            date = findFirst("startdate", "start", "date", not = listOf("end", "duration")),
+            endDate = findFirst("enddate", "endtime"),
+            weight = findFirst("weightkg", "weightlbs", "weight", not = listOf("unit")),
+            reps = findFirst("reps", "repetitions"),
+            order = findFirst("setorder", "setindex", "setno"),
+            seconds = findFirst("seconds", "durations", "durationsec"),
+            done = findFirst("completed", "checked"),
+            name = findFirst("workoutname", "title", "name", not = listOf("exercise")),
+            unit = findFirst("weightunit", "unit"),
+            notes = findFirst("exnotes", "exercisenotes", "notes", not = listOf("workout")),
+            superset = findFirst("superset"),
+        )
+    }
+
+    /** Map a Hevy/Strong exercise label to our canonical EN key (FR names remapped, unknowns kept). */
+    fun canonicalExercise(label: String): String {
+        val t = label.trim()
+        if (EX.containsKey(t)) return t
+        val clean = norm(t).replace("(", "").replace(")", "")
+        val exact = L10nData.NAME_FR.entries.firstOrNull { norm(it.value).replace("(", "").replace(")", "") == clean }?.key
+        if (exact != null) return exact
+        // Hevy FR names may drop our parenthetical suffix ("Tirage Poitrine" vs "Tirage Poitrine (Machine)")
+        return L10nData.NAME_FR.entries.firstOrNull { norm(it.value).replace("(", "").replace(")", "").startsWith(clean) && clean.length >= 5 }?.key ?: t
+    }
+
+    /**
+     * Parse a Hevy (or Strong) export CSV. Rows are one per set; consecutive rows with the same
+     * date form one workout, consecutive same-exercise rows form its exercise block.
+     * Files without any date column are treated as routine/template definitions.
+     */
+    fun parseHevyCsv(content: String): Pair<List<Workout>, List<Routine>> {
+        val lines = content.lines().filter { it.isNotBlank() }
+        if (lines.size < 2) return emptyList<Workout>() to emptyList<Routine>()
+        val cols = mapColumns(splitCsv(lines.first())) ?: return emptyList<Workout>() to emptyList<Routine>()
+        data class Row(
+            val date: Long?, val endDate: Long?, val ex: String, val kg: Double?, val reps: Int?,
+            val order: Int, val done: Boolean, val workoutName: String?, val notes: String, val superset: Boolean,
+        )
+        val rows = mutableListOf<Row>()
+        for (i in 1 until lines.size) {
+            val p = splitCsv(lines[i])
+            if (p.size <= cols.exercise) continue
+            val exRaw = p[cols.exercise]
+            if (exRaw.isEmpty()) continue
+            val unitLb = cols.unit?.let { j -> p.getOrNull(j)?.contains("lb", true) == true } ?: false
+            val kg = cols.weight?.let { j -> p.getOrNull(j)?.replace(',', '.')?.toDoubleOrNull() }
+                ?.let { if (unitLb) it / LB else it }
+            val dateStr = cols.date?.let { j -> p.getOrNull(j) } ?: ""
+            val date = parseExportDate(dateStr)
+            val doneRaw = cols.done?.let { j -> p.getOrNull(j)?.lowercase() } ?: "true"
+            val sup = cols.superset?.let { j -> p.getOrNull(j)?.trim()?.isNotEmpty() == true && p.getOrNull(j) != "0" } ?: false
+            rows.add(
+                Row(
+                    date = date,
+                    endDate = cols.endDate?.let { j -> p.getOrNull(j)?.let { parseExportDate(it) } } ?: date,
+                    ex = exRaw,
+                    kg = kg,
+                    reps = cols.reps?.let { j -> p.getOrNull(j)?.toDoubleOrNull()?.toInt() },
+                    order = cols.order?.let { j -> p.getOrNull(j)?.toIntOrNull() } ?: rows.size,
+                    done = doneRaw !in listOf("false", "0", "no", "warmup"),
+                    workoutName = cols.name?.let { j -> p.getOrNull(j) }?.takeIf { it.isNotEmpty() },
+                    notes = cols.notes?.let { j -> p.getOrNull(j) ?: "" } ?: "",
+                    superset = sup,
+                )
+            )
+        }
+        if (rows.isEmpty()) return emptyList<Workout>() to emptyList<Routine>()
+
+        // No date column anywhere → template/routine file
+        if (rows.all { it.date == null }) {
+            val exs = LinkedHashMap<String, MutableList<SetEntry>>()
+            val sups = HashSet<String>()
+            for (r in rows) {
+                exs.getOrPut(r.ex) { mutableListOf() }.add(SetEntry(r.kg, r.reps, done = true))
+                if (r.superset) sups.add(r.ex)
+            }
+            val routine = Routine(
+                0, rows.firstOrNull()?.workoutName ?: "Routine Hevy",
+                exs.map { (label, sets) ->
+                    val canon = canonicalExercise(label)
+                    ExEntry(canon, EX[canon]?.muscle ?: "", "", label in sups, null, sets)
+                }.toMutableList(),
+            )
+            return emptyList<Workout>() to listOf(routine)
+        }
+
+        // Workouts: group by date key (fall back to row blocks with same consecutive name)
+        val workouts = mutableListOf<Workout>()
+        var i = 0
+        var id = 10_000_000L
+        while (i < rows.size) {
+            val r = rows[i]
+            val key = r.date
+            if (key == null) { i++; continue }
+            var j = i
+            val exs = LinkedHashMap<String, MutableList<SetEntry>>()
+            val names = HashMap<String, String>()
+            val sups = HashSet<String>()
+            while (j < rows.size && rows[j].date == key) {
+                val row = rows[j]
+                exs.getOrPut(row.ex) { mutableListOf() }.add(SetEntry(row.kg, row.reps, done = row.done))
+                row.workoutName?.let { names[row.ex] = it }
+                if (row.superset) sups.add(row.ex)
+                j++
+            }
+            val end = rows.firstOrNull { it.date == key }?.endDate ?: key
+            workouts.add(
+                Workout(
+                    id = id++,
+                    name = names.values.firstOrNull() ?: "Séance Hevy",
+                    startedAt = key,
+                    endedAt = maxOf(end, key + 60_000),
+                    exercises = exs.map { (label, sets) ->
+                        val canon = canonicalExercise(label)
+                        ExEntry(canon, EX[canon]?.muscle ?: "", "", label in sups, null, sets)
+                    }.toMutableList(),
+                ),
+            )
+            i = j
+        }
+        return workouts.sortedBy { it.startedAt } to emptyList<Routine>()
+    }
+
     // ---------- deterministic demo seed ----------
 
     private class SeedRow(val name: String, val nSets: Int, val reps: Int, val base: Double, val inc: Double)

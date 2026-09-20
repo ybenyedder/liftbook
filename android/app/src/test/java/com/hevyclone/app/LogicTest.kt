@@ -188,6 +188,51 @@ class LogicTest {
         }
     }
     @Test
+    fun `hevy strong export csv import maps workouts exercises and units`() {
+        // Strong-style header as produced by Hevy's export (FR exercise names, lbs on one workout)
+        val csv = """
+            Date,Workout Name,Exercise Name,Set Order,Weight,Weight Unit,Reps,Seconds,Notes
+            2026-09-18T17:30:00+02:00,Push A,Développé Couché (Haltères),1,100,lb,8,0,
+            2026-09-18T17:30:00+02:00,Push A,Développé Couché (Haltères),2,100,lb,8,0,
+            2026-09-18T17:30:00+02:00,Push A,Élévation Latérale (Haltères),1,10,kg,15,0,
+            2026-09-20T18:00:00+02:00,Jambes,Squat Barre,1,120,kg,5,0,
+        """.trimIndent()
+        val (ws, rs) = Calc.parseHevyCsv(csv)
+        assertEquals(2, ws.size)
+        assertEquals("Push A", ws[0].name)
+        assertEquals(2, ws[0].exercises.size)
+        // FR name remapped to canonical EN key, lbs → kg
+        assertEquals("Dumbbell Bench Press", ws[0].exercises[0].name)
+        assertEquals(2, ws[0].exercises[0].sets.size)
+        assertEquals(45.36, ws[0].exercises[0].sets[0].kg!!, 0.01)
+        assertEquals(8, ws[0].exercises[0].sets[0].reps)
+        assertEquals("Barbell Squat", ws[1].exercises[0].name)
+        // ISO date with offset parsed
+        assertTrue(ws[0].startedAt < ws[1].startedAt)
+
+        // snake_case variant + a template file (no dates → routine)
+        val snake = """
+            start_time,end_time,exercise_name,set_index,weight_kg,reps,checked,superset_group_id
+            2026-09-19 10:00:00+02:00,2026-09-19 11:00:00+02:00,Tirage Poitrine,1,60,10,true,1
+            2026-09-19 10:00:00+02:00,2026-09-19 11:00:00+02:00,"Tirage Horizontal (Poulie, V-Bar)",1,50,12,true,1
+        """.trimIndent()
+        val (ws2, _) = Calc.parseHevyCsv(snake)
+        assertEquals(1, ws2.size)
+        assertEquals(2, ws2[0].exercises.size)
+        assertEquals("Chest Supported Row", ws2[0].exercises[0].name)
+        assertTrue(ws2[0].exercises[0].superset)
+        assertEquals("V-Bar Cable Row", ws2[0].exercises[1].name)
+
+        val templates = """
+            exercise_name,set_index,weight_kg,reps,superset_group_id
+            Développé Militaire Haltères Assis,1,20,10,
+            Tractions,1,0,8,1
+        """.trimIndent()
+        val (_, routines) = Calc.parseHevyCsv(templates)
+        assertEquals(1, routines.size)
+        assertEquals("Seated Dumbbell Shoulder Press", routines[0].exercises[0].name)
+    }
+    @Test
     fun `csv import parses export format with multiple exercises`() {
         val csv = """
             Date;Heure;Exercice;Serie;KG;Reps
