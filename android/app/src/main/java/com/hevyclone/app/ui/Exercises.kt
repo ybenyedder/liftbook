@@ -78,7 +78,7 @@ fun ExercisesScreen() {
         TextField(
             value = q,
             onValueChange = { q = it },
-            placeholder = { Text("Search exercises", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            placeholder = { Text(L10n.s("Search exercises", "Rechercher des exercices"), color = MaterialTheme.colorScheme.onSurfaceVariant) },
             leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(17.dp)) },
             singleLine = true,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(autoCorrect = false),

@@ -1,12 +1,12 @@
 # Hevy Clone — App Android native
 
-Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (**259 exercices traduits**, noms alignés sur Hevy : « Tirage Poitrine », « Rowing », « Développé »…) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
+Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (**609 exercices traduits** — 16 groupes dont Cardio —, noms alignés sur Hevy : « Tirage Poitrine », « Rowing », « Développé »…) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
 
-**Dernière version : v1.22** — https://github.com/ybenyedder/hevy-clone/releases
+**Dernière version : v1.23** — https://github.com/ybenyedder/hevy-clone/releases
 
 ## Installation
 
-Télécharge `hevy-clone-v1.22-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
+Télécharge `hevy-clone-v1.23-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
 
 ## Fonctions (toutes vérifiées par capture sur émulateur fr-FR ou par test unitaire)
 
@@ -19,7 +19,7 @@ Télécharge `hevy-clone-v1.22-release.apk` depuis la page Releases et installe-
 - **Entraînement** : Démarrer vide / Reprendre la dernière / Nouvelle routine / Explorer / Mes routines (n) + tri
 - **Détail de séance** : 4 stats (Temps/Volume/Records/Séries), cartes exercices, table alternée avec PRÉCÉDENTE
 - **Historique** : sections Cette semaine ▾, date-box + plage horaire + volume, recherche floue + filtres de période, calendrier
-- **Fiche exercice** : onglets **Résumé / Historique / Instructions** (Records + périodes 3m/6m/1a/Tout + 2 graphiques + progression vs record) / **instructions pas-à-pas numérotées** (44 archétypes de mouvement FR/EN) + conseils + muscle principal + matériel
+- **Fiche exercice** : onglets **Résumé / Historique / Instructions** (Records + périodes 3m/6m/1a/Tout + 2 graphiques + progression vs record) / **instructions pas-à-pas numérotées** (57 archétypes de mouvement FR/EN, haltéro/plyo/cardio inclus) + conseils + muscle principal + matériel
 - **Profil** : heatmap annuelle du volume, totaux, mois en cours, semaine glissante vs précédente, barres 6 mois, volume par groupe musculaire, historique
 
 ### Entraînement
@@ -51,7 +51,7 @@ android/
 │   ├── QuickWidgetProvider.kt   widget RemoteViews
 │   ├── data/
 │   │   ├── Models.kt            @Serializable : Workout, Routine, Draft, BackupData…
-│   │   ├── Data.kt              259 exercices, cues, hints matériel, instructions (44 archétypes)
+│   │   ├── Data.kt              609 exercices (16 groupes musculaires dont Cardio), cues, hints matériel, instructions (57 archétypes)
 │   │   ├── L10nData.kt          traductions FR + alias + synonymes + moteur de recherche flou (Levenshtein)
 │   │   ├── Calc.kt              PUR : 1RM Epley, volume, streak, PR cache, CSV, seed
 │   │   └── Repo.kt              SQLite + mémoire + draft persistant + backup
@@ -75,7 +75,7 @@ JAVA_HOME=/usr/lib/jvm/java-17-openjdk ~/gradle/gradle-8.7/bin/gradle testDebugU
 
 ## Historique des versions
 
-v1.0 natif → v1.2 fluidité → v1.4 zéro donnée factice → v1.7–v1.9 fidélité capture par capture → v1.10 supersets/drag → v1.11 profil/partage/CSV → v1.12 filtres/records → v1.13 notes/reprise/minuteur persistant → v1.14 widget/tri → v1.15 brouillon persistant/Explorer/paysage → v1.16 refaire séance/minuteur par exercice → v1.17 graphiques mensuels/chrono notification/import CSV → v1.18 accents/progression/multi-fenêtre → v1.19 sauvegarde JSON/semaine glissante → v1.20 undo suppression/duplication → v1.21 routine depuis séance → **v1.22 finition Hevy : bibliothèque 140→259 exercices (noms Hevy FR), recherche élargie (synonymes + alias + matériel FR, « tirage poitrine » OK), instructions pas-à-pas par exercice (44 archétypes), onglets Résumé/Historique/Instructions, stats live Durée/Volume/Séries, « Repos : Xmin Ys » + picker 5 s, notes inline, éditeur de routine Annuler/Créer/Enregistrer**. Détail complet dans l'historique git et les notes de release.
+v1.0 natif → v1.2 fluidité → v1.4 zéro donnée factice → v1.7–v1.9 fidélité capture par capture → v1.10 supersets/drag → v1.11 profil/partage/CSV → v1.12 filtres/records → v1.13 notes/reprise/minuteur persistant → v1.14 widget/tri → v1.15 brouillon persistant/Explorer/paysage → v1.16 refaire séance/minuteur par exercice → v1.17 graphiques mensuels/chrono notification/import CSV → v1.18 accents/progression/multi-fenêtre → v1.19 sauvegarde JSON/semaine glissante → v1.20 undo suppression/duplication → v1.21 routine depuis séance → v1.22 finition Hevy : bibliothèque 140→259 exercices (noms Hevy FR), recherche élargie (synonymes + alias + matériel FR, « tirage poitrine » OK), instructions pas-à-pas par exercice, onglets Résumé/Historique/Instructions, stats live Durée/Volume/Séries, « Repos : Xmin Ys » + picker 5 s, notes inline, éditeur de routine Annuler/Créer/Enregistrer → **v1.23 bibliothèque 609 exercices : haltérophilie, kettlebell, anneaux, élastiques, plyo, groupe Cardio, 57 archétypes d'instructions, fix Nordic/Glute Ham**. Détail complet dans l'historique git et les notes de release.
 
 ---
 Projet personnel à but éducatif — non affilié à Hevy. Police Inter et illustrations vectorielles originales sous licences libres.

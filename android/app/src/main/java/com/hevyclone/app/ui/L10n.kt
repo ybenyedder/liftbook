@@ -56,6 +56,7 @@ fun illRes(muscle: String): Int = when (muscle) {
     "Calves" -> R.drawable.ill_calves
     "Abs" -> R.drawable.ill_abs
     "Forearms" -> R.drawable.ill_forearms
+    "Cardio" -> R.drawable.ill_abs
     else -> R.drawable.ill_chest
 }
 
@@ -75,6 +76,7 @@ fun illAnimRes(muscle: String): Int = when (muscle) {
     "Calves" -> R.drawable.ill_calves_anim
     "Abs" -> R.drawable.ill_abs_anim
     "Forearms" -> R.drawable.ill_forearms_anim
+    "Cardio" -> R.drawable.ill_abs_anim
     else -> R.drawable.ill_chest_anim
 }
 

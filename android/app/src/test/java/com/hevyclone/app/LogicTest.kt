@@ -173,7 +173,7 @@ class LogicTest {
         // DB sanity: unique canonical names, FR name + instructions for every exercise
         val names = com.hevyclone.app.data.EXERCISES.map { it.name }
         assertEquals(names.size, names.toSet().size)
-        assertTrue(names.size >= 250)
+        assertTrue(names.size >= 600)
         names.forEach { n ->
             assertNotNull("missing FR name: $n", com.hevyclone.app.data.L10nData.NAME_FR[n])
             assertTrue("no instructions: $n", com.hevyclone.app.data.L10nData.steps(n).isNotEmpty())

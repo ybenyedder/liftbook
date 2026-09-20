@@ -2,7 +2,7 @@ package com.hevyclone.app.data
 
 data class ExerciseDef(val name: String, val muscle: String, val equip: String)
 
-val EXERCISES: List<ExerciseDef> = listOf(
+private val EX_BASE: List<ExerciseDef> = listOf(
     // ---------------- Chest ----------------
     ExerciseDef("Barbell Bench Press", "Chest", "Barbell"),
     ExerciseDef("Incline Barbell Bench Press", "Chest", "Barbell"),
@@ -279,6 +279,376 @@ val EXERCISES: List<ExerciseDef> = listOf(
     ExerciseDef("Dead Hang", "Forearms", "Bodyweight"),
 )
 
+private val EX_EXTRA: List<ExerciseDef> = listOf(
+    // ---------------- Chest (extra) ----------------
+    ExerciseDef("Smith Machine Decline Press", "Chest", "Machine"),
+    ExerciseDef("Incline Close Grip Bench Press", "Chest", "Barbell"),
+    ExerciseDef("Wide Grip Incline Bench Press", "Chest", "Barbell"),
+    ExerciseDef("Barbell Floor Press", "Chest", "Barbell"),
+    ExerciseDef("Close Grip Floor Press", "Chest", "Barbell"),
+    ExerciseDef("Pause Bench Press", "Chest", "Barbell"),
+    ExerciseDef("Tempo Bench Press", "Chest", "Barbell"),
+    ExerciseDef("Spoto Press", "Chest", "Barbell"),
+    ExerciseDef("Dumbbell Squeeze Press", "Chest", "Dumbbell"),
+    ExerciseDef("Incline Dumbbell Squeeze Press", "Chest", "Dumbbell"),
+    ExerciseDef("Neutral Grip Dumbbell Press", "Chest", "Dumbbell"),
+    ExerciseDef("Alternating Dumbbell Bench Press", "Chest", "Dumbbell"),
+    ExerciseDef("Floor Fly", "Chest", "Dumbbell"),
+    ExerciseDef("Machine Decline Press", "Chest", "Machine"),
+    ExerciseDef("Single-Arm Machine Press", "Chest", "Machine"),
+    ExerciseDef("Jammer Press", "Chest", "Machine"),
+    ExerciseDef("Vertical Chest Press", "Chest", "Machine"),
+    ExerciseDef("Standing Cable Chest Press", "Chest", "Cable"),
+    ExerciseDef("Single-Arm Cable Press", "Chest", "Cable"),
+    ExerciseDef("Cable Iron Cross", "Chest", "Cable"),
+    ExerciseDef("Incline Cable Crossover", "Chest", "Cable"),
+    ExerciseDef("Decline Cable Fly", "Chest", "Cable"),
+    ExerciseDef("Incline Machine Fly", "Chest", "Machine"),
+    ExerciseDef("Weighted Chest Dip", "Chest", "Bodyweight"),
+    ExerciseDef("Assisted Chest Dip", "Chest", "Machine"),
+    ExerciseDef("Band Push Up", "Chest", "Other"),
+    ExerciseDef("Band Chest Press", "Chest", "Other"),
+    ExerciseDef("Band Chest Fly", "Chest", "Other"),
+    ExerciseDef("TRX Push Up", "Chest", "Other"),
+    ExerciseDef("Ring Push Up", "Chest", "Other"),
+    ExerciseDef("Ring Fly", "Chest", "Other"),
+    ExerciseDef("Hindu Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Dive Bomber Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Archer Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Pseudo Planche Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Deficit Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Rotational Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Tempo Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Wide Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Clapping Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Wall Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Knee Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Single-Arm Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Scap Push Up", "Chest", "Bodyweight"),
+    ExerciseDef("Medicine Ball Chest Pass", "Chest", "Other"),
+    // ---------------- Shoulders (extra) ----------------
+    ExerciseDef("Standing Dumbbell Shoulder Press", "Shoulders", "Dumbbell"),
+    ExerciseDef("Alternating Dumbbell Shoulder Press", "Shoulders", "Dumbbell"),
+    ExerciseDef("Neutral Grip Dumbbell Shoulder Press", "Shoulders", "Dumbbell"),
+    ExerciseDef("Standing Arnold Press", "Shoulders", "Dumbbell"),
+    ExerciseDef("Bradford Press", "Shoulders", "Barbell"),
+    ExerciseDef("Behind The Neck Press", "Shoulders", "Barbell"),
+    ExerciseDef("Plate Overhead Press", "Shoulders", "Other"),
+    ExerciseDef("Kettlebell Press", "Shoulders", "Other"),
+    ExerciseDef("Single-Arm Landmine Press", "Shoulders", "Other"),
+    ExerciseDef("Half Kneeling Landmine Press", "Shoulders", "Other"),
+    ExerciseDef("Handstand Push Up", "Shoulders", "Bodyweight"),
+    ExerciseDef("Wall Handstand Hold", "Shoulders", "Bodyweight"),
+    ExerciseDef("Pike Push Up", "Shoulders", "Bodyweight"),
+    ExerciseDef("Elevated Pike Push Up", "Shoulders", "Bodyweight"),
+    ExerciseDef("Seated Lateral Raise", "Shoulders", "Dumbbell"),
+    ExerciseDef("Lying Lateral Raise", "Shoulders", "Dumbbell"),
+    ExerciseDef("Ring Lateral Raise", "Shoulders", "Other"),
+    ExerciseDef("Plate Front Raise", "Shoulders", "Other"),
+    ExerciseDef("Incline Front Raise", "Shoulders", "Dumbbell"),
+    ExerciseDef("Single-Arm Front Raise", "Shoulders", "Dumbbell"),
+    ExerciseDef("Single-Arm Cable Front Raise", "Shoulders", "Cable"),
+    ExerciseDef("Cable Rear Delt Row", "Shoulders", "Cable"),
+    ExerciseDef("Reverse Cable Crossover", "Shoulders", "Cable"),
+    ExerciseDef("Incline Y Raise", "Shoulders", "Dumbbell"),
+    ExerciseDef("W Raise", "Shoulders", "Dumbbell"),
+    ExerciseDef("Cuban Press", "Shoulders", "Dumbbell"),
+    ExerciseDef("Scaption", "Shoulders", "Dumbbell"),
+    ExerciseDef("Band Lateral Raise", "Shoulders", "Other"),
+    ExerciseDef("Band Front Raise", "Shoulders", "Other"),
+    ExerciseDef("Band Pull Apart", "Shoulders", "Other"),
+    ExerciseDef("Band Face Pull", "Shoulders", "Other"),
+    ExerciseDef("Cable Upright Row", "Shoulders", "Cable"),
+    ExerciseDef("Dumbbell Upright Row", "Shoulders", "Dumbbell"),
+    ExerciseDef("Snatch Grip High Pull", "Shoulders", "Barbell"),
+    ExerciseDef("Push Jerk", "Shoulders", "Barbell"),
+    ExerciseDef("Split Jerk", "Shoulders", "Barbell"),
+    ExerciseDef("Battle Ropes", "Shoulders", "Other"),
+    // ---------------- Biceps (extra) ----------------
+    ExerciseDef("Wide Grip Barbell Curl", "Biceps", "Barbell"),
+    ExerciseDef("Close Grip EZ Bar Curl", "Biceps", "Barbell"),
+    ExerciseDef("Supinating Dumbbell Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Single-Arm Dumbbell Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Seated Alternating Dumbbell Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Deficit Dumbbell Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Slow Eccentric Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Slow Lowering Chin Up", "Biceps", "Bodyweight"),
+    ExerciseDef("Close Grip Chin Up", "Biceps", "Bodyweight"),
+    ExerciseDef("High Pulley Curl", "Biceps", "Cable"),
+    ExerciseDef("Lying Cable Curl", "Biceps", "Cable"),
+    ExerciseDef("Machine Biceps Curl", "Biceps", "Machine"),
+    ExerciseDef("Preacher Curl Dumbbell", "Biceps", "Dumbbell"),
+    ExerciseDef("Single-Arm Preacher Curl", "Biceps", "Dumbbell"),
+    ExerciseDef("Wall Curl", "Biceps", "Barbell"),
+    ExerciseDef("21s Curl", "Biceps", "Barbell"),
+    ExerciseDef("Waiter Curl", "Biceps", "Other"),
+    ExerciseDef("Kettlebell Curl", "Biceps", "Other"),
+    ExerciseDef("Band Curl", "Biceps", "Other"),
+    ExerciseDef("Band Hammer Curl", "Biceps", "Other"),
+    ExerciseDef("TRX Curl", "Biceps", "Other"),
+    ExerciseDef("Ring Curl", "Biceps", "Other"),
+    // ---------------- Triceps (extra) ----------------
+    ExerciseDef("Close Grip Decline Bench Press", "Triceps", "Barbell"),
+    ExerciseDef("EZ Bar Skullcrusher", "Triceps", "Barbell"),
+    ExerciseDef("Decline Skullcrusher", "Triceps", "Barbell"),
+    ExerciseDef("Smith Machine Skullcrusher", "Triceps", "Machine"),
+    ExerciseDef("Cable Skullcrusher", "Triceps", "Cable"),
+    ExerciseDef("Overhead EZ Bar Extension", "Triceps", "Barbell"),
+    ExerciseDef("V-Bar Overhead Extension", "Triceps", "Cable"),
+    ExerciseDef("Single-Arm Overhead Cable Extension", "Triceps", "Cable"),
+    ExerciseDef("Cable Cross Triceps Extension", "Triceps", "Cable"),
+    ExerciseDef("Incline Cable Extension", "Triceps", "Cable"),
+    ExerciseDef("Reverse Grip Pushdown", "Triceps", "Cable"),
+    ExerciseDef("Assisted Dip", "Triceps", "Machine"),
+    ExerciseDef("Ring Dip", "Triceps", "Other"),
+    ExerciseDef("Machine Dip", "Triceps", "Machine"),
+    ExerciseDef("Weighted Bench Dip", "Triceps", "Bodyweight"),
+    ExerciseDef("Incline Dumbbell Kickback", "Triceps", "Dumbbell"),
+    ExerciseDef("Lying Single-Arm Triceps Extension", "Triceps", "Dumbbell"),
+    ExerciseDef("Elbows-In Dumbbell Floor Press", "Triceps", "Dumbbell"),
+    ExerciseDef("Triceps Machine Extension", "Triceps", "Machine"),
+    ExerciseDef("Band Pushdown", "Triceps", "Other"),
+    ExerciseDef("Band Overhead Extension", "Triceps", "Other"),
+    ExerciseDef("Band Kickback", "Triceps", "Other"),
+    ExerciseDef("Band Close Grip Push Up", "Triceps", "Other"),
+    ExerciseDef("Weighted Close Grip Push Up", "Triceps", "Bodyweight"),
+    ExerciseDef("TRX Triceps Extension", "Triceps", "Other"),
+    // ---------------- Lats (extra) ----------------
+    ExerciseDef("Single-Arm Machine Row", "Lats", "Machine"),
+    ExerciseDef("High Row Machine", "Lats", "Machine"),
+    ExerciseDef("Low Row Machine", "Lats", "Machine"),
+    ExerciseDef("Iso-Lateral Row", "Lats", "Machine"),
+    ExerciseDef("Single-Arm T-Bar Row", "Lats", "Machine"),
+    ExerciseDef("Smith Machine Row", "Lats", "Machine"),
+    ExerciseDef("Smith Machine Bent Over Row", "Lats", "Machine"),
+    ExerciseDef("Smith Machine Inverted Row", "Lats", "Machine"),
+    ExerciseDef("Kroc Row", "Lats", "Dumbbell"),
+    ExerciseDef("Three-Point Dumbbell Row", "Lats", "Dumbbell"),
+    ExerciseDef("Gorilla Row", "Lats", "Dumbbell"),
+    ExerciseDef("Landmine Single-Arm Row", "Lats", "Other"),
+    ExerciseDef("Kettlebell Row", "Lats", "Other"),
+    ExerciseDef("Barbell Pullover", "Lats", "Barbell"),
+    ExerciseDef("Single-Arm Dumbbell Pullover", "Lats", "Dumbbell"),
+    ExerciseDef("Wide Grip Barbell Row", "Lats", "Barbell"),
+    ExerciseDef("Underhand Inverted Row", "Lats", "Bodyweight"),
+    ExerciseDef("Wide Grip Inverted Row", "Lats", "Bodyweight"),
+    ExerciseDef("Weighted Inverted Row", "Lats", "Bodyweight"),
+    ExerciseDef("TRX Row", "Lats", "Other"),
+    ExerciseDef("Ring Row", "Lats", "Other"),
+    ExerciseDef("Band Bent Over Row", "Lats", "Other"),
+    ExerciseDef("Band Straight Arm Pulldown", "Lats", "Other"),
+    ExerciseDef("Band Lat Pulldown", "Lats", "Other"),
+    ExerciseDef("Band Assisted Pull Up", "Lats", "Other"),
+    ExerciseDef("Assisted Chin Up", "Lats", "Machine"),
+    ExerciseDef("Assisted Neutral Grip Pull Up", "Lats", "Machine"),
+    ExerciseDef("L-Pull Up", "Lats", "Bodyweight"),
+    ExerciseDef("Commando Pull Up", "Lats", "Bodyweight"),
+    ExerciseDef("Kipping Pull Up", "Lats", "Bodyweight"),
+    ExerciseDef("Slow Lowering Pull Up", "Lats", "Bodyweight"),
+    ExerciseDef("Muscle Up", "Lats", "Bodyweight"),
+    ExerciseDef("Scap Pull Up", "Lats", "Bodyweight"),
+    ExerciseDef("L-Hang", "Lats", "Bodyweight"),
+    ExerciseDef("Lat Pulldown Rope", "Lats", "Machine"),
+    ExerciseDef("Kneeling Single-Arm Lat Pulldown", "Lats", "Machine"),
+    ExerciseDef("Standing Pulldown", "Lats", "Cable"),
+    ExerciseDef("Rope Cable Row", "Lats", "Cable"),
+    ExerciseDef("Underhand Cable Row", "Lats", "Cable"),
+    ExerciseDef("Close Grip Cable Row", "Lats", "Cable"),
+    ExerciseDef("Standing Single-Arm Cable Row", "Lats", "Cable"),
+    // ---------------- Lower back (extra) ----------------
+    ExerciseDef("Power Clean", "Lower back", "Barbell"),
+    ExerciseDef("Hang Clean", "Lower back", "Barbell"),
+    ExerciseDef("Squat Clean", "Lower back", "Barbell"),
+    ExerciseDef("Clean Pull", "Lower back", "Barbell"),
+    ExerciseDef("Clean and Jerk", "Lower back", "Barbell"),
+    ExerciseDef("Clean and Press", "Lower back", "Barbell"),
+    ExerciseDef("Power Snatch", "Lower back", "Barbell"),
+    ExerciseDef("Hang Snatch", "Lower back", "Barbell"),
+    ExerciseDef("Snatch Pull", "Lower back", "Barbell"),
+    ExerciseDef("Snatch Balance", "Lower back", "Barbell"),
+    ExerciseDef("Kettlebell Snatch", "Lower back", "Other"),
+    ExerciseDef("Kettlebell Deadlift", "Lower back", "Other"),
+    ExerciseDef("Dumbbell Deadlift", "Lower back", "Dumbbell"),
+    ExerciseDef("Single-Leg Deadlift", "Lower back", "Barbell"),
+    ExerciseDef("Dimel Deadlift", "Lower back", "Barbell"),
+    ExerciseDef("Suitcase Deadlift", "Lower back", "Other"),
+    ExerciseDef("Band Good Morning", "Lower back", "Other"),
+    // ---------------- Traps (extra) ----------------
+    ExerciseDef("Snatch Grip Shrug", "Traps", "Barbell"),
+    ExerciseDef("Clean Grip Shrug", "Traps", "Barbell"),
+    ExerciseDef("Jump Shrug", "Traps", "Barbell"),
+    ExerciseDef("Machine Shrug", "Traps", "Machine"),
+    ExerciseDef("Seated Dumbbell Shrug", "Traps", "Dumbbell"),
+    ExerciseDef("Incline Dumbbell Shrug", "Traps", "Dumbbell"),
+    ExerciseDef("Block Pull", "Traps", "Barbell"),
+    ExerciseDef("Band Shrug", "Traps", "Other"),
+    // ---------------- Quads (extra) ----------------
+    ExerciseDef("Tempo Squat", "Quads", "Barbell"),
+    ExerciseDef("Pin Squat", "Quads", "Barbell"),
+    ExerciseDef("Anderson Squat", "Quads", "Barbell"),
+    ExerciseDef("Low Bar Squat", "Quads", "Barbell"),
+    ExerciseDef("Cyclist Squat", "Quads", "Barbell"),
+    ExerciseDef("Squat to Bench", "Quads", "Barbell"),
+    ExerciseDef("Close Stance Squat", "Quads", "Barbell"),
+    ExerciseDef("Wide Stance Squat", "Quads", "Barbell"),
+    ExerciseDef("Dumbbell Front Squat", "Quads", "Dumbbell"),
+    ExerciseDef("Kettlebell Front Squat", "Quads", "Other"),
+    ExerciseDef("Double Kettlebell Front Squat", "Quads", "Other"),
+    ExerciseDef("Cable Squat", "Quads", "Cable"),
+    ExerciseDef("Band Squat", "Quads", "Other"),
+    ExerciseDef("Spanish Squat", "Quads", "Other"),
+    ExerciseDef("Reverse Nordic", "Quads", "Bodyweight"),
+    ExerciseDef("Cossack Squat", "Quads", "Bodyweight"),
+    ExerciseDef("Skater Squat", "Quads", "Bodyweight"),
+    ExerciseDef("Shrimp Squat", "Quads", "Bodyweight"),
+    ExerciseDef("Assisted Pistol Squat", "Quads", "Bodyweight"),
+    ExerciseDef("Squat Hold", "Quads", "Bodyweight"),
+    ExerciseDef("Single-Leg Extension", "Quads", "Machine"),
+    ExerciseDef("Narrow Stance Leg Press", "Quads", "Machine"),
+    ExerciseDef("Wide Stance Leg Press", "Quads", "Machine"),
+    ExerciseDef("High Box Step Up", "Quads", "Dumbbell"),
+    ExerciseDef("Barbell Step Up", "Quads", "Barbell"),
+    ExerciseDef("Forward Lunge", "Quads", "Dumbbell"),
+    ExerciseDef("Overhead Lunge", "Quads", "Dumbbell"),
+    ExerciseDef("Dumbbell Split Squat", "Quads", "Dumbbell"),
+    ExerciseDef("Goblet Split Squat", "Quads", "Other"),
+    ExerciseDef("Jumping Lunge", "Quads", "Bodyweight"),
+    ExerciseDef("Step Down", "Quads", "Bodyweight"),
+    ExerciseDef("Terminal Knee Extension", "Quads", "Other"),
+    ExerciseDef("Box Jump", "Quads", "Bodyweight"),
+    ExerciseDef("Broad Jump", "Quads", "Bodyweight"),
+    ExerciseDef("Depth Jump", "Quads", "Bodyweight"),
+    ExerciseDef("Frog Jump", "Quads", "Bodyweight"),
+    ExerciseDef("Sled Push", "Quads", "Other"),
+    ExerciseDef("Sled Drag", "Quads", "Other"),
+    // ---------------- Hamstrings (extra) ----------------
+    ExerciseDef("Kettlebell Romanian Deadlift", "Hamstrings", "Other"),
+    ExerciseDef("GHD Hip Extension", "Hamstrings", "Other"),
+    ExerciseDef("Assisted Nordic Curl", "Hamstrings", "Bodyweight"),
+    ExerciseDef("Band Leg Curl", "Hamstrings", "Other"),
+    ExerciseDef("Single-Arm Kettlebell Swing", "Hamstrings", "Other"),
+    ExerciseDef("American Kettlebell Swing", "Hamstrings", "Other"),
+    ExerciseDef("Sumo Stiff Leg Deadlift", "Hamstrings", "Barbell"),
+    // ---------------- Glutes (extra) ----------------
+    ExerciseDef("Single-Leg Hip Thrust", "Glutes", "Barbell"),
+    ExerciseDef("Banded Hip Thrust", "Glutes", "Other"),
+    ExerciseDef("Banded Glute Bridge", "Glutes", "Other"),
+    ExerciseDef("Elevated Glute Bridge", "Glutes", "Bodyweight"),
+    ExerciseDef("Glute Bridge March", "Glutes", "Bodyweight"),
+    ExerciseDef("Single-Leg Cable Kickback", "Glutes", "Cable"),
+    ExerciseDef("Band Lateral Walk", "Glutes", "Other"),
+    ExerciseDef("Clamshell", "Glutes", "Other"),
+    ExerciseDef("Fire Hydrant", "Glutes", "Bodyweight"),
+    // ---------------- Abductors (extra) ----------------
+    ExerciseDef("Band Hip Abduction", "Abductors", "Other"),
+    ExerciseDef("Side Plank Leg Raise", "Abductors", "Bodyweight"),
+    ExerciseDef("Monster Walk", "Abductors", "Other"),
+    // ---------------- Calves (extra) ----------------
+    ExerciseDef("Standing Barbell Calf Raise", "Calves", "Barbell"),
+    ExerciseDef("Standing Dumbbell Calf Raise", "Calves", "Dumbbell"),
+    ExerciseDef("Single-Leg Dumbbell Calf Raise", "Calves", "Dumbbell"),
+    ExerciseDef("Seated Barbell Calf Raise", "Calves", "Barbell"),
+    ExerciseDef("Hack Squat Calf Raise", "Calves", "Machine"),
+    ExerciseDef("Band Calf Raise", "Calves", "Other"),
+    ExerciseDef("Seated Tibialis Raise", "Calves", "Bodyweight"),
+    ExerciseDef("Farmer's Walk on Toes", "Calves", "Dumbbell"),
+    // ---------------- Abs (extra) ----------------
+    ExerciseDef("Weighted Plank", "Abs", "Other"),
+    ExerciseDef("RKC Plank", "Abs", "Bodyweight"),
+    ExerciseDef("Extended Plank", "Abs", "Bodyweight"),
+    ExerciseDef("Plank Hip Dip", "Abs", "Bodyweight"),
+    ExerciseDef("Plank Knee To Elbow", "Abs", "Bodyweight"),
+    ExerciseDef("Plank Pull Through", "Abs", "Bodyweight"),
+    ExerciseDef("Body Saw", "Abs", "Bodyweight"),
+    ExerciseDef("Weighted Side Plank", "Abs", "Other"),
+    ExerciseDef("Side Plank Hip Raise", "Abs", "Bodyweight"),
+    ExerciseDef("Side Plank Reach Through", "Abs", "Bodyweight"),
+    ExerciseDef("Bird Dog", "Abs", "Bodyweight"),
+    ExerciseDef("Bear Crawl", "Abs", "Bodyweight"),
+    ExerciseDef("Crab Walk", "Abs", "Bodyweight"),
+    ExerciseDef("Superman", "Abs", "Bodyweight"),
+    ExerciseDef("Reverse Snow Angel", "Abs", "Bodyweight"),
+    ExerciseDef("Arch Hold", "Abs", "Bodyweight"),
+    ExerciseDef("Hollow Rock", "Abs", "Bodyweight"),
+    ExerciseDef("V-Sit Hold", "Abs", "Bodyweight"),
+    ExerciseDef("L-Sit", "Abs", "Bodyweight"),
+    ExerciseDef("Cocoon", "Abs", "Bodyweight"),
+    ExerciseDef("Cross Body Crunch", "Abs", "Bodyweight"),
+    ExerciseDef("Oblique Crunch", "Abs", "Bodyweight"),
+    ExerciseDef("Standing Oblique Crunch", "Abs", "Bodyweight"),
+    ExerciseDef("Toe Touch Crunch", "Abs", "Bodyweight"),
+    ExerciseDef("V-Up Twist", "Abs", "Bodyweight"),
+    ExerciseDef("Stability Ball Crunch", "Abs", "Other"),
+    ExerciseDef("Sit Up Twist", "Abs", "Bodyweight"),
+    ExerciseDef("GHD Sit Up", "Abs", "Other"),
+    ExerciseDef("Seated Knee Up", "Abs", "Bodyweight"),
+    ExerciseDef("Side Jackknife", "Abs", "Bodyweight"),
+    ExerciseDef("Captain's Chair Leg Raise", "Abs", "Other"),
+    ExerciseDef("Captain's Chair Knee Raise", "Abs", "Other"),
+    ExerciseDef("Toe To Bar", "Abs", "Bodyweight"),
+    ExerciseDef("Standing Side Bend", "Abs", "Bodyweight"),
+    ExerciseDef("Cable Side Bend", "Abs", "Cable"),
+    ExerciseDef("Roman Chair Side Bend", "Abs", "Other"),
+    ExerciseDef("Weighted Russian Twist", "Abs", "Other"),
+    ExerciseDef("Decline Russian Twist", "Abs", "Bodyweight"),
+    ExerciseDef("Seated Barbell Twist", "Abs", "Barbell"),
+    ExerciseDef("Wood Chop", "Abs", "Cable"),
+    ExerciseDef("Reverse Wood Chop", "Abs", "Cable"),
+    ExerciseDef("Pallof Press", "Abs", "Cable"),
+    ExerciseDef("Band Pallof Press", "Abs", "Other"),
+    ExerciseDef("Abdominal Vacuum", "Abs", "Bodyweight"),
+    ExerciseDef("Standing Ab Wheel Rollout", "Abs", "Other"),
+    ExerciseDef("Swiss Ball Rollout", "Abs", "Other"),
+    ExerciseDef("Swiss Ball Jackknife", "Abs", "Other"),
+    ExerciseDef("Stability Ball Pass", "Abs", "Other"),
+    ExerciseDef("TRX Crunch", "Abs", "Other"),
+    ExerciseDef("TRX Fallout", "Abs", "Other"),
+    ExerciseDef("Single Leg Lower", "Abs", "Bodyweight"),
+    ExerciseDef("Hanging Oblique Knee Raise", "Abs", "Bodyweight"),
+    // ---------------- Forearms (extra) ----------------
+    ExerciseDef("Dumbbell Wrist Curl", "Forearms", "Dumbbell"),
+    ExerciseDef("Standing Barbell Wrist Curl", "Forearms", "Barbell"),
+    ExerciseDef("Cable Reverse Curl", "Forearms", "Cable"),
+    ExerciseDef("Reverse Dumbbell Curl", "Forearms", "Dumbbell"),
+    ExerciseDef("Plate Pinch", "Forearms", "Other"),
+    ExerciseDef("Hex Dumbbell Hold", "Forearms", "Dumbbell"),
+    ExerciseDef("Wrist Roller", "Forearms", "Other"),
+    ExerciseDef("Towel Pull Up", "Forearms", "Bodyweight"),
+    ExerciseDef("Rice Bucket", "Forearms", "Other"),
+    ExerciseDef("Towel Wring", "Forearms", "Other"),
+    ExerciseDef("Figure 8", "Forearms", "Other"),
+    ExerciseDef("Waiter Carry", "Forearms", "Other"),
+    ExerciseDef("Overhead Carry", "Forearms", "Dumbbell"),
+    ExerciseDef("Racked Carry", "Forearms", "Other"),
+    ExerciseDef("Suitcase Carry", "Forearms", "Dumbbell"),
+    ExerciseDef("Turkish Get Up", "Abs", "Other"),
+    ExerciseDef("Barbell Thruster", "Quads", "Barbell"),
+    // ---------------- Cardio ----------------
+    ExerciseDef("Burpees", "Cardio", "Bodyweight"),
+    ExerciseDef("Jumping Jacks", "Cardio", "Bodyweight"),
+    ExerciseDef("High Knees", "Cardio", "Bodyweight"),
+    ExerciseDef("Butt Kicks", "Cardio", "Bodyweight"),
+    ExerciseDef("Speed Skaters", "Cardio", "Bodyweight"),
+    ExerciseDef("Lateral Bounds", "Cardio", "Bodyweight"),
+    ExerciseDef("Shadow Boxing", "Cardio", "Bodyweight"),
+    ExerciseDef("Jump Rope", "Cardio", "Other"),
+    ExerciseDef("Rowing Machine", "Cardio", "Machine"),
+    ExerciseDef("Assault Bike", "Cardio", "Machine"),
+    ExerciseDef("Versa Climber", "Cardio", "Machine"),
+    ExerciseDef("Ski Erg", "Cardio", "Machine"),
+    ExerciseDef("Jacobs Ladder", "Cardio", "Machine"),
+    ExerciseDef("Treadmill", "Cardio", "Machine"),
+    ExerciseDef("Incline Treadmill Walk", "Cardio", "Machine"),
+    ExerciseDef("Cycling", "Cardio", "Machine"),
+    ExerciseDef("Elliptical", "Cardio", "Machine"),
+    ExerciseDef("Stair Climber", "Cardio", "Machine"),
+    ExerciseDef("Swimming", "Cardio", "Other"),
+    ExerciseDef("Walking", "Cardio", "Bodyweight"),
+    ExerciseDef("Running", "Cardio", "Bodyweight"),
+)
+
+val EXERCISES: List<ExerciseDef> = EX_BASE + EX_EXTRA
+
 val EX: Map<String, ExerciseDef> = EXERCISES.associateBy { it.name }
 val MUSCLES: List<String> = EXERCISES.map { it.muscle }.distinct().sorted()
 
@@ -371,7 +741,7 @@ val CUES: Map<String, List<String>> = mapOf(
 // by movement pattern; every exercise maps to exactly one archetype.
 // ------------------------------------------------------------------
 
-val ARCH_STEPS: Map<String, List<String>> = mapOf(
+private val ARCH_STEPS_BASE: Map<String, List<String>> = mapOf(
     "bench" to listOf(
         "Lie on the bench with eyes under the bar, feet planted firmly on the floor.",
         "Grip the bar slightly wider than shoulder width and unrack it.",
@@ -636,13 +1006,127 @@ val ARCH_STEPS: Map<String, List<String>> = mapOf(
         "Snap the hips forward to swing the weight to chest height.",
         "Let it fall back down and immediately load the next rep.",
     ),
+
 )
+
+private val ARCH_STEPS_EXTRA: Map<String, List<String>> = mapOf(
+    "olympic" to listOf(
+        "Set up with the bar over mid-foot, hips back, back flat and lats braced.",
+        "Explode by driving the legs and extending the hips violently.",
+        "Pull yourself under the bar and catch it in the front rack or overhead.",
+        "Stand up tall to finish the lift, then reset for the next rep.",
+    ),
+    "jerk" to listOf(
+        "Set the bar on the front delts with the elbows high.",
+        "Dip a few centimetres by bending the knees, torso upright.",
+        "Drive up explosively, then split or reposition the feet to drop under the bar.",
+        "Recover by bringing the feet together with the bar locked overhead.",
+    ),
+    "thruster" to listOf(
+        "Hold the weight at the shoulders or in the front rack.",
+        "Squat down until the hips pass the knees.",
+        "Drive up through the legs and press the weight overhead in one motion.",
+        "Lock out overhead with the bar over the mid-foot, then lower to the rack.",
+    ),
+    "plyo_jump" to listOf(
+        "Stand facing the box or the landing area, feet shoulder width.",
+        "Load the hips and swing the arms back.",
+        "Jump explosively, driving through the whole foot.",
+        "Land softly with bent knees, step down and reset.",
+    ),
+    "conditioning" to listOf(
+        "Set your stance and brace the core.",
+        "Perform the movement at a controlled, steady rhythm.",
+        "Keep the effort constant for the target time or rounds.",
+        "Breathe steadily and pace yourself to the end.",
+    ),
+    "crawl" to listOf(
+        "Get into position on hands and feet, hips low.",
+        "Keep the back flat and the core braced.",
+        "Move the opposite hand and foot together.",
+        "Keep the hips stable as you travel.",
+    ),
+    "superman_hold" to listOf(
+        "Lie face down with the arms extended overhead.",
+        "Squeeze the glutes and the lower back.",
+        "Lift the arms, chest and legs off the floor.",
+        "Hold for the target time, breathing steadily.",
+    ),
+    "getup" to listOf(
+        "Lie down holding the weight locked overhead.",
+        "Roll to the elbow, then up to the hand, keeping the arm vertical.",
+        "Stand up while the weight stays locked out — move slowly.",
+        "Reverse every step back down to the floor with control.",
+    ),
+    "pallof" to listOf(
+        "Stand sideways to the cable with the handle at chest height.",
+        "Hold the handle against the sternum and step away to create tension.",
+        "Press the handle straight out without rotating the torso.",
+        "Resist the pull, return the hands to the chest, repeat.",
+    ),
+    "bird_dog" to listOf(
+        "Start on hands and knees with a flat back.",
+        "Extend the opposite arm and leg simultaneously.",
+        "Reach long and pause without tilting the hips.",
+        "Return under control and switch sides.",
+    ),
+    "pull_apart" to listOf(
+        "Hold the band at shoulder height, arms straight.",
+        "Keep a slight tension at the start.",
+        "Pull the band apart by squeezing the shoulder blades.",
+        "Return slowly, keeping the arms at shoulder height.",
+    ),
+    "scaption" to listOf(
+        "Stand tall with the weights at the sides, thumbs up.",
+        "Raise the arms diagonally, about 30° from the body line.",
+        "Stop when the hands reach head height, forming a Y.",
+        "Lower slowly for a 2-3 second count.",
+    ),
+    "wood_chop" to listOf(
+        "Stand sideways to the cable, hands above one shoulder.",
+        "Brace the core and pull the handle across the body.",
+        "Finish with the hands outside the opposite hip.",
+        "Rotate back to the start with control.",
+    ),
+)
+
+val ARCH_STEPS: Map<String, List<String>> = ARCH_STEPS_BASE + ARCH_STEPS_EXTRA
 
 /** Map an exercise (canonical EN name) to its instruction archetype. */
 fun archetypeOf(name: String): String {
     val n = name.lowercase()
     val muscle = EX[name]?.muscle ?: ""
     return when {
+        // --- conditioning / cardio / locomotion (first: avoids row/squat/walking clashes) ---
+        n.contains("walking lunge") -> "lunge"
+        listOf(
+            "burpee", "jumping jack", "high knee", "butt kick", "jump rope", "rowing machine",
+            "treadmill", "cycling", "elliptical", "stair climber", "swimming", "ski erg",
+            "jacobs ladder", "assault bike", "versa climber", "sled push", "sled drag",
+            "battle rope", "shadow box", "speed skater", "lateral bound",
+        ).any { n.contains(it) } -> "conditioning"
+        n.contains("walking") || n.contains("running") -> "conditioning"
+        // --- olympic & explosive lifts ---
+        listOf(
+            "power clean", "hang clean", "squat clean", "clean pull", "clean and",
+            "power snatch", "hang snatch", "snatch pull", "snatch balance", "kettlebell snatch",
+        ).any { n.contains(it) } -> "olympic"
+        n.contains("jerk") -> "jerk"
+        n.contains("thruster") -> "thruster"
+        n.contains("box jump") || n.contains("broad jump") || n.contains("depth jump") ||
+            n.contains("frog jump") -> "plyo_jump"
+        // --- specialty patterns ---
+        n.contains("get up") -> "getup"
+        n.contains("pallof") -> "pallof"
+        n.contains("bird dog") -> "bird_dog"
+        n.contains("bear crawl") || n.contains("crab walk") -> "crawl"
+        n.contains("superman") || n.contains("snow angel") -> "superman_hold"
+        n.contains("pull apart") -> "pull_apart"
+        n.contains("wood chop") -> "wood_chop"
+        n.contains("scaption") || n.contains("y raise") || n.contains("w raise") -> "scaption"
+        n.contains("handstand") -> "ohp"
+        n.contains("hip extension") -> "back_ext"
+        n == "reverse nordic" -> "squat"
         // --- chest ---
         n.contains("incline") && (n.contains("press") || n.contains("bench")) -> "incline_bench"
         n.contains("decline") && (n.contains("press") || n.contains("bench")) -> "decline_bench"
@@ -652,24 +1136,26 @@ fun archetypeOf(name: String): String {
         n.contains("push up") || n.contains("pushup") -> "pushup"
         n.contains("dip") && muscle == "Chest" -> "dip"
         // --- shoulders ---
-        n.contains("shrug") || n.contains("rack pull") -> "shrug"
+        n.contains("shrug") || n.contains("rack pull") || n.contains("block pull") -> "shrug"
         n.contains("lateral raise") -> "lateral_raise"
         n.contains("front raise") -> "front_raise"
         n.contains("rear delt") || n.contains("face pull") || n.contains("reverse pec deck") -> "rear_delt"
-        n.contains("upright row") -> "upright_row"
-        n.contains("press") && (muscle == "Shoulders") -> "ohp"
+        n.contains("upright row") || n.contains("high pull") -> "upright_row"
+        n.contains("press") && muscle == "Shoulders" -> "ohp"
         // --- arms ---
-        n.contains("wrist") -> "wrist"
+        n.contains("wrist") || n.contains("pinch") || n.contains("rice bucket") ||
+            n.contains("towel wring") || n.contains("figure 8") || n.contains("hex dumbbell") -> "wrist"
         n.contains("curl") -> "curl"
         (n.contains("pushdown") || n.contains("kickback")) && muscle == "Triceps" -> "triceps_pushdown"
         n.contains("extension") && muscle == "Triceps" -> "triceps_overhead"
         n.contains("skullcrusher") || n.contains("tate") || n.contains("jm press") -> "skullcrusher"
-        n.contains("close grip bench") || n.contains("close grip push") -> "skullcrusher"
+        n.contains("close grip bench") -> "skullcrusher"
         n.contains("dip") -> "dip"
         // --- back ---
         n.contains("straight arm") -> "straight_arm"
         n.contains("pulldown") -> "pulldown"
-        n.contains("pull up") || n.contains("pullup") || n.contains("chin up") -> "pull_up"
+        n.contains("pull up") || n.contains("pullup") || n.contains("chin up") ||
+            n.contains("muscle up") || n.contains("scap pull") -> "pull_up"
         n.contains("pullover") -> "pullover"
         n.contains("inverted row") -> "pull_up"
         n.contains("cable row") || n.contains("supported row") || n.contains("machine row") ||
@@ -680,32 +1166,38 @@ fun archetypeOf(name: String): String {
         n.contains("deadlift") && (n.contains("romanian") || n.contains("single leg")) -> "rdl"
         n.contains("deadlift") -> "deadlift"
         n.contains("good morning") -> "good_morning"
-        n.contains("extension") && (muscle == "Lower back") || n.contains("hyperextension") -> "back_ext"
+        (n.contains("extension") && muscle == "Lower back") || n.contains("hyperextension") -> "back_ext"
         n.contains("swing") -> "swing"
         n.contains("hip thrust") || n.contains("glute bridge") || n.contains("frog pump") ||
             n.contains("pull through") || n.contains("kickback") -> "hip_thrust"
-        n.contains("leg curl") -> "leg_curl"
+        n.contains("leg curl") || n.contains("nordic") || n.contains("glute ham") -> "leg_curl"
         // --- legs ---
+        n.contains("calf") || n.contains("tibialis") || n.contains("on toes") -> "calf"
         n.contains("squat") -> "squat"
-        n.contains("lunge") || n.contains("split squat") || n.contains("step up") || n.contains("curtsy") -> "lunge"
-        n.contains("calf") || n.contains("tibialis") -> "calf"
+        n.contains("lunge") || n.contains("split squat") || n.contains("step up") ||
+            n.contains("curtsy") || n.contains("step down") -> "lunge"
         n.contains("leg press") -> "leg_press"
-        n.contains("leg extension") -> "leg_ext"
-        n.contains("abduction") -> "abduction"
+        n.contains("leg extension") || n.contains("knee extension") -> "leg_ext"
+        n.contains("abduction") || n.contains("clamshell") || n.contains("fire hydrant") ||
+            n.contains("lateral walk") || n.contains("monster walk") -> "abduction"
         n.contains("adduction") -> "adduction"
         // --- abs ---
         n.contains("plank") || n.contains("hollow") || n.contains("dead bug") || n.contains("wall sit") ||
-            n.contains("mountain") -> "plank"
+            n.contains("mountain") || n.contains("body saw") || n.contains("arch hold") ||
+            n.contains("v-sit") || n.contains("l-sit") || n.contains("l-hang") || n.contains("vacuum") -> "plank"
         n.contains("sit up") -> "sit_up"
-        n.contains("crunch") -> "crunch"
+        n.contains("crunch") || n.contains("cocoon") || n.contains("ball pass") -> "crunch"
         n.contains("twist") || n.contains("windshield") -> "twist"
         n.contains("leg raise") || n.contains("knee raise") || n.contains("v-up") ||
-            n.contains("flutter") || n.contains("scissor") || n.contains("dragon flag") -> "leg_raise"
-        n.contains("rollout") -> "rollout"
+            n.contains("flutter") || n.contains("scissor") || n.contains("dragon flag") ||
+            n.contains("toe to bar") || n.contains("captain") || n.contains("jackknife") ||
+            n.contains("leg lower") -> "leg_raise"
+        n.contains("rollout") || n.contains("fallout") -> "rollout"
         n.contains("side bend") -> "twist"
         // --- forearms ---
         n.contains("carry") || n.contains("dead hang") -> "carry"
         else -> when (muscle) {
+            "Cardio" -> "conditioning"
             "Abs" -> "crunch"
             else -> "bench"
         }
