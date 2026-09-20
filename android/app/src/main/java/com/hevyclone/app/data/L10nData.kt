@@ -38,15 +38,14 @@ object L10nData {
     )
 
     /** Per-exercise FR aliases / gym slang, searched in addition to the translated name. */
-    val ALIAS_FR: Map<String, String> = mapOf(
-        "Barbell Bench Press" to "dc dev couche",
+    val ALIAS_FR: Map<String, String> = mapOf(        "Barbell Bench Press" to "dc dev couche",
         "Overhead Press" to "dm developpe militaire",
         "Deadlift" to "sdt",
         "Sumo Deadlift" to "sdt sumo",
         "Romanian Deadlift" to "sdt roumain rdl",
         "Trap Bar Deadlift" to "hex deadlift",
-        "Chest Supported Row" to "tirage poitrine",
-        "Lat Pulldown" to "tirage dorsal",
+        "Chest Supported Row" to "tirage poitrine tirage poitrine assis",
+        "Lat Pulldown" to "tirage dorsal tirage vertical assis",
         "Pull Up" to "traction tractions",
         "Skullcrusher" to "barre au front frontal",
         "Machine Fly (Pec Deck)" to "butterfly pec deck",
@@ -61,9 +60,24 @@ object L10nData {
         "Dragon Flag" to "dragon",
         "Butterfly Sit Up" to "papillon",
         "Face Pull" to "facepull",
-        "Machine Row" to "row assis",
+        "Machine Row" to "row assis row assis rowing machine assis",
         "Smith Machine Bench Press" to "dev couche smith",
-        "Seated Cable Row" to "tirage horizontal poulie",
+        "Seated Cable Row" to "rowing assis poulie tirage assis tirage horizontal poulie",
+        "V-Bar Cable Row" to "rowing assis poulie prise en v",
+        "Wide Grip Cable Row" to "rowing assis poulie prise large",
+        "Close Grip Cable Row" to "rowing assis poulie prise serree",
+        "Underhand Cable Row" to "rowing assis poulie supination",
+        "Rope Cable Row" to "rowing assis poulie corde",
+        "Wide Grip Lat Pulldown" to "tirage assis prise large",
+        "Close Grip Lat Pulldown" to "tirage assis prise serree",
+        "Reverse Grip Pulldown" to "tirage assis supination",
+        "Neutral Grip Lat Pulldown" to "tirage assis prise neutre",
+        "Machine Chest Press" to "developpe assis machine",
+        "Machine Shoulder Press" to "developpe assis machine epaules",
+        "Preacher Curl" to "curl assis machine",
+        "Seated Leg Curl" to "leg curl assis",
+        "Seated Calf Raise" to "extension mollets assis",
+        "Seated Dumbbell Shoulder Press" to "developpe assis haltieres",
     )
 
     private val NAME_FR_BASE = mapOf(
@@ -1175,13 +1189,30 @@ object L10nData {
         return prev[b.length]
     }
 
-    /** A query token matches if it is a substring of any target word, or within edit distance of a whole word (typos). */
+    /** Query tokens that carry no exercise meaning — ignored by the search. */
+    private val NOISE_TOKENS = setOf(
+        "en", "de", "du", "la", "le", "les", "un", "une", "des", "a", "au", "aux",
+        "et", "ou", "avec", "sur", "pour", "dans", "par", "pose", "prise", "grip", "the", "and",
+    )
+
+    /** Light stemming variants tried for a token: raw, -ing, -es, -s (rowing→row, curls→curl…). */
+    private fun stems(token: String): List<String> = buildList {
+        add(token)
+        if (token.length >= 5 && token.endsWith("ing")) add(token.dropLast(3))
+        if (token.length >= 4 && token.endsWith("es")) add(token.dropLast(2))
+        if (token.length >= 4 && token.endsWith("s")) add(token.dropLast(1))
+    }
+
+    /** A query token matches if it (or a stem of it) is a substring of any target word, or within edit distance of a whole word (typos). */
     private fun tokenMatches(token: String, words: List<String>, allowTypo: Boolean): Boolean {
-        if (words.any { it.contains(token) }) return true
+        val variants = stems(token)
+        if (words.any { w -> variants.any { v -> w.contains(v) } }) return true
         if (!allowTypo) return false
         val maxDist = if (token.length >= 5) 2 else if (token.length == 4) 1 else 0
         if (maxDist == 0) return false
-        return words.any { w -> kotlin.math.abs(w.length - token.length) <= maxDist && lev(token, w) <= maxDist }
+        return words.any { w -> variants.any { v ->
+            kotlin.math.abs(w.length - v.length) <= maxDist && lev(v, w) <= maxDist
+        } }
     }
 
     /** Searchable text for an exercise, split in two groups: name words (typo-tolerant) vs attribute words (exact substring only). */
@@ -1203,7 +1234,9 @@ object L10nData {
                 normalize(EQUIP_FR[def?.equip] ?: ""))
                 .split(" ").filter { it.isNotBlank() }
         }
-        return nq.split(" ").all { it.isBlank() || tokenMatches(it.trim(), nameWords, allowTypo = true) || tokenMatches(it.trim(), attrWords, allowTypo = false) }
+        return nq.split(" ")
+            .filter { it.isNotBlank() && it.trim() !in NOISE_TOKENS }
+            .all { tokenMatches(it.trim(), nameWords, allowTypo = true) || tokenMatches(it.trim(), attrWords, allowTypo = false) }
     }
 
     fun equipHint(e: String): String = when {

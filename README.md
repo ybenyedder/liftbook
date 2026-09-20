@@ -2,11 +2,11 @@
 
 Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (**609 exercices traduits** — 16 groupes dont Cardio —, noms alignés sur Hevy : « Tirage Poitrine », « Rowing », « Développé »…) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
 
-**Dernière version : v1.24** — https://github.com/ybenyedder/hevy-clone/releases
+**Dernière version : v1.25** — https://github.com/ybenyedder/hevy-clone/releases
 
 ## Installation
 
-Télécharge `hevy-clone-v1.24-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
+Télécharge `hevy-clone-v1.25-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
 
 ## Fonctions (toutes vérifiées par capture sur émulateur fr-FR ou par test unitaire)
 
@@ -30,7 +30,9 @@ Télécharge `hevy-clone-v1.24-release.apk` depuis la page Releases et installe-
 
 ### Recherche
 - Moteur **tolérant aux fautes** (Levenshtein sur le nom uniquement), insensible aux accents, multi-mots
+- **Remplacement d'exercice en pleine séance** (menu carte, les séries restent)
 - Matche noms FR + EN + **alias de salle** (« dc », « sdt », « barre au front »…) + **synonymes de muscles** (dos → dorsaux/lombaires/trapèzes, abdos, jambes → quadriceps/ischio/mollets, bras, poitrine, mollets, fessiers) + **matériel FR** (poulie, haltères, barre, machine, poids du corps)
+- Mots vides ignorés (en/de/la/prise…) + racinement léger (rowing→row) : « rowing poulie assis prise en v » → Tirage Horizontal (Poulie, V-Bar)
 - « tirage poitrine » → Tirage Poitrine (Machine) ; « developer coucher » → Développé Couché (Barre) (tests unitaires)
 - Tolérance de fautes limitée au nom pour éviter les faux positifs (« goblet » ≠ « mollets »)
 

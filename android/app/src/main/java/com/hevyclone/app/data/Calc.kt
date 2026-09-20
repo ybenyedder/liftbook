@@ -58,6 +58,16 @@ object Calc {
         return if (h > 0) "${h}h ${m}m" else "${m}m"
     }
 
+    /** Live per-second clock label: 04:37, or 1:12:45 past the hour. */
+    fun fmtClock(ms: Long): String {
+        val s = ms / 1000
+        val h = s / 3600
+        val m = (s % 3600) / 60
+        val sec = s % 60
+        return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, sec)
+        else String.format(Locale.US, "%02d:%02d", m, sec)
+    }
+
     fun fmtDateShort(ms: Long): String =
         Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("d MMM", Locale.FRANCE))
 

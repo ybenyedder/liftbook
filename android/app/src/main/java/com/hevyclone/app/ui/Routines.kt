@@ -25,6 +25,7 @@ import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FitnessCenter
@@ -320,13 +321,37 @@ fun RoutineDetailScreen(id: Long) {
     if (r == null) { Nav.pop(); return }
     var metric by remember { mutableStateOf(0) } // 0=Volume 1=Réps 2=Durée
     val unit = Repo.settings.unit
+    var rMenu by remember { mutableStateOf(false) }
+    var confirmDelR by remember { mutableStateOf(false) }
+    var renameR by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { Nav.pop() }) { Icon(Icons.Rounded.ArrowBack, null) }
             Text(L10n.s("Routine", "Routine", "Rutina", "Routine"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            IconButton(onClick = { toast(ctx, L10n.s("Shared!", "Partagé !")) }) { Icon(Icons.Rounded.IosShare, null) }
-            IconButton(onClick = { toast(ctx, L10n.s("Routine options", "Options de la routine")) }) { Icon(Icons.Rounded.MoreHoriz, null) }
+            IconButton(onClick = { shareRoutine(ctx, r) }) { Icon(Icons.Rounded.IosShare, null) }
+            Box {
+                IconButton(onClick = { rMenu = true }) { Icon(Icons.Rounded.MoreHoriz, null) }
+                DropdownMenu(expanded = rMenu, onDismissRequest = { rMenu = false }) {
+                    DropdownMenuItem(text = { Text(L10n.s("Edit routine", "Modifier la routine")) }, leadingIcon = { Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp)) }, onClick = {
+                        rMenu = false
+                        if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")); return@DropdownMenuItem }
+                        Repo.startRoutine(r.id)
+                        Nav.push(Screen.Logger)
+                    })
+                    DropdownMenuItem(text = { Text(L10n.s("Rename routine", "Renommer la routine")) }, leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, null, modifier = Modifier.size(16.dp)) }, onClick = {
+                        rMenu = false; renameR = true
+                    })
+                    DropdownMenuItem(text = { Text(L10n.s("Duplicate routine", "Dupliquer la routine")) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp)) }, onClick = {
+                        rMenu = false
+                        Repo.duplicateRoutine(r.id)
+                        toast(ctx, L10n.s("Routine duplicated", "Routine dupliquée"))
+                    })
+                    DropdownMenuItem(text = { Text(L10n.s("Delete routine", "Supprimer la routine"), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) }, onClick = {
+                        rMenu = false; confirmDelR = true
+                    })
+                }
+            }
         }
         LazyColumn(Modifier.fillMaxSize()) {
             item {
@@ -350,6 +375,8 @@ fun RoutineDetailScreen(id: Long) {
             }
             item {
                 val sessions = remember(rev, r.id) { sessionsFor(r) }
+                // no history yet → no empty chart block (avoids the blank gap)
+                if (sessions.isNotEmpty()) {
                 val series = remember(rev, r.id, metric) {
                     sessions.map { w ->
                         val v = when (metric) {
@@ -392,6 +419,7 @@ fun RoutineDetailScreen(id: Long) {
                             )
                         }
                     }
+                }
                 }
             }
             item {
@@ -458,6 +486,61 @@ fun RoutineDetailScreen(id: Long) {
             item { Spacer(Modifier.height(20.dp)) }
         }
     }
+
+    if (renameR) {
+        var newName by remember { mutableStateOf(r.name) }
+        AlertDialog(
+            onDismissRequest = { renameR = false },
+            title = { Text(L10n.s("Rename routine", "Renommer la routine"), fontWeight = FontWeight.Bold) },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = newName, onValueChange = { newName = it.take(40) }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    Repo.renameRoutine(r.id, newName)
+                    renameR = false
+                }) { Text(L10n.s("Save", "Enregistrer")) }
+            },
+            dismissButton = { TextButton(onClick = { renameR = false }) { Text(L10n.s("Cancel", "Annuler")) } },
+        )
+    }
+    if (confirmDelR) {
+        AlertDialog(
+            onDismissRequest = { confirmDelR = false },
+            title = { Text(L10n.s("Delete routine?", "Supprimer la routine ?"), fontWeight = FontWeight.ExtraBold) },
+            text = { Text(L10n.s("This routine will be removed from your list.", "Cette routine sera retirée de ta liste.")) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDelR = false
+                    Repo.deleteRoutine(r.id)
+                    Nav.pop()
+                }) { Text(L10n.s("Delete", "Supprimer"), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDelR = false }) { Text(L10n.s("Cancel", "Annuler")) } },
+        )
+    }
+}
+
+/** Real Android share sheet with the routine summary. */
+private fun shareRoutine(ctx: android.content.Context, r: Routine) {
+    val sb = StringBuilder()
+    sb.appendLine(r.name)
+    sb.appendLine()
+    for (ex in r.exercises) {
+        sb.appendLine(exName(ex.name) + " (" + ex.sets.size + " séries)")
+        for ((i, st) in ex.sets.withIndex()) {
+            val kgLabel = st.kg?.let { com.hevyclone.app.data.Calc.fmtKg(it, Repo.settings.unit) + " kg" } ?: ""
+            sb.appendLine("  " + (i + 1) + ". " + kgLabel + " × " + (st.reps ?: "—"))
+        }
+    }
+    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
+    }
+    ctx.startActivity(android.content.Intent.createChooser(intent, "Partager la routine"))
 }
 
 private fun sessionsFor(r: Routine): List<com.hevyclone.app.data.Workout> =

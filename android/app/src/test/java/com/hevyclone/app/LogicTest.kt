@@ -170,6 +170,10 @@ class LogicTest {
         assertTrue(m("developpe militaire halteres", "Seated Dumbbell Shoulder Press"))
         assertTrue(m("developpe militaire", "Standing Dumbbell Shoulder Press"))
         assertTrue(m("militaire machine", "Machine Shoulder Press"))
+        // gym vocabulary with noise words + stemming: « rowing poulie assis prise en v »
+        assertTrue(m("rowing poulie assis prise en v", "V-Bar Cable Row"))
+        assertTrue(m("rowing assis poulie", "Seated Cable Row"))
+        assertTrue(m("curl machine assis", "Preacher Curl"))
         // no typo-fuzzy on muscle words: « goblet » must not match « mollets » noise
         assertTrue(m("goblet", "Goblet Squat"))
         assertFalse(m("goblet", "Standing Calf Raise"))

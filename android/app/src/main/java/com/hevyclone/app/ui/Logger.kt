@@ -53,6 +53,7 @@ import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
@@ -110,8 +111,14 @@ object WorkoutNotif {
                 android.app.NotificationChannel(CHANNEL, "Chronomètre de séance", android.app.NotificationManager.IMPORTANCE_LOW)
             )
             // Hevy-style true-black custom layout with a self-ticking chronometer.
+            // NB: Chronometer bases run on elapsedRealtime, not wall clock — offset by the
+            // session's age or it displays a huge negative value.
             val rv = android.widget.RemoteViews(ctx.packageName, R.layout.notif_workout)
-            rv.setChronometer(R.id.workout_chrono, startedAt, null, true)
+            rv.setChronometer(
+                R.id.workout_chrono,
+                android.os.SystemClock.elapsedRealtime() - (System.currentTimeMillis() - startedAt),
+                null, true,
+            )
             val content = android.app.PendingIntent.getActivity(
                 ctx, 0,
                 android.content.Intent(ctx, MainActivity::class.java),
@@ -326,7 +333,7 @@ fun LoggerScreen() {
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                LiveStat(Calc.fmtDur(maxOf(0, tick - (draft.startedAt ?: tick))), L10n.s("Duration", "Durée"), Modifier.weight(1f))
+                LiveStat(Calc.fmtClock(maxOf(0, tick - (draft.startedAt ?: tick))), L10n.s("Duration", "Durée"), Modifier.weight(1f))
                 LiveStat("${Calc.fmtVol(liveVol, unit)} ${Calc.unitLabel(unit)}", L10n.s("Volume", "Volume"), Modifier.weight(1f))
                 LiveStat("$liveSets", L10n.s("Sets", "Séries"), Modifier.weight(1f))
             }
@@ -568,7 +575,7 @@ fun LoggerScreen() {
 
 // ---------------- exercise card ----------------
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun ExCard(
     ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String,
@@ -577,6 +584,7 @@ private fun ExCard(
     var showNotes by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
     var showRestDialog by remember { mutableStateOf(false) }
+    var showReplace by remember { mutableStateOf(false) }
     val view = androidx.compose.ui.platform.LocalView.current
     val isLast = Repo.draft?.exercises?.indexOfLast { it === ex }?.let { it >= (Repo.draft?.exercises?.size ?: 0) - 1 } ?: true
     var cardHeight by remember { mutableStateOf(1f) }
@@ -652,6 +660,11 @@ private fun ExCard(
                         Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
                     }
                     DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(L10n.s("Replace exercise", "Remplacer l'exercice")) },
+                            leadingIcon = { Icon(Icons.Rounded.SwapHoriz, null, modifier = Modifier.size(16.dp)) },
+                            onClick = { menuOpen = false; showReplace = true },
+                        )
                         DropdownMenuItem(
                             text = { Text(L10n.s("Duplicate exercise", "Dupliquer l'exercice")) },
                             leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp)) },
@@ -764,6 +777,22 @@ private fun ExCard(
                             fontSize = 13.sp, lineHeight = 18.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
                         )
                     }
+                }
+            }
+            if (showReplace) {
+                ModalBottomSheet(
+                    onDismissRequest = { showReplace = false },
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ) {
+                    PickerContent(
+                        onClose = { showReplace = false },
+                        onPick = { newName ->
+                            ex.name = newName
+                            ex.muscle = com.hevyclone.app.data.EX[newName]?.muscle ?: ""
+                            Repo.touchPublic()
+                            showReplace = false
+                        },
+                    )
                 }
             }
             if (showRestDialog) {
@@ -1052,7 +1081,7 @@ private fun DurationText(startedAt: Long?) {
         while (true) { value = System.currentTimeMillis(); delay(1000) }
     }.value
     Text(
-        "${Calc.fmtDur(maxOf(0, now - (startedAt ?: now)))}",
+        "${Calc.fmtClock(maxOf(0, now - (startedAt ?: now)))}",
         color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
     )
 }
