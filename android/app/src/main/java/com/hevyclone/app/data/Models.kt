@@ -52,6 +52,7 @@ data class Settings(
     var profileName: String = "Athlète",
     var handle: String = "athlete",
     var since: Long = 0,
+    var avatarUrl: String = "",
 )
 
 data class PrBest(

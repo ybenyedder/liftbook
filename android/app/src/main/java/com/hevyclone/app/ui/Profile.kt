@@ -30,7 +30,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -62,7 +61,6 @@ fun ProfileScreen() {
     val ctx = LocalContext.current
     val st = Repo.settings
     val unit = st.unit
-    val showSettings = remember { mutableStateOf(false) }
     var heatYear by remember { mutableStateOf(LocalDate.now().year) }
 
     // cached aggregates
@@ -78,10 +76,10 @@ fun ProfileScreen() {
 
     LazyColumn(Modifier.fillMaxSize()) {
         item(key = "header") {
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 10.dp), verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(st.profileName.trim().take(1).uppercase(), 52)
+                        AvatarImg(st.profileName.trim().take(1).uppercase(), 52.dp)
                         Spacer(Modifier.width(14.dp))
                         Column {
                             Text(st.profileName, fontSize = 23.sp, fontWeight = FontWeight.Bold)
@@ -95,7 +93,7 @@ fun ProfileScreen() {
                         ProfileStat("0", L10n.s("Following", "Abonnements", "Seguidos", "Folgt"))
                     }
                 }
-                IconButton(onClick = { showSettings.value = true }) { Icon(Icons.Rounded.Settings, null) }
+                IconButton(onClick = { Nav.push(Screen.Settings) }) { Icon(Icons.Rounded.Settings, null) }
             }
         }
         item(key = "volume-heat") {
@@ -264,7 +262,6 @@ fun ProfileScreen() {
             )
         }
     }
-    if (showSettings.value) SettingsSheet(onClose = { showSettings.value = false })
 }
 
 @Composable
@@ -357,223 +354,6 @@ private fun DrawScope.drawHeatmap(
             topLeft = Offset(w * (cell + gap), dow * (cell + gap)),
             size = Size(cell, cell),
             cornerRadius = CornerRadius(cell * 0.22f),
-        )
-    }
-}
-
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-private fun SettingsSheet(onClose: () -> Unit) {
-    val ctx = LocalContext.current
-    val st = Repo.settings
-    var confirm by remember { mutableStateOf(false) }
-    ModalBottomSheet(
-        onDismissRequest = onClose,
-        containerColor = MaterialTheme.colorScheme.surface,
-    ) {
-        Column(Modifier.padding(bottom = 30.dp)) {
-            Text("Réglages", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
-            Text("COMPTE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp))
-            val sess = Cloud.session
-            if (sess != null) {
-                Row(Modifier.padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.CloudDone, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(sess.email, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                        Text(Cloud.syncStatus ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
-                    }
-                }
-                Row(Modifier.padding(horizontal = 12.dp)) {
-                    TextButton(onClick = { Cloud.requestSync(0); toast(ctx, L10n.s("Syncing…", "Synchronisation…")) }) {
-                        Text(L10n.s("Sync now", "Synchroniser maintenant"), fontWeight = FontWeight.SemiBold)
-                    }
-                    TextButton(onClick = { Cloud.signOut(); onClose() }) {
-                        Text(L10n.s("Sign out", "Se déconnecter", "Cerrar sesión", "Abmelden"), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            } else {
-                TextButton(onClick = { Cloud.skipped = false; Cloud.persistSkip(); onClose() }, modifier = Modifier.padding(start = 8.dp)) {
-                    Text(L10n.s("Sign in or create an account", "Se connecter ou créer un compte", "Iniciar sesión o crear una cuenta", "Anmelden oder Konto erstellen"), fontWeight = FontWeight.SemiBold)
-                }
-            }
-            Text("PROFIL", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp))
-            var nameField by remember { mutableStateOf(Repo.settings.profileName) }
-            var handleField by remember { mutableStateOf(Repo.settings.handle) }
-            androidx.compose.material3.OutlinedTextField(
-                value = nameField,
-                onValueChange = { nameField = it },
-                label = { Text(L10n.s("Name", "Nom")) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-            )
-            androidx.compose.material3.OutlinedTextField(
-                value = handleField,
-                onValueChange = { handleField = it.filter { c -> c.isLetterOrDigit() || c == '.' || c == '_' }.take(20) },
-                label = { Text(L10n.s("Username", "Pseudo")) },
-                singleLine = true,
-                prefix = { Text("@") },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-            )
-            if (nameField.isNotBlank() && handleField.isNotBlank() && (nameField != Repo.settings.profileName || handleField != Repo.settings.handle)) {
-                androidx.compose.material3.Button(
-                    onClick = {
-                        Repo.setProfile(nameField.trim(), handleField.trim())
-                        onClose()
-                    },
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary,
-                    ),
-                ) { Text(L10n.s("Save profile", "Enregistrer le profil")) }
-            }
-            Text("UNITÉS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 8.dp))
-            Row(Modifier.padding(horizontal = 20.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(3.dp)) {
-                listOf("kg", "lb").forEach { u ->
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (st.unit == u) MaterialTheme.colorScheme.primary else Color.Transparent)
-                            .clickableNoRipple { Repo.setUnit(u) }
-                            .padding(vertical = 9.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(u, color = if (st.unit == u) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    }
-                }
-            }
-            Text("MINUTEUR DE REPOS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
-            Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(60, 90, 120, 180).forEach { sec ->
-                    Box(Modifier.weight(1f)) { Chip("${sec}s", st.restSec == sec, onClick = { Repo.setRest(sec) }) }
-                }
-            }
-            Text("COULEUR D'ACCENT", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 8.dp))
-            Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                listOf(
-                    "blue" to androidx.compose.ui.graphics.Color(0xFF028CFD),
-                    "teal" to androidx.compose.ui.graphics.Color(0xFF20B49A),
-                    "violet" to androidx.compose.ui.graphics.Color(0xFF7C5CFF),
-                    "orange" to androidx.compose.ui.graphics.Color(0xFFFF7A45),
-                ).forEach { (key, color) ->
-                    Box(
-                        Modifier
-                            .size(36.dp)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
-                            .background(color)
-                            .border(
-                                if (st.accent == key) 3.dp else 1.dp,
-                                if (st.accent == key) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.outline,
-                                androidx.compose.foundation.shape.CircleShape,
-                            )
-                            .clickable { Repo.setAccent(key); onClose(); (ctx as? android.app.Activity)?.recreate() },
-                    )
-                }
-            }
-            Text("DONNÉES", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, top = 16.dp, bottom = 4.dp))
-            // Hevy / Strong full-account import (.csv or the exported .zip)
-            val hevyPicker = androidx.activity.compose.rememberLauncherForActivityResult(
-                androidx.activity.result.contract.ActivityResultContracts.GetContent()
-            ) { uri ->
-                if (uri != null) {
-                    runCatching {
-                        val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching
-                        val csvs: List<String> = if (bytes.size > 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
-                            java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(bytes)).use { z ->
-                                val out = mutableListOf<String>()
-                                var e = z.nextEntry
-                                while (e != null) {
-                                    if (!e.isDirectory && e.name.endsWith(".csv", true)) out.add(String(z.readBytes()))
-                                    e = z.nextEntry
-                                }
-                                out
-                            }
-                        } else listOf(String(bytes))
-                        var ws = listOf<com.hevyclone.app.data.Workout>()
-                        var rs = listOf<com.hevyclone.app.data.Routine>()
-                        for (csv in csvs) {
-                            val (w, r) = com.hevyclone.app.data.Calc.parseHevyCsv(csv)
-                            ws += w; rs += r
-                        }
-                        if (ws.isEmpty() && rs.isEmpty()) {
-                            val head = csvs.firstOrNull()?.lineSequence()?.firstOrNull()?.take(90) ?: ""
-                            toast(ctx, L10n.s("No Hevy data found — header:", "Aucune donnée Hevy trouvée — en-tête :") + " " + head)
-                        } else {
-                            val n = Repo.importHevy(ws, rs)
-                            toast(ctx, L10n.s(
-                                "%1\$d workouts imported from Hevy (routines rebuilt)",
-                                "%1\$d séances importées (routines reconstruites)"
-                            ).format(n))
-                        }
-                    }.onFailure { toast(ctx, L10n.s("Import failed (check format)", "Import échoué (vérifie le format)")) }
-                }
-            }
-            TextButton(onClick = { hevyPicker.launch("*/*") }, modifier = Modifier.padding(start = 8.dp)) {
-                Text(L10n.s("Import from Hevy (account export)", "Importer depuis Hevy (export du compte)"), fontWeight = FontWeight.SemiBold)
-            }
-            val filePicker = androidx.activity.compose.rememberLauncherForActivityResult(
-                androidx.activity.result.contract.ActivityResultContracts.GetContent()
-            ) { uri ->
-                if (uri != null) {
-                    runCatching {
-                        ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                    }.getOrNull()?.let { text ->
-                        var n = Repo.importCsv(text)
-                        if (n == 0) {
-                            // fallback: a Hevy account export fed to the generic importer
-                            val (ws, rs) = com.hevyclone.app.data.Calc.parseHevyCsv(text)
-                            if (ws.isNotEmpty() || rs.isNotEmpty()) n = Repo.importHevy(ws, rs)
-                        }
-                        toast(ctx, if (n > 0) L10n.s("%1\$d workouts imported", "%1\$d séances importées").format(n)
-                               else L10n.s("Nothing imported (check format)", "Rien d'importé (vérifie le format)"))
-                    }
-                }
-            }
-            TextButton(onClick = { filePicker.launch("text/*") }, modifier = Modifier.padding(start = 8.dp)) {
-                Text(L10n.s("Import workouts (CSV)", "Importer des séances (CSV)"), fontWeight = FontWeight.SemiBold)
-            }
-            val restorePicker = androidx.activity.compose.rememberLauncherForActivityResult(
-                androidx.activity.result.contract.ActivityResultContracts.GetContent()
-            ) { uri ->
-                if (uri != null) {
-                    runCatching {
-                        ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                    }.getOrNull()?.let { text ->
-                        val ok = Repo.restoreBackup(text)
-                        toast(ctx, if (ok) L10n.s("Backup restored", "Sauvegarde restaurée") else L10n.s("Invalid backup file", "Fichier de sauvegarde invalide"))
-                    }
-                }
-            }
-            TextButton(onClick = { shareBackup(ctx) }, modifier = Modifier.padding(start = 8.dp)) {
-                Text(L10n.s("Backup data (JSON)", "Sauvegarder les données (JSON)"), fontWeight = FontWeight.SemiBold)
-            }
-            TextButton(onClick = { restorePicker.launch("*/*") }, modifier = Modifier.padding(start = 8.dp)) {
-                Text(L10n.s("Restore backup", "Restaurer une sauvegarde"), fontWeight = FontWeight.SemiBold)
-            }
-            TextButton(onClick = { exportCsv(ctx) }, modifier = Modifier.padding(start = 8.dp)) {
-                Text(L10n.s("Export workouts (CSV)", "Exporter les séances (CSV)"), fontWeight = FontWeight.SemiBold)
-            }
-            TextButton(onClick = { confirm = true }, modifier = Modifier.padding(start = 8.dp)) {
-                Text("Tout effacer", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-    if (confirm) {
-        AlertDialog(
-            onDismissRequest = { confirm = false },
-            title = { Text("Tout effacer ?", fontWeight = FontWeight.Bold) },
-            text = { Text("Toutes les séances, routines et records seront définitivement supprimés de cet appareil.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirm = false
-                    Repo.wipe()
-                    onClose()
-                }) { Text("Effacer", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Annuler") } },
         )
     }
 }

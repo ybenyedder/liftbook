@@ -275,6 +275,11 @@ object Repo {
         persistSettings(); touch(); Cloud.markDirty()
     }
 
+    fun setAvatar(url: String) {
+        settings.avatarUrl = url
+        persistSettings(); touch(); Cloud.markDirty()
+    }
+
     fun backupJson(): String = json.encodeToString(
         BackupData.serializer(), BackupData(workouts.toList(), routines.toList())
     )

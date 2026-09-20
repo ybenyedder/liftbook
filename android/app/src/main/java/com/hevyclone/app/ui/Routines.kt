@@ -81,6 +81,8 @@ fun TrainingScreen() {
     val routines = Repo.routines
     var expanded by remember { mutableStateOf(true) }
     var sortMode by remember { mutableStateOf(0) } // 0=Personnalisé 1=A→Z 2=Dernière utilisée 3=Création
+    var view by remember { mutableStateOf(0) }      // 0=Routines 1=Calendrier (comme Hevy ▾)
+    var viewMenu by remember { mutableStateOf(false) }
     val sortedRoutines = remember(rev, sortMode) {
         when (sortMode) {
             0 -> routines.toList() // Repo order == manual pos order
@@ -97,11 +99,42 @@ fun TrainingScreen() {
     dd.dragEnabled = sortMode == 0
 
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                Text(L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
-                Icon(Icons.Rounded.ExpandMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp).size(22.dp))
+        // Header with view selector (Routines / Calendrier), like Hevy's "Training ▾"
+        Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { viewMenu = true }
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Text(L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.width(6.dp))
+                    Icon(
+                        Icons.Rounded.ExpandMore, null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .padding(start = 2.dp)
+                            .size(22.dp)
+                            .graphicsLayer { rotationZ = if (viewMenu) 180f else 0f },
+                    )
+                }
+                DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(L10n.s("Routines", "Routines", "Rutinas", "Routinen"), color = if (view == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, fontWeight = if (view == 0) FontWeight.Bold else FontWeight.Normal) },
+                        onClick = { viewMenu = false; view = 0 },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(L10n.s("Calendar", "Calendrier", "Calendario", "Kalender"), color = if (view == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground, fontWeight = if (view == 1) FontWeight.Bold else FontWeight.Normal) },
+                        onClick = { viewMenu = false; view = 1 },
+                    )
+                }
             }
+        }
+        if (view == 1) {
+            TrainingCalendar()
+            return@Column
         }
         Spacer(Modifier.height(6.dp))
         // Start an empty workout — bordered dark button
@@ -228,23 +261,35 @@ class DragDropState(
         val startOffset = currentInfo.offset + draggedOffsetY
         val endOffset = startOffset + currentInfo.size
         val middle = startOffset + (endOffset - startOffset) / 2f
+        // swap only when the dragged middle crosses a neighbour's midpoint (precise, Hevy-like)
         val target = info.visibleItemsInfo
             .filter { it.index != current }
-            .firstOrNull { middle.toInt() >= it.offset && middle.toInt() < it.offset + it.size }
+            .firstOrNull { item ->
+                val itemMid = item.offset + item.size / 2f
+                if (item.index < current) middle < itemMid - 2f else middle > itemMid + 2f
+            }
         if (target != null) {
             if (current == listState.firstVisibleItemIndex || target.index == listState.firstVisibleItemIndex) {
                 scope.launch { listState.scrollToItem(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) }
             }
+            val movingDown = target.index > current
             onMove(current, target.index)
+            // keep the card glued to the finger across the slot change
+            draggedOffsetY += if (movingDown) -target.size.toFloat() else currentInfo.size.toFloat()
             draggingItemIndex = target.index
         } else {
-            // edge auto-scroll while dragging beyond the visible bounds
+            // gentle capped auto-scroll when dragging past the visible bounds
             val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return
             val bottom = lastVisible.offset + lastVisible.size
-            if (endOffset > bottom) {
-                listState.dispatchRawDelta((endOffset - bottom).coerceAtLeast(6f))
-            } else if (startOffset < info.visibleItemsInfo.first().offset) {
-                listState.dispatchRawDelta((startOffset - info.visibleItemsInfo.first().offset).coerceAtMost(-6f))
+            val overshootDown = endOffset - bottom
+            if (overshootDown > 10 && current < info.totalItemsCount - 2) {
+                listState.dispatchRawDelta(overshootDown.coerceAtMost(14f))
+            } else {
+                val first = info.visibleItemsInfo.first()
+                val overshootUp = first.offset - startOffset
+                if (overshootUp > 10 && current > 0) {
+                    listState.dispatchRawDelta((-overshootUp).coerceAtMost(-14f))
+                }
             }
         }
     }
@@ -258,6 +303,7 @@ fun rememberDragDropState(listState: LazyListState, scope: CoroutineScope, onMov
 @Composable
 fun LazyItemScope.DraggableItem(dd: DragDropState, index: Int, content: @Composable (Boolean) -> Unit) {
     val dragging = dd.draggingItemIndex == index
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
     Box(
         Modifier
             .zIndex(if (dragging) 1f else 0f)
@@ -276,7 +322,10 @@ fun LazyItemScope.DraggableItem(dd: DragDropState, index: Int, content: @Composa
                         change.consume()
                         dd.onDrag(amount)
                     },
-                    onDragStart = { dd.onDragStart(index) },
+                    onDragStart = {
+                        dd.onDragStart(index)
+                        if (dd.draggingItemIndex != null) haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    },
                     onDragEnd = { dd.onDragInterrupted() },
                     onDragCancel = { dd.onDragInterrupted() },
                 )

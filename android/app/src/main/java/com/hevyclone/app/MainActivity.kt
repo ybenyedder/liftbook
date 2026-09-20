@@ -15,6 +15,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
+        if (com.hevyclone.app.data.Cloud.handleAuthRedirect(intent.data)) return
         if (intent.getBooleanExtra("start_empty_workout", false)) {
             com.hevyclone.app.ui.Nav.pendingStartEmpty = true
             bootKey.intValue += 1
@@ -32,7 +33,9 @@ class MainActivity : ComponentActivity() {
         Repo.init(applicationContext)
         Cloud.init(applicationContext)
         enableEdgeToEdge()
-        if (intent?.getBooleanExtra("start_empty_workout", false) == true && savedInstanceState == null) {
+        if (savedInstanceState == null && Cloud.handleAuthRedirect(intent?.data)) {
+            // Google OAuth deep link on cold start — session applied, fall through to UI
+        } else if (intent?.getBooleanExtra("start_empty_workout", false) == true && savedInstanceState == null) {
             com.hevyclone.app.ui.Nav.pendingStartEmpty = true
         }
         setContent {

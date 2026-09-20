@@ -49,6 +49,7 @@ sealed interface Screen {
     data object HomeTab : Screen
     data object TrainingTab : Screen
     data object ProfileTab : Screen
+    data object Settings : Screen
     data class WorkoutDetail(val id: Long) : Screen
     data class ExerciseDetail(val name: String) : Screen
     data class RoutineDetail(val id: Long) : Screen
@@ -132,6 +133,7 @@ fun App(refreshKey: Int = 0) {
                     Screen.HomeTab -> HomeScreen()
                     Screen.TrainingTab -> TrainingScreen()
                     Screen.ProfileTab -> ProfileScreen()
+                    Screen.Settings -> SettingsScreen()
                     is Screen.WorkoutDetail -> WorkoutDetailScreen(s.id)
                     is Screen.ExerciseDetail -> ExerciseDetailScreen(s.name)
                     is Screen.RoutineDetail -> RoutineDetailScreen(s.id)

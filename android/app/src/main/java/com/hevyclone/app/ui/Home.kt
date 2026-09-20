@@ -129,7 +129,7 @@ private fun FeedPost(p: PostUi) {
             .padding(vertical = 10.dp)
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Avatar(Repo.settings.profileName.trim().take(1).uppercase(), 44)
+            AvatarImg(Repo.settings.profileName.trim().take(1).uppercase(), 44.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(p.author, fontWeight = FontWeight.Bold, fontSize = 16.sp)

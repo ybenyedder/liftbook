@@ -47,6 +47,7 @@ object Cloud {
     private const val PREFS = "cloud"
 
     private lateinit var prefs: android.content.SharedPreferences
+    private var appCtx: Context? = null
     private val json = Json { ignoreUnknownKeys = true }
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -73,7 +74,9 @@ object Cloud {
 
     fun init(ctx: Context) {
         if (this::prefs.isInitialized) return
+        appCtx = ctx.applicationContext
         prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        AvatarCache.reload(ctx)
         dirtyAt = prefs.getLong("dirtyAt", 0L)
         pushedTs = prefs.getLong("pushedTs", 0L)
         lastSeenRemoteTs = prefs.getLong("lastSeenRemoteTs", 0L)
@@ -157,6 +160,97 @@ object Cloud {
         session = null
         skipped = false
         syncStatus = null
+    }
+
+    // ================= Google sign-in (PKCE via browser / custom tab) =================
+
+    private const val REDIRECT = "hevyclone://auth-callback"
+
+    /** Opens the browser on the GoTrue /authorize endpoint with a fresh PKCE pair. */
+    fun startGoogleAuth(ctx: Context) {
+        val verifier = generatePkceVerifier()
+        prefs.edit().putString("pkce_verifier", verifier).apply()
+        val challenge = pkceChallenge(verifier)
+        val url = "$BASE/auth/v1/authorize?provider=google&redirect_to=" +
+            java.net.URLEncoder.encode(REDIRECT, "UTF-8") +
+            "&flow_type=pkce&code_challenge=$challenge&code_challenge_method=s256"
+        ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    /** Deep-link entry: hevyclone://auth-callback?code=... → exchange for a session. */
+    fun handleAuthRedirect(uri: android.net.Uri?): Boolean {
+        if (uri?.host != "auth-callback") return false
+        val err = uri.getQueryParameter("error_description") ?: uri.getQueryParameter("error")
+        if (err != null) { authError = err.take(120); return true }
+        val code = uri.getQueryParameter("code") ?: return true
+        val verifier = prefs.getString("pkce_verifier", null) ?: return true
+        prefs.edit().remove("pkce_verifier").apply()
+        busy = true
+        authError = null
+        scope.launch {
+            try {
+                val body = buildJsonObject { put("auth_code", code); put("code_verifier", verifier) }.toString()
+                val (httpCode, resp) = withContext(Dispatchers.IO) { http("POST", "/auth/v1/token?grant_type=pkce", body, null) }
+                if (httpCode !in 200..299) {
+                    authError = "Connexion Google échouée (${httpCode})"
+                    return@launch
+                }
+                applySessionResponse(resp)
+            } catch (e: Exception) {
+                authError = "Connexion impossible — vérifie Internet."
+            } finally {
+                busy = false
+            }
+        }
+        return true
+    }
+
+    private suspend fun applySessionResponse(resp: String) {
+        val obj = json.parseToJsonElement(resp).jsonObject
+        val token = obj["access_token"]?.jsonPrimitive?.content ?: run { authError = "Session Google invalide."; return }
+        val email = obj["user"]?.jsonObject?.get("email")?.jsonPrimitive?.content ?: ""
+        session = CloudSession(
+            email = email,
+            userId = obj["user"]?.jsonObject?.get("id")?.jsonPrimitive?.content ?: "",
+            access = token,
+            refresh = obj["refresh_token"]?.jsonPrimitive?.content ?: "",
+            expiresAt = System.currentTimeMillis() + (obj["expires_in"]?.jsonPrimitive?.long ?: 3600L) * 1000L,
+        )
+        onLoggedIn(email)
+        persistSession()
+        syncNow()
+    }
+
+    private fun generatePkceVerifier(): String {
+        val bytes = ByteArray(48)
+        java.security.SecureRandom().nextBytes(bytes)
+        return android.util.Base64.encodeToString(bytes, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
+    }
+
+    private fun pkceChallenge(verifier: String): String {
+        val digest = java.security.MessageDigest.getInstance("SHA-256").digest(verifier.toByteArray(Charsets.US_ASCII))
+        return android.util.Base64.encodeToString(digest, android.util.Base64.URL_SAFE or android.util.Base64.NO_PADDING or android.util.Base64.NO_WRAP)
+    }
+
+    // ================= avatar storage =================
+
+    /** Uploads the local avatar JPEG; returns the public URL on success. */
+    fun uploadAvatar(bytes: ByteArray): String? {
+        val s = session ?: return null
+        val obj = "/object/avatars/${s.userId}.jpg"
+        val (code, _) = http("POST", "/storage/v1$obj", null, s.access, bytes, extraHeaders = mapOf("Content-Type" to "image/jpeg", "x-upsert" to "true"))
+        if (code !in 200..299) return null
+        return "$BASE/storage/v1/object/public/avatars/${s.userId}.jpg"
+    }
+
+    fun downloadAvatar(url: String): ByteArray? {
+        val conn = runCatching { URL(url).openConnection() as HttpURLConnection }.getOrNull() ?: return null
+        return try {
+            conn.connectTimeout = 12000
+            conn.readTimeout = 20000
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) HevyClone/1.30")
+            if (conn.responseCode !in 200..299) null else conn.inputStream.use { it.readBytes() }
+        } catch (e: Exception) { null } finally { conn.disconnect() }
     }
 
     private suspend fun refreshIfNeeded() {
@@ -244,12 +338,14 @@ object Cloud {
                 val dirty = dirtyAt > pushedTs
                 if (!dirty) {
                     if (remote != null && remoteTs > lastSeenRemoteTs) {
+                        val oldAvatar = Repo.settings.avatarUrl
                         withContext(Dispatchers.Main) { Repo.replaceAll(remote) }
                         adoptTombstones(remote)
                         lastSeenRemoteTs = remoteTs
                         pushedTs = remoteTs
                         dirtyAt = remoteTs
                         persistMeta()
+                        maybeFetchAvatar(oldAvatar)
                         syncStatus = stamp("Synchronisé")
                     }
                 } else {
@@ -279,6 +375,21 @@ object Cloud {
 
     private fun stamp(s: String): String =
         s + " · " + SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+
+    /** Another device changed the profile photo → download it for local display. */
+    private fun maybeFetchAvatar(previousUrl: String) {
+        val url = Repo.settings.avatarUrl
+        val ctx = appCtx ?: return
+        if (url.isBlank() || url == previousUrl) return
+        scope.launch(Dispatchers.IO) {
+            val bytes = downloadAvatar(url)
+            if (bytes != null) {
+                AvatarCache.file(ctx).writeBytes(bytes)
+                AvatarCache.reload(ctx)
+                withContext(Dispatchers.Main) { Repo.touchPublic() }
+            }
+        }
+    }
 
     /** GET own snapshot row; returns (payload?, client_ts). */
     private fun pull(): Pair<SyncPayload?, Long> {
@@ -338,19 +449,21 @@ object Cloud {
 
     // ================= http =================
 
-    private fun http(method: String, path: String, body: String?, bearer: String?): Pair<Int, String> {
+    private fun http(method: String, path: String, body: String?, bearer: String?, raw: ByteArray? = null, extraHeaders: Map<String, String> = emptyMap()): Pair<Int, String> {
         val conn = (URL(BASE + path).openConnection() as HttpURLConnection).apply {
             requestMethod = method
             connectTimeout = 12000
             readTimeout = 25000
             setRequestProperty("apikey", ANON)
-            setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) HevyClone/1.29")
+            if (!extraHeaders.containsKey("Content-Type")) setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) HevyClone/1.30")
             bearer?.let { setRequestProperty("Authorization", "Bearer $it") }
-            if (body != null) doOutput = true
+            extraHeaders.forEach { (k, v) -> setRequestProperty(k, v) }
+            if (body != null || raw != null) doOutput = true
         }
         try {
-            if (body != null) conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            if (raw != null) conn.outputStream.use { it.write(raw) }
+            else if (body != null) conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             val code = conn.responseCode
             val stream = if (code in 200..299) conn.inputStream else conn.errorStream
             val resp = stream?.bufferedReader()?.use { it.readText() } ?: ""
@@ -358,5 +471,15 @@ object Cloud {
         } finally {
             conn.disconnect()
         }
+    }
+}
+
+/** Locally cached profile photo (filesDir/avatar.jpg), decoded once per change. */
+object AvatarCache {
+    @Volatile var bmp: android.graphics.Bitmap? = null
+        private set
+    fun file(ctx: Context) = java.io.File(ctx.filesDir, "avatar.jpg")
+    fun reload(ctx: Context) {
+        bmp = runCatching { android.graphics.BitmapFactory.decodeFile(file(ctx).absolutePath) }.getOrNull()
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -38,14 +39,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hevyclone.app.data.Calc
+import com.hevyclone.app.data.Repo
 
 val Accent get() = C.Accent
 val AccText get() = C.AccText
@@ -166,9 +170,27 @@ fun Avatar(letter: String, size: Int) {
             .size(size.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.primary),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text(letter, color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.ExtraBold, fontSize = (size * 0.42f).sp)
+    }
+}
+
+/** Profile photo when set (filesDir/avatar.jpg), letter avatar otherwise. */
+@Composable
+fun AvatarImg(letter: String, size: Dp) {
+    val bmp = remember(Repo.rev) { com.hevyclone.app.data.AvatarCache.bmp }
+    if (bmp != null) {
+        Box(Modifier.size(size).clip(CircleShape)) {
+            androidx.compose.foundation.Image(
+                bitmap = bmp.asImageBitmap(),
+                contentDescription = null,
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    } else {
+        Avatar(letter, size.value.toInt())
     }
 }
 
