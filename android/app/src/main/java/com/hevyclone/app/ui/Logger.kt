@@ -275,8 +275,8 @@ fun PrBadgeHost() {
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White)) {
-                ExPhoto(b.ex, b.muscle, 36.dp)
+            Box(Modifier.size(36.dp).clip(CircleShape).background(C.Card2), contentAlignment = Alignment.Center) {
+                IllIcon(b.muscle, 24.dp)
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
@@ -680,9 +680,7 @@ private fun ExCard(
                     Spacer(Modifier.width(8.dp))
                 }
                 if (isWorkout) {
-                    // Hevy-style round exercise photo + blue title
-                    ExPhoto(ex.name, ex.muscle, 46.dp)
-                    Spacer(Modifier.width(10.dp))
+                    // Hevy-style blue title
                     Text(
                         exName(ex.name),
                         color = MaterialTheme.colorScheme.primary,
@@ -1345,7 +1343,7 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
                         .padding(horizontal = 20.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    ExPhoto(e.name, e.muscle, 46.dp, corner = 10.dp)
+                    IllIcon(e.muscle, 46.dp)
                     Spacer(Modifier.width(14.dp))
                     Column(Modifier.weight(1f)) {
                         Text(exName(e.name), fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2)

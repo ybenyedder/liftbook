@@ -104,6 +104,19 @@ fun TrainingScreen() {
     }
     dd.dragEnabled = sortMode == 0
 
+    // A stale draft (app killed mid-workout) used to block every new start with a
+    // toast only — offer resume / discard-and-restart instead.
+    var busyDialog by remember { mutableStateOf(false) }
+    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun guard(block: () -> Unit) {
+        if (Repo.draft != null) { pendingAction = block; busyDialog = true } else block()
+    }
+    fun startFresh(block: () -> Unit) = guard {
+        RestTimer.clear()
+        Repo.discardDraft()
+        block()
+    }
+
     Column(Modifier.fillMaxSize()) {
         // Header with view selector (Routines / Calendrier), like Hevy's "Training ▾"
         Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -176,9 +189,10 @@ fun TrainingScreen() {
                 .background(MaterialTheme.colorScheme.surface)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
                 .clickable {
-                    if (Repo.draft != null) { Nav.push(Screen.Logger); return@clickable }
-                    Repo.startWorkout(null)
-                    Nav.push(Screen.Logger)
+                    startFresh {
+                        Repo.startWorkout(null)
+                        Nav.push(Screen.Logger)
+                    }
                 }
                 .padding(vertical = 15.dp),
             contentAlignment = Alignment.Center,
@@ -210,17 +224,19 @@ fun TrainingScreen() {
                 }
             }
             IconButton(onClick = {
-                if (Repo.draft != null) { Nav.push(Screen.Logger); return@IconButton }
-                Repo.startRoutine(null)
-                Nav.push(Screen.Logger)
+                startFresh {
+                    Repo.startRoutine(null)
+                    Nav.push(Screen.Logger)
+                }
             }) { Icon(Icons.Rounded.CreateNewFolder, null) }
         }
         // Nouv. Routine / Explorer buttons
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SecondaryButton(L10n.s("New routine", "Nouvelle routine", "Nueva rutina", "Neue Routine"), Icons.Rounded.CreateNewFolder, Modifier.weight(1f)) {
-                if (Repo.draft != null) { Nav.push(Screen.Logger); return@SecondaryButton }
-                Repo.startRoutine(null)
-                Nav.push(Screen.Logger)
+                startFresh {
+                    Repo.startRoutine(null)
+                    Nav.push(Screen.Logger)
+                }
             }
             SecondaryButton(L10n.s("Explore", "Explorer", "Explorar", "Entdecken"), Icons.Rounded.Search, Modifier.weight(1f)) {
                 Nav.push(Screen.Exercises)
@@ -248,13 +264,26 @@ fun TrainingScreen() {
                 else items(sortedRoutines.size, key = { sortedRoutines[it].id }) { i ->
                     DraggableItem(dd, i) { dragging ->
                         Box(if (dragging) Modifier else Modifier.animateItemPlacement()) {
-                            RoutineCard(sortedRoutines[i], dragging)
+                            RoutineCard(sortedRoutines[i], dragging) {
+                                startFresh {
+                                    Repo.startWorkout(sortedRoutines[i].id)
+                                    Nav.push(Screen.Logger)
+                                }
+                            }
                         }
                     }
                 }
             }
             item { Spacer(Modifier.height(20.dp)) }
         }
+    }
+
+    if (busyDialog) {
+        WorkoutInProgressDialog(
+            onDismiss = { busyDialog = false; pendingAction = null },
+            onResume = { busyDialog = false; pendingAction = null; Nav.push(Screen.Logger) },
+            onRestart = { busyDialog = false; pendingAction?.invoke() },
+        )
     }
 }
 
@@ -382,7 +411,7 @@ private fun SecondaryButton(text: String, icon: androidx.compose.ui.graphics.vec
 }
 
 @Composable
-private fun RoutineCard(r: Routine, dragging: Boolean = false) {
+private fun RoutineCard(r: Routine, dragging: Boolean = false, onStart: () -> Unit = {}) {
     val ctx = LocalContext.current
     var cardMenu by remember { mutableStateOf(false) }
     var confirmDel by remember { mutableStateOf(false) }
@@ -392,12 +421,7 @@ private fun RoutineCard(r: Routine, dragging: Boolean = false) {
             Modifier
                 .fillMaxWidth()
                 .background(if (dragging) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent, RoundedCornerShape(14.dp))
-                .clickable {
-                    // Hevy behaviour: tapping the card starts the workout right away
-                    if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")); return@clickable }
-                    Repo.startWorkout(r.id)
-                    Nav.push(Screen.Logger)
-                }
+                .clickable { onStart() }
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -425,18 +449,37 @@ private fun RoutineCard(r: Routine, dragging: Boolean = false) {
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             if (r.exercises.isEmpty()) {
                 Text(
                     L10n.s("No exercises yet", "Aucun exercice pour l'instant"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
                 )
             } else {
-                // Hevy-style strip of exercise thumbnails — see the exercises at a glance
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(r.exercises) { ex ->
-                        ExPhoto(ex.name, ex.muscle, size = 64.dp, corner = 10.dp)
+                // Hevy-style exercise list: name + set count, "see N more" beyond 4
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    r.exercises.take(4).forEach { ex ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                exName(ex.name), fontSize = 14.5.sp,
+                                color = MaterialTheme.colorScheme.onBackground,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                            )
+                        }
                     }
+                }
+                if (r.exercises.size > 4) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        seeMoreExercises(r.exercises.size - 4),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                    )
                 }
             }
         }
@@ -490,6 +533,16 @@ fun RoutineDetailScreen(id: Long) {
     var rMenu by remember { mutableStateOf(false) }
     var confirmDelR by remember { mutableStateOf(false) }
     var renameR by remember { mutableStateOf(false) }
+    var busyDialog by remember { mutableStateOf(false) }
+    var pendingAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    fun guard(block: () -> Unit) {
+        if (Repo.draft != null) { pendingAction = block; busyDialog = true } else block()
+    }
+    fun startFresh(block: () -> Unit) = guard {
+        RestTimer.clear()
+        Repo.discardDraft()
+        block()
+    }
 
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -501,9 +554,10 @@ fun RoutineDetailScreen(id: Long) {
                 DropdownMenu(expanded = rMenu, onDismissRequest = { rMenu = false }) {
                     DropdownMenuItem(text = { Text(L10n.s("Edit routine", "Modifier la routine")) }, leadingIcon = { Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp)) }, onClick = {
                         rMenu = false
-                        if (Repo.draft != null) { toast(ctx, L10n.s("Finish the current workout first", "Termine d'abord la séance en cours")); return@DropdownMenuItem }
-                        Repo.startRoutine(r.id)
-                        Nav.push(Screen.Logger)
+                        startFresh {
+                            Repo.startRoutine(r.id)
+                            Nav.push(Screen.Logger)
+                        }
                     })
                     DropdownMenuItem(text = { Text(L10n.s("Rename routine", "Renommer la routine")) }, leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, null, modifier = Modifier.size(16.dp)) }, onClick = {
                         rMenu = false; renameR = true
@@ -532,9 +586,10 @@ fun RoutineDetailScreen(id: Long) {
                 PrimaryButton(
                     "Commencer la Routine",
                     onClick = {
-                        if (Repo.draft != null) { toast(ctx, "Termine d'abord la séance en cours"); return@PrimaryButton }
-                        Repo.startWorkout(r.id)
-                        Nav.push(Screen.Logger)
+                        startFresh {
+                            Repo.startWorkout(r.id)
+                            Nav.push(Screen.Logger)
+                        }
                     },
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 )
@@ -595,9 +650,10 @@ fun RoutineDetailScreen(id: Long) {
                         L10n.s("Edit Routine", "Modifier la Routine"),
                         color = MaterialTheme.colorScheme.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.clickable {
-                            if (Repo.draft != null) { toast(ctx, "Termine d'abord la séance en cours"); return@clickable }
-                            Repo.startRoutine(r.id)
-                            Nav.push(Screen.Logger)
+                            startFresh {
+                                Repo.startRoutine(r.id)
+                                Nav.push(Screen.Logger)
+                            }
                         },
                     )
                 }
@@ -606,7 +662,12 @@ fun RoutineDetailScreen(id: Long) {
                 val ex = r.exercises[ei]
                 Column(Modifier.padding(bottom = 18.dp)) {
                     Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ExPhoto(ex.name, ex.muscle, 42.dp)
+                        Box(
+                            Modifier.size(42.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            IllIcon(ex.muscle, 34.dp)
+                        }
                         Spacer(Modifier.width(14.dp))
                         Text(
                             exName(ex.name),
@@ -648,6 +709,13 @@ fun RoutineDetailScreen(id: Long) {
         }
     }
 
+    if (busyDialog) {
+        WorkoutInProgressDialog(
+            onDismiss = { busyDialog = false; pendingAction = null },
+            onResume = { busyDialog = false; pendingAction = null; Nav.push(Screen.Logger) },
+            onRestart = { busyDialog = false; pendingAction?.invoke() },
+        )
+    }
     if (renameR) {
         var newName by remember { mutableStateOf(r.name) }
         AlertDialog(

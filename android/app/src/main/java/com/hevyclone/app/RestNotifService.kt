@@ -9,14 +9,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
-import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
-import android.graphics.Shader
-import android.graphics.drawable.VectorDrawable
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -24,7 +20,6 @@ import android.os.Looper
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
-import com.hevyclone.app.data.ExImages
 import com.hevyclone.app.ui.RestTimer
 import com.hevyclone.app.ui.illRes
 
@@ -124,7 +119,7 @@ class RestNotifService : Service() {
         return ((remainMs + 999L) / 1000L).toInt() // ceil, so "90" shows for the full 90 s
     }
 
-    /** Rounded illustration of the exercise being rested on (photo when bundled, muscle pictogram otherwise). */
+    /** Rounded dark tile with the muscle silhouette of the exercise being rested on. */
     private fun exIllustration(): Bitmap {
         val dp = resources.displayMetrics.density
         val size = (52 * dp).toInt().coerceAtLeast(96)
@@ -132,30 +127,8 @@ class RestNotifService : Service() {
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bmp)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        val rect = RectF(0f, 0f, size.toFloat(), size.toFloat())
-
-        val photoRes = RestTimer.exName?.let { ExImages.res(it) }
-        if (photoRes != null) {
-            runCatching {
-                val src = android.graphics.BitmapFactory.decodeResource(resources, photoRes)
-                if (src != null) {
-                    // center-crop to square, then round the corners via shader
-                    val side = minOf(src.width, src.height)
-                    val dx = (src.width - side) / 2f
-                    val dy = (src.height - side) / 2f
-                    val matrix = Matrix()
-                    matrix.setScale(size.toFloat() / side, size.toFloat() / side)
-                    matrix.postTranslate(-dx * (size.toFloat() / side), -dy * (size.toFloat() / side))
-                    paint.shader = BitmapShader(src, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP).apply { setLocalMatrix(matrix) }
-                    canvas.drawRoundRect(rect, radius, radius, paint)
-                    return bmp
-                }
-            }
-        }
-        // fallback: dark rounded tile + muscle pictogram
-        paint.shader = null
         paint.color = 0xFF1C1C1E.toInt()
-        canvas.drawRoundRect(rect, radius, radius, paint)
+        canvas.drawRoundRect(RectF(0f, 0f, size.toFloat(), size.toFloat()), radius, radius, paint)
         val dr = RestTimer.exMuscle?.let { runCatching { resources.getDrawable(illRes(it), null) }.getOrNull() }
         if (dr != null) {
             val inset = (size * 0.12f).toInt()

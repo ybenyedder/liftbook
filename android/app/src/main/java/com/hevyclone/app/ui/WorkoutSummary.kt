@@ -171,8 +171,6 @@ fun WorkoutSummaryScreen() {
             items(draft.exercises.filter { ex -> ex.sets.any { it.done } }) { ex ->
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        ExPhoto(ex.name, ex.muscle, 40.dp)
-                        Spacer(Modifier.width(10.dp))
                         Text(
                             exName(ex.name),
                             color = MaterialTheme.colorScheme.primary,

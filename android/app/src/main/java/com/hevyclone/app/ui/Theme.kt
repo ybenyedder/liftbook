@@ -88,6 +88,18 @@ fun accentColor(name: String): Color = when (name) {
 @Composable
 fun HevyTheme(accent: String = "blue", content: @Composable () -> Unit) {
     val scheme = DarkColors.copy(primary = accentColor(accent))
+        // banish the m3 blue-gray default from menus, dropdowns and dialogs
+        // (surfaceTint=primary is what tints elevated surfaces blue at tonal elevation)
+        .copy(
+            surfaceTint = Color.Transparent,
+            surfaceContainer = C.Card,
+            surfaceContainerHigh = C.Card,
+            surfaceContainerHighest = C.Card2,
+            surfaceContainerLow = C.Bg,
+            surfaceContainerLowest = C.Bg,
+            surfaceDim = C.Bg,
+            surfaceBright = C.Card,
+        )
     MaterialTheme(
         colorScheme = scheme,
         typography = HevyTypography,

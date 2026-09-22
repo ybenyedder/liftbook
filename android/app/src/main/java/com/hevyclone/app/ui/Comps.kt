@@ -282,25 +282,6 @@ fun LineChart(points: List<Pair<String, Double>>, fmtLabel: (Double) -> String, 
     }
 }
 
-/** Exercise photo (bundled, free-exercise-db) cropped to a rounded square/circle; muscle silhouette fallback. */
-@Composable
-fun ExPhoto(name: String, muscle: String, size: Dp, corner: Dp = 999.dp, modifier: Modifier = Modifier) {
-    val res = com.hevyclone.app.data.ExImages.res(name)
-    if (res != null) {
-        androidx.compose.foundation.Image(
-            painter = androidx.compose.ui.res.painterResource(res),
-            contentDescription = null,
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-            modifier = modifier.size(size).clip(RoundedCornerShape(corner)),
-        )
-    } else {
-        Box(
-            modifier.size(size).clip(RoundedCornerShape(corner)).background(C.Card2),
-            contentAlignment = Alignment.Center,
-        ) { IllIcon(muscle, size * 0.62f) }
-    }
-}
-
 /** Highlight positions per muscle, (isFront, x, y) normalized — kept alongside the pictogram below. */
 private val BODY_SPOTS: Map<String, List<Triple<Boolean, Float, Float>>> = mapOf(
     "Chest" to listOf(Triple(true, .37f, .28f), Triple(true, .63f, .28f)),
@@ -354,6 +335,34 @@ fun BodyMap(front: Boolean, muscles: Set<String>, modifier: Modifier = Modifier)
             }
         }
     }
+}
+
+/**
+ * Shown when the user tries to start a workout/routine while a draft is already
+ * alive (e.g. the app was killed mid-workout): offer to resume it or throw it away
+ * and start fresh. Without this the draft blocks every new start with just a toast.
+ */
+@Composable
+fun WorkoutInProgressDialog(
+    onDismiss: () -> Unit,
+    onResume: () -> Unit,
+    onRestart: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(L10n.s("Workout in progress", "Une séance est déjà en cours"), fontWeight = FontWeight.ExtraBold) },
+        text = { Text(L10n.s("Resume it, or discard it and start a new one.", "Reprends-la, ou supprime-la pour en commencer une nouvelle.")) },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onResume) {
+                Text(L10n.s("Resume", "Reprendre"), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            androidx.compose.material3.TextButton(onClick = onRestart) {
+                Text(L10n.s("Discard & restart", "Supprimer et recommencer"), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+            }
+        },
+    )
 }
 
 @Composable
