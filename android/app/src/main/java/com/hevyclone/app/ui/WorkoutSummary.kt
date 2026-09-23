@@ -155,7 +155,7 @@ fun WorkoutSummaryScreen() {
                         Text(exName(p.ex), fontSize = 13.5.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(
                             "${if (p.kind == "Weight") L10n.s("Heaviest Weight", "Plus Gros Poids") else L10n.s("Best Est. 1RM", "Meilleure Est. 1RM")} · ${Calc.fmtKg(p.value, unit)}${Calc.unitLabel(unit)}",
-                            color = C.Gold, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1,
+                            color = C.Orange, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1,
                         )
                     }
                 }
@@ -239,22 +239,15 @@ fun WorkoutSummaryScreen() {
 
 @Composable
 private fun SummaryStat(value: String, label: String, modifier: Modifier = Modifier, accent: Boolean = false) {
-    Column(
-        modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border2()
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    Column(modifier.padding(vertical = 4.dp)) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Spacer(Modifier.height(2.dp))
         Text(
             value,
             color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
-            fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+            fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
         )
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
-private fun Modifier.border2(): Modifier = this.border(1.dp, C.Line, RoundedCornerShape(10.dp))
 

@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.PostAdd
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sort
 import androidx.compose.material.icons.rounded.Timer
@@ -86,7 +87,7 @@ fun TrainingScreen() {
     val rev = Repo.rev
     val routines = Repo.routines
     var expanded by remember { mutableStateOf(true) }
-    var sortMode by remember { mutableStateOf(0) } // 0=Personnalisé 1=A→Z 2=Dernière utilisée 3=Création
+    val sortMode = 0 // custom (drag & drop) order — Hevy has no visible sort on this screen
     var view by remember { mutableStateOf(0) }      // 0=Routines 1=Calendrier (comme Hevy ▾)
     var viewMenu by remember { mutableStateOf(false) }
     val sortedRoutines = remember(rev, sortMode) {
@@ -129,15 +130,23 @@ fun TrainingScreen() {
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                 ) {
                     Text(L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
-                    Spacer(Modifier.width(6.dp))
-                    Icon(
-                        Icons.Rounded.ExpandMore, null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .padding(start = 2.dp)
-                            .size(22.dp)
-                            .graphicsLayer { rotationZ = if (viewMenu) 180f else 0f },
-                    )
+                    Spacer(Modifier.width(8.dp))
+                    // Hevy: chevron sits in a small dark circle
+                    Box(
+                        Modifier
+                            .size(26.dp)
+                            .clip(CircleShape)
+                            .background(C.Card2),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Rounded.ExpandMore, null,
+                            tint = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier
+                                .size(17.dp)
+                                .graphicsLayer { rotationZ = if (viewMenu) 180f else 0f },
+                        )
+                    }
                 }
                 // m3 1.3 menus read their container from the color scheme — force true-dark (no blue-gray)
                 androidx.compose.material3.MaterialTheme(
@@ -203,26 +212,9 @@ fun TrainingScreen() {
                 Text(L10n.s("Start an Empty Workout", "Démarrer un Entraînement Vide", "Iniciar un Entrenamiento Vacío", "Leeres Workout starten"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
         }
-        // Routines header
+        // Routines header (Hevy: title + folder+ icon only)
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(L10n.s("Routines", "Routines", "Rutinas", "Routinen"), fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-            var sortMenu by remember { mutableStateOf(false) }
-            Box {
-                IconButton(onClick = { sortMenu = true }) { Icon(Icons.Rounded.Sort, null) }
-                DropdownMenu(expanded = sortMenu, onDismissRequest = { sortMenu = false }) {
-                    listOf(
-                        L10n.s("Custom order", "Ordre personnalisé", "Orden personalizado", "Eigene Reihenfolge"),
-                        L10n.s("Name A→Z", "Nom A→Z"),
-                        L10n.s("Last performed", "Dernière utilisée"),
-                        L10n.s("Most recent", "Plus récente"),
-                    ).forEachIndexed { i, label ->
-                        DropdownMenuItem(
-                            text = { Text(label, color = if (sortMode == i) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground) },
-                            onClick = { sortMenu = false; sortMode = i },
-                        )
-                    }
-                }
-            }
             IconButton(onClick = {
                 startFresh {
                     Repo.startRoutine(null)
@@ -232,7 +224,7 @@ fun TrainingScreen() {
         }
         // Nouv. Routine / Explorer buttons
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SecondaryButton(L10n.s("New routine", "Nouvelle routine", "Nueva rutina", "Neue Routine"), Icons.Rounded.CreateNewFolder, Modifier.weight(1f)) {
+            SecondaryButton(L10n.s("New routine", "Nouv. Routine", "Nueva rutina", "Neue Routine"), Icons.Rounded.PostAdd, Modifier.weight(1f)) {
                 startFresh {
                     Repo.startRoutine(null)
                     Nav.push(Screen.Logger)
@@ -416,16 +408,18 @@ private fun RoutineCard(r: Routine, dragging: Boolean = false, onStart: () -> Un
     var cardMenu by remember { mutableStateOf(false) }
     var confirmDel by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<Long?>(null) }
-    AppCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp)) {
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .background(if (dragging) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent, RoundedCornerShape(14.dp))
-                .clickable { onStart() }
-                .padding(horizontal = 14.dp, vertical = 12.dp)
-        ) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (dragging) MaterialTheme.colorScheme.surfaceVariant else C.Card)
+            .clickable { Nav.push(Screen.RoutineDetail(r.id)) }
+            .padding(16.dp)
+    ) {
+        Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(exName(r.name), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(exName(r.name), fontWeight = FontWeight.ExtraBold, fontSize = 19.sp, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Box {
                     IconButton(onClick = { cardMenu = true }, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -449,38 +443,35 @@ private fun RoutineCard(r: Routine, dragging: Boolean = false, onStart: () -> Un
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             if (r.exercises.isEmpty()) {
                 Text(
                     L10n.s("No exercises yet", "Aucun exercice pour l'instant"),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.5.sp, lineHeight = 21.sp,
                 )
             } else {
-                // Hevy-style exercise list: name + set count, "see N more" beyond 4
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    r.exercises.take(4).forEach { ex ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                exName(ex.name), fontSize = 14.5.sp,
-                                color = MaterialTheme.colorScheme.onBackground,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Spacer(Modifier.width(10.dp))
-                            Text(
-                                "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
-                            )
-                        }
-                    }
-                }
-                if (r.exercises.size > 4) {
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        seeMoreExercises(r.exercises.size - 4),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
-                    )
-                }
+                // Hevy: gray comma-separated exercise list, two lines max
+                Text(
+                    r.exercises.joinToString(", ") { exName(it.name) },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp, lineHeight = 21.sp,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Spacer(Modifier.height(14.dp))
+            // blue start button, Hevy size
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primary)
+                    .clickable { onStart() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    L10n.s("Start routine", "Commencer la Routine", "Comenzar la rutina", "Routine starten"),
+                    color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                )
             }
         }
     }

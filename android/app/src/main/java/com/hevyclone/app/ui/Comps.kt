@@ -305,32 +305,46 @@ private val BODY_SPOTS: Map<String, List<Triple<Boolean, Float, Float>>> = mapOf
 @Composable
 fun BodyMap(front: Boolean, muscles: Set<String>, modifier: Modifier = Modifier) {
     val accent = MaterialTheme.colorScheme.primary
-    val body = Color(0xFF43474D)
+    val body = Color(0xFF4A4F56)
     Box(
         modifier
-            .size(width = 38.dp, height = 52.dp)
-            .clip(RoundedCornerShape(11.dp))
-            .background(C.Card2)
+            .size(width = 34.dp, height = 56.dp)
+            .clip(RoundedCornerShape(9.dp))
     ) {
-        androidx.compose.foundation.Canvas(Modifier.fillMaxSize().padding(5.dp)) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
-            // silhouette pictogram
-            drawCircle(body, radius = w * 0.105f, center = Offset(w * 0.5f, h * 0.09f))
-            drawRoundRect(
-                body,
-                topLeft = Offset(w * 0.31f, h * 0.18f),
-                size = androidx.compose.ui.geometry.Size(w * 0.38f, h * 0.27f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(w * 0.10f),
-            )
-            drawLine(body, Offset(w * 0.27f, h * 0.21f), Offset(w * 0.18f, h * 0.42f), strokeWidth = w * 0.115f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            drawLine(body, Offset(w * 0.73f, h * 0.21f), Offset(w * 0.82f, h * 0.42f), strokeWidth = w * 0.115f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            drawLine(body, Offset(w * 0.42f, h * 0.46f), Offset(w * 0.40f, h * 0.88f), strokeWidth = w * 0.13f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            drawLine(body, Offset(w * 0.58f, h * 0.46f), Offset(w * 0.60f, h * 0.88f), strokeWidth = w * 0.13f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            val c = androidx.compose.ui.geometry.CornerRadius(w * 0.09f)
+            fun limb(x1: Float, y1: Float, x2: Float, y2: Float, t: Float) =
+                drawLine(body, Offset(w * x1, h * y1), Offset(w * x2, h * y2), strokeWidth = w * t, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            // head + neck
+            drawCircle(body, radius = w * 0.115f, center = Offset(w * 0.5f, h * 0.085f))
+            drawLine(body, Offset(w * 0.5f, h * 0.14f), Offset(w * 0.5f, h * 0.185f), strokeWidth = w * 0.11f, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            // torso — tapered V shape
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * 0.36f, h * 0.19f)
+                lineTo(w * 0.64f, h * 0.19f)
+                lineTo(w * 0.585f, h * 0.475f)
+                lineTo(w * 0.415f, h * 0.475f)
+                close()
+            }
+            drawPath(path, body)
+            // pelvis
+            drawRoundRect(body, topLeft = Offset(w * 0.415f, h * 0.475f), size = androidx.compose.ui.geometry.Size(w * 0.17f, h * 0.075f), cornerRadius = c)
+            // arms (slight outward angle)
+            limb(0.345f, 0.205f, 0.245f, 0.31f, 0.105f)
+            limb(0.245f, 0.31f, 0.275f, 0.435f, 0.09f)
+            limb(0.655f, 0.205f, 0.755f, 0.31f, 0.105f)
+            limb(0.755f, 0.31f, 0.725f, 0.435f, 0.09f)
+            // legs
+            limb(0.455f, 0.545f, 0.43f, 0.75f, 0.125f)
+            limb(0.43f, 0.75f, 0.425f, 0.925f, 0.10f)
+            limb(0.545f, 0.545f, 0.57f, 0.75f, 0.125f)
+            limb(0.57f, 0.75f, 0.575f, 0.925f, 0.10f)
             // worked-muscle highlights
             muscles.forEach { m ->
                 BODY_SPOTS[m]?.forEach { (f, x, y) ->
-                    if (f == front) drawCircle(accent, radius = w * 0.072f, center = Offset(w * x, h * y))
+                    if (f == front) drawCircle(accent, radius = w * 0.085f, center = Offset(w * x, h * y))
                 }
             }
         }

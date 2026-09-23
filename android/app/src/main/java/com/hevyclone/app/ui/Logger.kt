@@ -21,7 +21,6 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,8 +50,9 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.EmojiEvents
+import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SwapHoriz
@@ -275,13 +275,11 @@ fun PrBadgeHost() {
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(Modifier.size(36.dp).clip(CircleShape).background(C.Card2), contentAlignment = Alignment.Center) {
-                IllIcon(b.muscle, 24.dp)
-            }
+            ExCircle(b.muscle, 40.dp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(exName(b.ex), color = C.Text, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${b.kind} - ${b.value}", color = C.Gold, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${b.kind} - ${b.value}", color = C.Orange, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(
                 Icons.Rounded.Close, null,
@@ -342,25 +340,22 @@ fun LoggerScreen() {
 
     Box(Modifier.fillMaxSize().imePadding()) {
         Column(Modifier.fillMaxSize()) {
-            // ---- top bar ----
+            // ---- top bar (Hevy: ∨ Entraînement | ⏱ | Terminer) ----
             if (isWorkout) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = {
-                            if (hasData()) showDiscard = true
-                            else { Repo.discardDraft(); Nav.pop(); toast(ctx, L10n.s("Discarded", "Supprimée")) }
-                        },
-                        modifier = Modifier.size(34.dp),
-                    ) { Icon(Icons.Rounded.KeyboardArrowDown, null, modifier = Modifier.size(26.dp)) }
-                    Text(
-                        draft.name,
-                        fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
-                    )
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box {
-                        IconButton(onClick = { showMenu = true }, modifier = Modifier.size(30.dp)) {
-                            Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(19.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { showMenu = true }
+                                .padding(horizontal = 4.dp, vertical = 6.dp),
+                        ) {
+                            Icon(Icons.Rounded.KeyboardArrowDown, null, modifier = Modifier.size(24.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(L10n.s("Training", "Entraînement", "Entrenamiento", "Training"), fontWeight = FontWeight.ExtraBold, fontSize = 21.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
+                        // notes / discard live in the chevron menu, like Hevy's minimize menu
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             DropdownMenuItem(
                                 text = { Text(L10n.s("Workout notes", "Notes de la séance")) },
@@ -373,24 +368,24 @@ fun LoggerScreen() {
                             )
                         }
                     }
-                    Spacer(Modifier.width(6.dp))
-                    Icon(Icons.Rounded.Timer, null, modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.weight(1f))
+                    Icon(Icons.Rounded.Timer, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(12.dp))
                     Box(
                         Modifier
-                            .clip(RoundedCornerShape(10.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(MaterialTheme.colorScheme.primary)
                             .clickable { if (anyDone()) Nav.push(Screen.WorkoutSummary) else showNoSets = true }
-                            .padding(horizontal = 14.dp, vertical = 7.dp),
+                            .padding(horizontal = 18.dp, vertical = 10.dp),
                     ) {
                         Text(
-                            L10n.s("FINISH", "TERMINER"),
+                            L10n.s("Finish", "Terminer"),
                             color = MaterialTheme.colorScheme.onPrimary,
-                            fontSize = 13.5.sp, fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
-                // ---- live stats row (Durée / Volume / Séries + body pictograms) ----
+                // ---- live stats (Hevy: label above value, no boxes) ----
                 val tick = produceState(System.currentTimeMillis()) {
                     while (true) { value = System.currentTimeMillis(); delay(1000) }
                 }.value
@@ -400,7 +395,7 @@ fun LoggerScreen() {
                 }
                 val muscles = remember(rev) { draft.exercises.map { it.muscle }.toSet() }
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -408,38 +403,44 @@ fun LoggerScreen() {
                     LiveStat("${Calc.fmtVol(liveVol, unit)} ${Calc.unitLabel(unit)}", L10n.s("Volume", "Volume"), Modifier.weight(1f))
                     LiveStat("$liveSets", L10n.s("Sets", "Séries"), Modifier.weight(1f))
                     BodyMap(front = true, muscles = muscles)
+                    Spacer(Modifier.width(2.dp))
                     BodyMap(front = false, muscles = muscles)
                 }
+                Spacer(Modifier.height(6.dp))
             } else {
-                // ---- routine editor top bar (Hevy: Annuler | Créer une Routine | Enregistrer) ----
-                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                // ---- routine editor top bar (Hevy: Annuler | Créer une Routine | Enregistrer bleu) ----
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         L10n.s("Cancel", "Annuler"),
-                        color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .clickable {
                                 if (hasData()) showDiscard = true
                                 else { Repo.discardDraft(); Nav.pop() }
                             }
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                            .padding(horizontal = 6.dp, vertical = 10.dp),
                     )
                     Text(
                         if (draft.routineId != null) L10n.s("Edit Routine", "Modifier la Routine")
                         else L10n.s("Create Routine", "Créer une Routine"),
-                        fontWeight = FontWeight.ExtraBold, fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold, fontSize = 17.sp,
                         modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
                     )
-                    Text(
-                        L10n.s("Save", "Enregistrer"),
-                        color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primary)
                             .clickable { trySaveRoutine() }
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                    )
+                            .padding(horizontal = 16.dp, vertical = 10.dp),
+                    ) {
+                        Text(
+                            L10n.s("Save", "Enregistrer"),
+                            color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                     Box {
-                        IconButton(onClick = { showMenu = true }, modifier = Modifier.size(34.dp)) { Icon(Icons.Rounded.MoreHoriz, null, modifier = Modifier.size(19.dp)) }
+                        IconButton(onClick = { showMenu = true }, modifier = Modifier.size(28.dp)) { Icon(Icons.Rounded.MoreVert, null, modifier = Modifier.size(17.dp)) }
                         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
                             if (draft.routineId != null) {
                                 DropdownMenuItem(text = { Text(L10n.s("Delete routine", "Supprimer la routine"), color = MaterialTheme.colorScheme.error) }, onClick = {
@@ -453,24 +454,30 @@ fun LoggerScreen() {
                         }
                     }
                 }
-                TextField(
-                    value = nameText,
-                    onValueChange = { nameText = it; draft.name = it },
-                    placeholder = { Text(L10n.s("Routine title", "Titre de la routine"), color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        disabledIndicatorColor = Color.Transparent,
-                    ),
-                    textStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp).height(52.dp),
-                )
+                // routine title: plain text over a hairline, like Hevy
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                    BasicTextField(
+                        value = nameText,
+                        onValueChange = { nameText = it; draft.name = it },
+                        singleLine = true,
+                        textStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 24.sp, color = MaterialTheme.colorScheme.onBackground),
+                        cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                        decorationBox = { inner ->
+                            Column {
+                                Box(Modifier.height(34.dp), contentAlignment = Alignment.CenterStart) {
+                                    if (nameText.isEmpty()) {
+                                        Text(L10n.s("Routine title", "Titre de la routine"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    inner()
+                                }
+                                Box(Modifier.fillMaxWidth().height(1.dp).background(C.Line))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
-            // ---- exercise cards ----
+            // ---- exercise sections (Hevy: directly on black, no card boxes) ----
             LazyColumn(Modifier.weight(1f)) {
                 if (draft.exercises.isEmpty()) {
                     item {
@@ -486,22 +493,21 @@ fun LoggerScreen() {
                     }
                 }
                 item(key = "addEx") {
-                    // Hevy-style full-width add button under the cards
+                    // Hevy-style blue add button under the sections
                     Box(
                         Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 6.dp)
-                            .height(52.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(MaterialTheme.colorScheme.surface)
-                            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(999.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .height(50.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(MaterialTheme.colorScheme.primary)
                             .clickable { showPicker = true },
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Rounded.Add, null, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
                             Spacer(Modifier.width(10.dp))
-                            Text(L10n.s("Add Exercise", "Ajouter un Exercice", "Añadir Ejercicio", "Übung hinzufügen"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            Text(L10n.s("Add Exercise", "Ajouter un Exercice", "Añadir Ejercicio", "Übung hinzufügen"), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onPrimary)
                         }
                     }
                 }
@@ -513,7 +519,7 @@ fun LoggerScreen() {
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.background)
                     .navigationBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 AnimatedVisibility(
                     visible = RestTimer.endAt > 0,
@@ -625,7 +631,7 @@ fun LoggerScreen() {
     }
 }
 
-// ---------------- exercise card ----------------
+// ---------------- exercise section (Hevy: no card, directly on black) ----------------
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
@@ -641,295 +647,270 @@ private fun ExCard(
     val isLast = Repo.draft?.exercises?.indexOfLast { it === ex }?.let { it >= (Repo.draft?.exercises?.size ?: 0) - 1 } ?: true
     var cardHeight by remember { mutableStateOf(1f) }
     val dragScale = animateFloatAsState(if (isDragging) 1.03f else 1f, label = "dragScale")
-    AppCard(modifier = Modifier
-        .graphicsLayer {
-            scaleX = dragScale.value
-            scaleY = dragScale.value
-            alpha = if (isDragging) 0.92f else 1f
-        }
-        .onGloballyPositioned { cardHeight = it.size.height.toFloat() }
-        .pointerInput(Unit) {
-            detectDragGesturesAfterLongPress(
-                onDragStart = {
-                    view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-                },
-                onDrag = { change, dragAmount ->
-                    change.consume()
-                    val steps = (dragAmount.y / cardHeight).toInt()
-                    if (steps != 0) moveExercise(ei, ei + steps)
-                },
-                onDragEnd = { },
-            )
-        }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = dragScale.value
+                scaleY = dragScale.value
+                alpha = if (isDragging) 0.92f else 1f
+            }
+            .onGloballyPositioned { cardHeight = it.size.height.toFloat() }
+            .pointerInput(Unit) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        val steps = (dragAmount.y / cardHeight).toInt()
+                        if (steps != 0) moveExercise(ei, ei + steps)
+                    },
+                    onDragEnd = { },
+                )
+            }
+            .padding(vertical = 8.dp)
+            .animateContentSize()
     ) {
-        Column(Modifier.padding(vertical = 8.dp).animateContentSize()) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clickable { Nav.push(Screen.ExerciseDetail(ex.name)) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (ex.superset) {
-                    Box(
-                        Modifier
-                            .size(width = 3.dp, height = 34.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.primary)
-                    )
-                    Spacer(Modifier.width(8.dp))
+        // title row: white illustration circle + blue title + ⋮
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable { Nav.push(Screen.ExerciseDetail(ex.name)) }
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (ex.superset) {
+                Box(
+                    Modifier
+                        .size(width = 3.dp, height = 34.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.primary)
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            ExCircle(ex.muscle, 46.dp)
+            Spacer(Modifier.width(10.dp))
+            Text(
+                exName(ex.name),
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold, fontSize = 17.sp,
+                modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis,
+            )
+            Box {
+                IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(30.dp)) {
+                    Icon(Icons.Rounded.MoreVert, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                 }
-                if (isWorkout) {
-                    // Hevy-style blue title
-                    Text(
-                        exName(ex.name),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold, fontSize = 16.sp,
-                        modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text(L10n.s("Replace exercise", "Remplacer l'exercice")) },
+                        leadingIcon = { Icon(Icons.Rounded.SwapHoriz, null, modifier = Modifier.size(16.dp)) },
+                        onClick = { menuOpen = false; showReplace = true },
                     )
-                } else {
-                    Column(Modifier.weight(1f)) {
-                        Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(
-                            "${ex.sets.size} " + if (ex.sets.size > 1) L10n.s("series", "séries") else L10n.s("series", "série"),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp,
-                        )
-                    }
-                }
-                Box {
-                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(30.dp)) {
-                        Icon(Icons.Rounded.MoreHoriz, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        DropdownMenuItem(
-                            text = { Text(L10n.s("Replace exercise", "Remplacer l'exercice")) },
-                            leadingIcon = { Icon(Icons.Rounded.SwapHoriz, null, modifier = Modifier.size(16.dp)) },
-                            onClick = { menuOpen = false; showReplace = true },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(L10n.s("Duplicate exercise", "Dupliquer l'exercice")) },
-                            leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp)) },
-                            onClick = {
-                                menuOpen = false
-                                Repo.draft?.exercises?.let { list ->
-                                    if (ei < list.size) {
-                                        val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
-                                        list.add(ei + 1, copy)
-                                    }
+                    DropdownMenuItem(
+                        text = { Text(L10n.s("Duplicate exercise", "Dupliquer l'exercice")) },
+                        leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp)) },
+                        onClick = {
+                            menuOpen = false
+                            Repo.draft?.exercises?.let { list ->
+                                if (ei < list.size) {
+                                    val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+                                    list.add(ei + 1, copy)
                                 }
-                                Repo.touchPublic()
-                            },
-                        )
+                            }
+                            Repo.touchPublic()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                L10n.s("Rest timer", "Minuteur de repos") +
+                                    (ex.restSec?.let { " : ${it}s" } ?: "")
+                            )
+                        },
+                        leadingIcon = { Icon(Icons.Rounded.Timer, null, modifier = Modifier.size(16.dp)) },
+                        onClick = { menuOpen = false; showRestDialog = true },
+                    )
+                    if (!isLast) {
                         DropdownMenuItem(
                             text = {
                                 Text(
-                                    L10n.s("Rest timer", "Minuteur de repos") +
-                                        (ex.restSec?.let { " : ${it}s" } ?: "")
+                                    if (ex.superset) L10n.s("Remove superset", "Retirer le superset")
+                                    else L10n.s("Superset with next", "Superset avec le suivant")
                                 )
                             },
-                            leadingIcon = { Icon(Icons.Rounded.Timer, null, modifier = Modifier.size(16.dp)) },
-                            onClick = { menuOpen = false; showRestDialog = true },
-                        )
-                        if (!isLast) {
-                            DropdownMenuItem(
-                                text = {
-                                    Text(
-                                        if (ex.superset) L10n.s("Remove superset", "Retirer le superset")
-                                        else L10n.s("Superset with next", "Superset avec le suivant")
-                                    )
-                                },
-                                leadingIcon = { Icon(Icons.Rounded.Link, null, modifier = Modifier.size(16.dp)) },
-                                onClick = {
-                                    menuOpen = false
-                                    ex.superset = !ex.superset
-                                    Repo.touchPublic()
-                                },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text(L10n.s("Delete exercise", "Supprimer l'exercice"), color = MaterialTheme.colorScheme.error) },
-                            leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) },
+                            leadingIcon = { Icon(Icons.Rounded.Link, null, modifier = Modifier.size(16.dp)) },
                             onClick = {
                                 menuOpen = false
-                                Repo.draft?.exercises?.let { list -> if (ei < list.size) list.removeAt(ei) }
+                                ex.superset = !ex.superset
                                 Repo.touchPublic()
                             },
                         )
                     }
-                }
-            }
-            if (isWorkout) {
-                // notes placeholder (Hevy position: between title and rest line)
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { showNotes = true }
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                ) {
-                    if (ex.notes.isEmpty()) {
-                        Text(
-                            L10n.s("Add notes here…", "Ajouter des notes ici…"),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                            fontSize = 13.sp,
-                        )
-                    } else {
-                        Row(verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp).padding(top = 1.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                ex.notes,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 13.sp, lineHeight = 18.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-                // blue rest line
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp, vertical = 2.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showRestDialog = true }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                ) {
-                    Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(13.dp))
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        L10n.s("Rest: %1\$s", "Repos : %1\$s").format(fmtRestLabel(ex.restSec ?: Repo.settings.restSec)),
-                        color = MaterialTheme.colorScheme.primary, fontSize = 12.5.sp, fontWeight = FontWeight.Medium,
-                    )
-                }
-                Spacer(Modifier.height(6.dp))
-            }
-            if (isWorkout) {
-                Row(Modifier.padding(horizontal = 12.dp)) {
-                    Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
-                    Text(L10n.s("PREVIOUS", "PRÉCÉDENT"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1.15f), textAlign = TextAlign.Center)
-                    Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    Spacer(Modifier.width(40.dp))
-                }
-            } else {
-                Row(Modifier.padding(horizontal = 12.dp)) {
-                    Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(34.dp), textAlign = TextAlign.Center)
-                    Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
-                    Spacer(Modifier.width(40.dp))
-                }
-            }
-            val prev = if (isWorkout) Repo.prevFor(ex.name) else null
-            ex.sets.forEachIndexed { si, s ->
-                SetRow(s, si, ei, isWorkout, unit, ex, if (isWorkout) prev?.getOrNull(si) else null, ex.restSec)
-            }
-            // add set — Hevy dark full-width button
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(C.Card2)
-                    .clickable {
-                        val last = ex.sets.lastOrNull()
-                        ex.sets.add(SetEntry(last?.kg, last?.reps, done = false))
-                        Repo.touchPublic()
-                    }
-                    .padding(vertical = 11.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    L10n.s("+ ADD SET", "+ AJOUTER UNE SÉRIE"),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = FontWeight.Bold, fontSize = 12.sp,
-                )
-            }
-            if (!isWorkout) {
-                // notes — inline Hevy-style placeholder / preview, tap opens the editor
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .clickable { showNotes = true }
-                        .padding(horizontal = 10.dp, vertical = 10.dp),
-                ) {
-                    if (ex.notes.isEmpty()) {
-                        Text(
-                            L10n.s("Add notes here…", "Ajouter des notes ici…"),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
-                            fontSize = 13.sp,
-                        )
-                    } else {
-                        Row(verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp).padding(top = 1.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                ex.notes,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontSize = 13.sp, lineHeight = 18.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                    }
-                }
-            }
-            if (showReplace) {
-                ModalBottomSheet(
-                    onDismissRequest = { showReplace = false },
-                    containerColor = MaterialTheme.colorScheme.surface,
-                ) {
-                    PickerContent(
-                        onClose = { showReplace = false },
-                        onPick = { newName ->
-                            ex.name = newName
-                            ex.muscle = com.hevyclone.app.data.EX[newName]?.muscle ?: ""
+                    DropdownMenuItem(
+                        text = { Text(L10n.s("Delete exercise", "Supprimer l'exercice"), color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) },
+                        onClick = {
+                            menuOpen = false
+                            Repo.draft?.exercises?.let { list -> if (ei < list.size) list.removeAt(ei) }
                             Repo.touchPublic()
-                            showReplace = false
                         },
                     )
                 }
             }
-            if (showRestDialog) {
-                RestSheet(
-                    initialSec = ex.restSec ?: Repo.settings.restSec,
-                    onDismiss = { showRestDialog = false },
-                    onDone = { sec ->
-                        ex.restSec = sec
+        }
+        // notes placeholder / preview (Hevy position: under the title)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp)
+                .clickable { showNotes = true }
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+        ) {
+            if (ex.notes.isEmpty()) {
+                Text(
+                    L10n.s("Add notes here…", "Ajouter des notes ici…"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 15.sp,
+                )
+            } else {
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(Icons.Rounded.Notes, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(14.dp).padding(top = 2.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        ex.notes,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.5.sp, lineHeight = 19.sp, maxLines = 4, overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        // blue rest line
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 2.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { showRestDialog = true }
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+        ) {
+            Icon(Icons.Rounded.Timer, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                L10n.s("Rest: %1\$s", "Repos: %1\$s").format(fmtRestLabel(ex.restSec ?: Repo.settings.restSec)),
+                color = MaterialTheme.colorScheme.primary, fontSize = 15.sp, fontWeight = FontWeight.Medium,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        // column headers
+        if (isWorkout) {
+            Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.width(38.dp), textAlign = TextAlign.Center)
+                Text(L10n.s("PREVIOUS", "PRÉCÉDENT"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1.15f), textAlign = TextAlign.Center)
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+                Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                Box(Modifier.width(44.dp), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                }
+            }
+        } else {
+            Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.width(38.dp), textAlign = TextAlign.Center)
+                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                }
+                Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                Box(Modifier.width(44.dp))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        val prev = if (isWorkout) Repo.prevFor(ex.name) else null
+        ex.sets.forEachIndexed { si, s ->
+            SetRow(s, si, ei, isWorkout, unit, ex, if (isWorkout) prev?.getOrNull(si) else null, ex.restSec)
+        }
+        // add set — Hevy dark full-width button
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(C.Card2)
+                .clickable {
+                    val last = ex.sets.lastOrNull()
+                    ex.sets.add(SetEntry(last?.kg, last?.reps, done = false))
+                    Repo.touchPublic()
+                }
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                L10n.s("Add Set", "Ajouter une Série"),
+                fontWeight = FontWeight.Medium, fontSize = 15.sp,
+            )
+        }
+        if (showReplace) {
+            ModalBottomSheet(
+                onDismissRequest = { showReplace = false },
+                containerColor = MaterialTheme.colorScheme.surface,
+            ) {
+                PickerContent(
+                    onClose = { showReplace = false },
+                    onPick = { newName ->
+                        ex.name = newName
+                        ex.muscle = com.hevyclone.app.data.EX[newName]?.muscle ?: ""
                         Repo.touchPublic()
-                        showRestDialog = false
-                    },
-                    onReset = {
-                        ex.restSec = null
-                        Repo.touchPublic()
-                        showRestDialog = false
+                        showReplace = false
                     },
                 )
             }
-            if (showNotes) {
-                var exNotes by remember { mutableStateOf(ex.notes) }
-                AlertDialog(
-                    onDismissRequest = { showNotes = false },
-                    title = { Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                    text = {
-                        androidx.compose.material3.OutlinedTextField(
-                            value = exNotes,
-                            onValueChange = { exNotes = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text(L10n.s("Exercise notes…", "Notes de l'exercice…")) },
-                        )
-                    },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            ex.notes = exNotes
-                            Repo.touchPublic()
-                            showNotes = false
-                        }) { Text(L10n.s("Save", "Enregistrer")) }
-                    },
-                    dismissButton = { TextButton(onClick = { showNotes = false }) { Text(L10n.s("Cancel", "Annuler")) } },
-                )
-            }
+        }
+        if (showRestDialog) {
+            RestSheet(
+                initialSec = ex.restSec ?: Repo.settings.restSec,
+                onDismiss = { showRestDialog = false },
+                onDone = { sec ->
+                    ex.restSec = sec
+                    Repo.touchPublic()
+                    showRestDialog = false
+                },
+                onReset = {
+                    ex.restSec = null
+                    Repo.touchPublic()
+                    showRestDialog = false
+                },
+            )
+        }
+        if (showNotes) {
+            var exNotes by remember { mutableStateOf(ex.notes) }
+            AlertDialog(
+                onDismissRequest = { showNotes = false },
+                title = { Text(exName(ex.name), fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                text = {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = exNotes,
+                        onValueChange = { exNotes = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text(L10n.s("Exercise notes…", "Notes de l'exercice…")) },
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        ex.notes = exNotes
+                        Repo.touchPublic()
+                        showNotes = false
+                    }) { Text(L10n.s("Save", "Enregistrer")) }
+                },
+                dismissButton = { TextButton(onClick = { showNotes = false }) { Text(L10n.s("Cancel", "Annuler")) } },
+            )
         }
     }
 }
@@ -948,10 +929,10 @@ fun evaluatePr(ex: ExEntry, s: SetEntry) {
     val e = Calc.e1rm(kg, reps)
     if (kg > bestW && !s.prW) {
         s.prW = true
-        PrBadge.show(ex.name, ex.muscle, L10n.s("Heaviest Weight", "Plus Gros Poids"), "${Calc.fmtKg(kg, Repo.settings.unit)}${Calc.unitLabel(Repo.settings.unit)}")
+        PrBadge.show(ex.name, ex.muscle, L10n.s("Heaviest Weight", "Plus Gros Poids"), "${Calc.fmtKg(kg, Repo.settings.unit)} ${Calc.unitLabel(Repo.settings.unit)}")
     } else if (e > bestE && !s.prE) {
         s.prE = true
-        PrBadge.show(ex.name, ex.muscle, L10n.s("Best Est. 1RM", "Meilleure Est. 1RM"), "${Calc.fmtKg(e, Repo.settings.unit)}${Calc.unitLabel(Repo.settings.unit)}")
+        PrBadge.show(ex.name, ex.muscle, L10n.s("Best Est. 1RM", "Meilleure Est. 1RM"), "${Calc.fmtKg(e, Repo.settings.unit)} ${Calc.unitLabel(Repo.settings.unit)}")
     }
 }
 
@@ -964,35 +945,39 @@ private fun SetRow(
     var menuOpen by remember { mutableStateOf(false) }
     val rowView = androidx.compose.ui.platform.LocalView.current
     val isPr = isWorkout && (s.prW || s.prE)
-    val prGreen = Color(0xFF1F3B2C)
-    val checkGreen = Color(0xFF34C759)
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 3.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (isPr) prGreen else Color.Transparent)
-            .padding(horizontal = if (isPr) 4.dp else 0.dp),
+            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (isPr) C.GreenBg else Color.Transparent)
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (isPr) {
-            Icon(Icons.Rounded.EmojiEvents, null, tint = C.Gold, modifier = Modifier.size(15.dp))
-            Spacer(Modifier.width(5.dp))
-        }
-        // set number chip — tap opens options (copy / delete)
+        // set number chip (rounded square) — or medal on a PR row; tap opens copy/delete
         Box {
-            Text(
-                "${si + 1}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .size(30.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(C.Card2)
-                    .clickable { menuOpen = true }
-                    .wrapContentHeight(Alignment.CenterVertically),
-            )
+            if (isPr) {
+                Icon(
+                    Icons.Rounded.EmojiEvents, null, tint = C.Gold,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .padding(9.dp)
+                        .clickable { menuOpen = true },
+                )
+            } else {
+                Text(
+                    "${si + 1}",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(C.Card2)
+                        .clickable { menuOpen = true }
+                        .wrapContentHeight(Alignment.CenterVertically),
+                )
+            }
             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                 DropdownMenuItem(text = { Text(L10n.s("Copy set", "Copier la série")) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(15.dp)) }, onClick = {
                     menuOpen = false
@@ -1010,12 +995,12 @@ private fun SetRow(
                 })
             }
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
         if (isWorkout) {
             Text(
                 prevText ?: "—",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 12.sp,
+                fontSize = 13.5.sp,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1.15f).padding(horizontal = 2.dp),
                 textAlign = TextAlign.Center,
@@ -1023,27 +1008,19 @@ private fun SetRow(
         }
         SetField(
             init = Calc.fmtKg(s.kg, unit),
-            hint = unit,
+            hint = "-",
             onChange = { s.kg = Calc.toKg(it, unit) },
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
         )
         SetField(
             init = s.reps?.toString() ?: "",
-            hint = L10n.s("Reps", "Réps"),
+            hint = "-",
             onChange = { v -> s.reps = v.filter { it.isDigit() }.take(4).toIntOrNull() },
             modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
         )
-        Spacer(Modifier.width(5.dp))
+        Spacer(Modifier.width(4.dp))
         if (isWorkout) {
-            // dedicated completion check — toggles done + starts rest timer (+ PR detection)
-            val checkBg by animateColorAsState(
-                when {
-                    s.done && isPr -> checkGreen
-                    s.done -> MaterialTheme.colorScheme.primary
-                    else -> Color.Transparent
-                },
-                label = "checkBg",
-            )
+            // plain gray check → green filled rounded square when done
             val checkScale by animateFloatAsState(
                 if (s.done) 1f else 0f,
                 animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
@@ -1052,18 +1029,7 @@ private fun SetRow(
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(checkBg)
-                    .border(
-                        1.5.dp,
-                        when {
-                            s.done && isPr -> checkGreen
-                            s.done -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.outlineVariant
-                        },
-                        CircleShape,
-                    )
+                    .size(44.dp)
                     .clickable {
                         s.done = !s.done
                         rowView.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
@@ -1075,12 +1041,23 @@ private fun SetRow(
                         }
                     },
             ) {
+                if (s.done) {
+                    Box(
+                        Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(C.Green),
+                    )
+                }
                 Icon(
                     Icons.Rounded.Check, null,
-                    tint = MaterialTheme.colorScheme.onPrimary,
+                    tint = if (s.done) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier
-                        .size(15.dp)
-                        .graphicsLayer { scaleX = checkScale; scaleY = checkScale; alpha = checkScale },
+                        .size(22.dp)
+                        .graphicsLayer {
+                            val pop = if (s.done) 0.6f + 0.4f * checkScale else 1f
+                            scaleX = pop; scaleY = pop; alpha = pop
+                        },
                 )
             }
         } else {
@@ -1092,9 +1069,9 @@ private fun SetRow(
                     }
                     Repo.touchPublic()
                 },
-                modifier = Modifier.size(30.dp),
+                modifier = Modifier.size(40.dp),
             ) {
-                Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -1110,19 +1087,19 @@ private fun SetField(init: String, hint: String, onChange: (String) -> Unit, mod
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         textStyle = TextStyle(
             color = MaterialTheme.colorScheme.onBackground,
-            fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
         ),
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = modifier
-            .height(38.dp)
-            .clip(RoundedCornerShape(9.dp))
+            .height(44.dp)
+            .clip(RoundedCornerShape(10.dp))
             .background(C.Card2)
-            .border(1.dp, C.Line2, RoundedCornerShape(9.dp))
+            .border(1.dp, C.Line2, RoundedCornerShape(10.dp))
             .wrapContentHeight(Alignment.CenterVertically),
         decorationBox = { inner ->
             Box(contentAlignment = Alignment.Center) {
-                if (text.isEmpty()) Text(hint, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                if (text.isEmpty()) Text(hint, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 15.sp)
                 inner()
             }
         },
@@ -1135,23 +1112,17 @@ private fun SetField(init: String, hint: String, onChange: (String) -> Unit, mod
 fun fmtRestLabel(sec: Int): String =
     if (sec >= 60) "${sec / 60}min ${sec % 60}s" else "${sec}s"
 
-/** Compact live stat cell for the Durée / Volume / Séries row. */
+/** Hevy live stat: gray label above the big value, no box. */
 @Composable
 private fun LiveStat(value: String, label: String, modifier: Modifier = Modifier, accent: Boolean = false) {
-    Column(
-        modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(10.dp))
-            .padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    Column(modifier.padding(vertical = 4.dp)) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        Spacer(Modifier.height(2.dp))
         Text(
             value,
             color = if (accent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onBackground,
-            fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+            fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
         )
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -1178,7 +1149,7 @@ fun RestSheet(
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                L10n.s("Rest: %1\$s", "Repos : %1\$s").format(fmtRestLabel(sel)),
+                L10n.s("Rest: %1\$s", "Repos: %1\$s").format(fmtRestLabel(sel)),
                 color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp,
             )
             Spacer(Modifier.height(6.dp))
@@ -1224,7 +1195,7 @@ fun RestSheet(
     }
 }
 
-/** Hevy rest bar: thin blue progress line, −15 / big timer / +15, blue Passer pill. */
+/** Hevy rest bar: blue line on top, −15 / big 01:59 / +15, blue Passer button. */
 @Composable
 private fun RestBar() {
     val now = produceState(System.currentTimeMillis()) {
@@ -1233,56 +1204,52 @@ private fun RestBar() {
     val remainingMs = (RestTimer.endAt - now).coerceAtLeast(0)
     val over = RestTimer.endAt - now <= 0
     val shown = (remainingMs / 1000L)
-    val text = "${shown / 60}:${String.format("%02d", shown % 60)}"
+    val text = String.format("%02d:%02d", shown / 60, shown % 60)
     val fraction = if (RestTimer.totalMs > 0) (remainingMs.toFloat() / RestTimer.totalMs).coerceIn(0f, 1f) else 0f
     Column(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp)),
+            .background(MaterialTheme.colorScheme.surface),
     ) {
         // progress line on top
-        Box(Modifier.fillMaxWidth().height(3.dp).background(C.Line)) {
+        Box(Modifier.fillMaxWidth().height(4.dp).background(C.Line)) {
             Box(Modifier.fillMaxWidth(fraction).fillMaxHeight().background(MaterialTheme.colorScheme.primary))
         }
         Row(
-            Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                "−15",
-                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(C.Card2)
                     .clickable { RestTimer.minus15() }
-                    .padding(horizontal = 6.dp, vertical = 6.dp),
-            )
-            Spacer(Modifier.width(8.dp))
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+            ) { Text("−15", color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
+            Spacer(Modifier.weight(1f))
             Text(
                 text,
                 color = if (over) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground,
-                fontSize = 30.sp, fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Center,
+                fontSize = 32.sp, fontWeight = FontWeight.ExtraBold,
             )
-            Text(
-                "+15",
-                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+            Spacer(Modifier.weight(1f))
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(C.Card2)
                     .clickable { RestTimer.plus15() }
-                    .padding(horizontal = 6.dp, vertical = 6.dp),
-            )
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+            ) { Text("+15", color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
             Spacer(Modifier.width(10.dp))
             Box(
                 Modifier
-                    .clip(RoundedCornerShape(999.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(MaterialTheme.colorScheme.primary)
                     .clickable { RestTimer.clear() }
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 18.dp, vertical = 11.dp),
             ) {
-                Text(L10n.s("Skip", "Passer"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(L10n.s("Skip", "Passer"), color = MaterialTheme.colorScheme.onPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }

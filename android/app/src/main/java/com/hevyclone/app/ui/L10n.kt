@@ -1,9 +1,13 @@
 package com.hevyclone.app.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -78,6 +82,42 @@ fun illAnimRes(muscle: String): Int = when (muscle) {
     "Forearms" -> R.drawable.ill_forearms_anim
     "Cardio" -> R.drawable.ill_abs_anim
     else -> R.drawable.ill_chest_anim
+}
+
+/** Dark-bodied variant for rendering on a white circle (Hevy-style exercise badge). */
+fun dIllRes(muscle: String): Int = when (muscle) {
+    "Chest" -> R.drawable.d_ill_chest
+    "Shoulders" -> R.drawable.d_ill_shoulders
+    "Biceps" -> R.drawable.d_ill_biceps
+    "Triceps" -> R.drawable.d_ill_triceps
+    "Lats" -> R.drawable.d_ill_lats
+    "Lower back" -> R.drawable.d_ill_lower_back
+    "Traps" -> R.drawable.d_ill_traps
+    "Quads" -> R.drawable.d_ill_quads
+    "Hamstrings" -> R.drawable.d_ill_hamstrings
+    "Glutes" -> R.drawable.d_ill_glutes
+    "Abductors" -> R.drawable.d_ill_abductors
+    "Adductors" -> R.drawable.d_ill_adductors
+    "Calves" -> R.drawable.d_ill_calves
+    "Abs" -> R.drawable.d_ill_abs
+    "Forearms" -> R.drawable.d_ill_forearms
+    "Cardio" -> R.drawable.d_ill_abs
+    else -> R.drawable.d_ill_chest
+}
+
+/** Hevy-style exercise badge: white circle + dark figure with the muscle highlighted. */
+@Composable
+fun ExCircle(muscle: String, size: Dp, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.layout.Box(
+        modifier.size(size).clip(CircleShape).background(Color.White),
+        contentAlignment = androidx.compose.ui.Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(dIllRes(muscle)),
+            contentDescription = muscleName(muscle),
+            modifier = Modifier.size(size * 0.9f),
+        )
+    }
 }
 
 @Composable

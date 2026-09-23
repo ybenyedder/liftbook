@@ -37,6 +37,9 @@ object C {
     val AccText = Color(0xFFFFFFFF)
     val Red = Color(0xFFE5484D)
     val Gold = Color(0xFFF5C518)
+    val Orange = Color(0xFFFFA03C)
+    val Green = Color(0xFF34C759)
+    val GreenBg = Color(0xFF1F3B2C)
 }
 
 private val DarkColors = darkColorScheme(
