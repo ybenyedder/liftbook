@@ -24,10 +24,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -87,6 +89,16 @@ fun WorkoutSummaryScreen() {
     }
     val muscles = remember(draft) { draft.exercises.map { it.muscle }.toSet() }
     val duration = Calc.fmtDur(System.currentTimeMillis() - draft.startedAt!!)
+
+    var showSaveRoutine by remember { mutableStateOf(false) }
+    fun doFinish() {
+        val w = Repo.finishWorkout(name)
+        RestTimer.clear()
+        WorkoutNotif.cancel()
+        Nav.toTab(Screen.HomeTab)
+        if (w != null && w.prs.isNotEmpty()) toast(ctx, L10n.s("Workout saved", "Séance enregistrée") + " · ${w.prs.size} ${L10n.s("PRs", "records")}!")
+        else toast(ctx, L10n.s("Workout saved", "Séance enregistrée"))
+    }
 
     Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -218,21 +230,31 @@ fun WorkoutSummaryScreen() {
             }
             item { Spacer(Modifier.height(16.dp)) }
         }
-        // final save
+        // final save — if the routine was structurally changed, offer to save it back (Hevy behaviour)
         PrimaryButton(
             L10n.s("TERMINER", "TERMINER"),
-            onClick = {
-                val w = Repo.finishWorkout(name)
-                RestTimer.clear()
-                WorkoutNotif.cancel()
-                Nav.toTab(Screen.HomeTab)
-                if (w != null && w.prs.isNotEmpty()) toast(ctx, L10n.s("Workout saved", "Séance enregistrée") + " · ${w.prs.size} ${L10n.s("PRs", "records")}!")
-                else toast(ctx, L10n.s("Workout saved", "Séance enregistrée"))
-            },
+            onClick = { if (Repo.draftDiffersFromRoutine()) showSaveRoutine = true else doFinish() },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
                 .navigationBarsPadding(),
+        )
+    }
+    if (showSaveRoutine) {
+        AlertDialog(
+            onDismissRequest = { showSaveRoutine = false },
+            title = { Text(L10n.s("Routine modified", "Routine modifiée"), fontWeight = FontWeight.ExtraBold) },
+            text = { Text(L10n.s("Save these changes for your next sessions?", "Enregistrer les modifications pour les prochaines séances ?", "¿Guardar los cambios para las próximas sesiones?", "Änderungen für kommende Einheiten speichern?")) },
+            confirmButton = {
+                TextButton(onClick = { showSaveRoutine = false; Repo.updateRoutineFromDraft(); doFinish() }) {
+                    Text(L10n.s("Save", "Enregistrer", "Guardar", "Speichern"), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveRoutine = false; doFinish() }) {
+                    Text(L10n.s("Skip", "Ignorer", "Descartar", "Verwerfen"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
         )
     }
 }

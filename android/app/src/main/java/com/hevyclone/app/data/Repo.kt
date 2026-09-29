@@ -208,6 +208,36 @@ object Repo {
 
     fun discardDraft() { draft = null; touch() }
 
+    /**
+     * True when a workout started from a routine changed structurally vs that routine:
+     * exercises added/removed/replaced/reordered, sets added/removed, rest or notes edited.
+     * Weights/reps are ignored on purpose — they change every session.
+     */
+    fun draftDiffersFromRoutine(): Boolean {
+        val d = draft ?: return false
+        val r = d.routineId?.let { routineById(it) } ?: return false
+        if (d.exercises.size != r.exercises.size) return true
+        d.exercises.forEachIndexed { i, de ->
+            val re = r.exercises[i]
+            if (de.name != re.name || de.notes != re.notes || de.superset != re.superset ||
+                de.restSec != re.restSec || de.sets.size != re.sets.size) return true
+        }
+        return false
+    }
+
+    /** Copy the workout's structure back into the routine it was started from (sets kept as template, done=false). */
+    fun updateRoutineFromDraft() {
+        val d = draft ?: return
+        val r = d.routineId?.let { routineById(it) } ?: return
+        r.exercises = d.exercises.map { ex ->
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec,
+                ex.sets.map { SetEntry(it.kg, it.reps, done = false) }.toMutableList())
+        }.toMutableList()
+        persistRoutine(r)
+        touch()
+        Cloud.markDirty()
+    }
+
     fun restoreWorkout(w: Workout) {
         workouts.removeAll { it.id == w.id }
         workouts.add(w)
