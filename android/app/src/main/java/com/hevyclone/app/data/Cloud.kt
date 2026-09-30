@@ -245,7 +245,7 @@ object Cloud {
     private const val REDIRECT = "hevyclone://auth-callback"
     private const val PKCE_TTL_MS = 10 * 60_000L
     /** OAuth web client ID configured in GoTrue — audience of Credential Manager ID tokens. */
-    const val GOOGLE_WEB_CLIENT_ID = "7717786340-jg07fhsa4eob2utkmr0fa30db58ekrha.apps.googleusercontent.com"
+    const val GOOGLE_WEB_CLIENT_ID = "209557682705-rk3pib1ks4p7ndr4fa3niecfckebif5k.apps.googleusercontent.com"
 
     /** True while a Google flow is in flight (native sheet or browser tab). */
     var googlePending by mutableStateOf(false)

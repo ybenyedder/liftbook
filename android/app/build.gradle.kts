@@ -21,8 +21,8 @@ android {
         applicationId = "com.hevyclone.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 38
-        versionName = "1.38"
+        versionCode = 39
+        versionName = "1.39"
     }
 
     signingConfigs {
