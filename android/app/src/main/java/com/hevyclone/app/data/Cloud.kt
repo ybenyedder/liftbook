@@ -243,6 +243,37 @@ object Cloud {
 
     private const val REDIRECT = "hevyclone://auth-callback"
     private const val PKCE_TTL_MS = 10 * 60_000L
+    /** OAuth web client ID configured in GoTrue — audience of Credential Manager ID tokens. */
+    const val GOOGLE_WEB_CLIENT_ID = "7717786340-jg07fhsa4eob2utkmr0fa30db58ekrha.apps.googleusercontent.com"
+
+    /** Native sign-in: exchanges a Google ID token (Credential Manager) for a Supabase session. */
+    suspend fun signInWithGoogleIdToken(idToken: String): Boolean {
+        busy = true
+        authError = null
+        try {
+            val body = buildJsonObject { put("provider", "google"); put("token", idToken) }.toString()
+            val (code, resp) = withContext(Dispatchers.IO) { http("POST", "/auth/v1/token?grant_type=id_token", body, null) }
+            if (code !in 200..299) {
+                authError = "Connexion Google échouée ($code)"
+                return false
+            }
+            val obj = json.parseToJsonElement(resp).jsonObject
+            val token = obj["access_token"]?.jsonPrimitive?.content ?: run { authError = "Session Google invalide."; return false }
+            applySession(
+                email = obj["user"]?.jsonObject?.get("email")?.jsonPrimitive?.content ?: "",
+                userId = obj["user"]?.jsonObject?.get("id")?.jsonPrimitive?.content ?: "",
+                token = token,
+                refresh = obj["refresh_token"]?.jsonPrimitive?.content ?: "",
+                expiresIn = obj["expires_in"]?.jsonPrimitive?.long ?: 3600L,
+            )
+            return true
+        } catch (e: Exception) {
+            authError = "Connexion impossible — vérifie Internet."
+            return false
+        } finally {
+            busy = false
+        }
+    }
 
     /** Opens the browser on the GoTrue /authorize endpoint with a fresh PKCE pair + CSRF state. */
     fun startGoogleAuth(ctx: Context) {

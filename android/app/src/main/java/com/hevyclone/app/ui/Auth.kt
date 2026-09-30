@@ -58,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hevyclone.app.data.Cloud
+import com.hevyclone.app.data.GoogleSignInNative
 import kotlinx.coroutines.launch
 
 /** Minimal SVG path-data parser (M L H V C S Z, absolute/relative) — enough for brand marks. */
@@ -272,14 +273,31 @@ fun AuthScreen() {
             HorizontalDivider(Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
         }
         Spacer(Modifier.height(18.dp))
-        // Google
+        // Google — bouton blanc Hevy ; connexion native (Credential Manager, sans navigateur)
+        val googleScope = rememberCoroutineScope()
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(52.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surface)
-                .clickable(enabled = !Cloud.busy) { Cloud.startGoogleAuth(ctx) },
+                .background(androidx.compose.ui.graphics.Color.White)
+                .clickable(enabled = !Cloud.busy) {
+                    GoogleSignInNative.launch(ctx, googleScope) { result ->
+                        when (result) {
+                            GoogleSignInNative.NO_ACCOUNT -> {
+                                // pas de compte Google sur l'appareil → création d'un compte email dans l'app
+                                mode = 1
+                                Cloud.authError = L10n.s(
+                                    "No Google account on this device — create an account with your email below",
+                                    "Aucun compte Google sur cet appareil — crée un compte avec ton email ci-dessous",
+                                    "No hay cuenta de Google en este dispositivo — crea una cuenta con tu email",
+                                    "Kein Google-Konto auf diesem Gerät — erstelle ein Konto mit deiner E-Mail",
+                                )
+                            }
+                            GoogleSignInNative.BROWSER_FALLBACK -> Cloud.startGoogleAuth(ctx)
+                        }
+                    }
+                },
             contentAlignment = Alignment.Center,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -288,6 +306,7 @@ fun AuthScreen() {
                 Text(
                     L10n.s("Continue with Google", "Continuer avec Google", "Continuar con Google", "Mit Google fortfahren"),
                     fontSize = 15.5.sp, fontWeight = FontWeight.SemiBold,
+                    color = androidx.compose.ui.graphics.Color(0xFF1F1F1F),
                 )
             }
         }
