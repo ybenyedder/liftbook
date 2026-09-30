@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,24 +7,32 @@ plugins {
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
+// Signing secrets live in local.properties (gitignored) — never in this file.
+val keystoreProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.hevyclone.app"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.hevyclone.app"
         minSdk = 26
-        targetSdk = 34
-        versionCode = 34
-        versionName = "1.34"
+        targetSdk = 36
+        versionCode = 35
+        versionName = "1.35"
     }
 
     signingConfigs {
         create("release") {
             storeFile = file("../hevy-release.keystore")
-            storePassword = "hevyclone2026"
-            keyAlias = "hevy"
-            keyPassword = "hevyclone2026"
+            storePassword = keystoreProps.getProperty("hevyclone.storePassword")
+                ?: throw GradleException("hevyclone.storePassword manquant dans local.properties")
+            keyAlias = keystoreProps.getProperty("hevyclone.keyAlias") ?: "hevy"
+            keyPassword = keystoreProps.getProperty("hevyclone.keyPassword")
+                ?: throw GradleException("hevyclone.keyPassword manquant dans local.properties")
         }
     }
 

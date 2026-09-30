@@ -197,7 +197,7 @@ fun AuthScreen() {
             }
             Spacer(Modifier.width(14.dp))
             Column {
-                Text("Hevy Clone", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Liftbook", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
                 Text(L10n.s("Workout tracker", "Carnet de musculation"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.5.sp, fontWeight = FontWeight.Medium)
             }
         }

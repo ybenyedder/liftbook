@@ -1,8 +1,8 @@
-# Hevy Clone — App Android native
+# Liftbook (ex-Hevy Clone) — App Android native
 
 Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (**609 exercices traduits** — 16 groupes dont Cardio —, noms alignés sur Hevy : « Tirage Poitrine », « Rowing », « Développé »…) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
 
-**Dernière version : v1.28** — https://github.com/ybenyedder/hevy-clone/releases
+**Dernière version : v1.35** — https://github.com/ybenyedder/hevy-clone/releases
 
 ## Installation
 

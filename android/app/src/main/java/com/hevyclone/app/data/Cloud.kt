@@ -84,16 +84,85 @@ object Cloud {
         skipped = prefs.getBoolean("skipped", false)
         delW = prefs.getString("delW", null)?.let { runCatching { json.decodeFromString<List<Long>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
         delR = prefs.getString("delR", null)?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
-        val access = prefs.getString("access", null)
-        if (access != null) {
+        loadSession()
+    }
+
+    // ---- session at rest: AndroidKeyStore AES-GCM box (tokens never on disk in clear) ----
+
+    private fun loadSession() {
+        prefs.getString("session_box", null)?.let { boxed ->
+            val blob = SecretBox.decrypt(boxed)
+            if (blob != null) {
+                runCatching {
+                    val o = json.parseToJsonElement(blob).jsonObject
+                    session = CloudSession(
+                        email = o["email"]?.jsonPrimitive?.content ?: "",
+                        userId = o["userId"]?.jsonPrimitive?.content ?: "",
+                        access = o["access"]?.jsonPrimitive?.content ?: "",
+                        refresh = o["refresh"]?.jsonPrimitive?.content ?: "",
+                        expiresAt = o["expiresAt"]?.jsonPrimitive?.long ?: 0L,
+                    )
+                }
+                return
+            }
+            // Undecryptable box (keystore invalidated, e.g. device wipe/restore) → session lost, user re-logs in.
+            prefs.edit().remove("session_box").apply()
+        }
+        // Migration from the legacy plaintext storage (≤ v1.34): re-box, then scrub the clear copies.
+        val legacyAccess = prefs.getString("access", null)
+        if (legacyAccess != null) {
             session = CloudSession(
                 email = prefs.getString("email", "") ?: "",
                 userId = prefs.getString("userId", "") ?: "",
-                access = access,
+                access = legacyAccess,
                 refresh = prefs.getString("refresh", "") ?: "",
                 expiresAt = prefs.getLong("expiresAt", 0L),
             )
+            persistSession()
         }
+    }
+
+    private object SecretBox {
+        private const val TAG = "SecretBox"
+        private const val ALIAS = "hevy_cloud_master"
+
+        private fun cipher(): javax.crypto.Cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding")
+
+        private fun key(): javax.crypto.SecretKey {
+            val ks = java.security.KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+            (ks.getKey(ALIAS, null) as? javax.crypto.SecretKey)?.let { return it }
+            val gen = javax.crypto.KeyGenerator.getInstance("AES", "AndroidKeyStore")
+            gen.init(
+                android.security.keystore.KeyGenParameterSpec.Builder(
+                    ALIAS,
+                    android.security.keystore.KeyProperties.PURPOSE_ENCRYPT or android.security.keystore.KeyProperties.PURPOSE_DECRYPT,
+                )
+                    .setBlockModes(android.security.keystore.KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(android.security.keystore.KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(256)
+                    .build()
+            )
+            return gen.generateKey()
+        }
+
+        fun encrypt(plain: String): String? = runCatching {
+            val c = cipher()
+            c.init(javax.crypto.Cipher.ENCRYPT_MODE, key())
+            val ct = c.doFinal(plain.toByteArray(Charsets.UTF_8))
+            android.util.Base64.encodeToString(c.iv, android.util.Base64.NO_WRAP) + ":" +
+                android.util.Base64.encodeToString(ct, android.util.Base64.NO_WRAP)
+        }.onFailure { android.util.Log.w(TAG, "encrypt failed", it) }.getOrNull()
+
+        fun decrypt(boxed: String): String? = runCatching {
+            val parts = boxed.split(":", limit = 2)
+            if (parts.size != 2) return null
+            val c = cipher()
+            c.init(
+                javax.crypto.Cipher.DECRYPT_MODE, key(),
+                javax.crypto.spec.GCMParameterSpec(128, android.util.Base64.decode(parts[0], android.util.Base64.NO_WRAP)),
+            )
+            String(c.doFinal(android.util.Base64.decode(parts[1], android.util.Base64.NO_WRAP)), Charsets.UTF_8)
+        }.onFailure { android.util.Log.w(TAG, "decrypt failed", it) }.getOrNull()
     }
 
     // ================= auth =================
@@ -116,22 +185,26 @@ object Cloud {
                 // account created but not confirmed (should not happen: server autoconfirms)
                 return "Compte créé mais non confirmé — contacte l'administrateur.".also { authError = it }
             }
-            session = CloudSession(
+            applySession(
                 email = email,
                 userId = obj["user"]?.jsonObject?.get("id")?.jsonPrimitive?.content ?: "",
-                access = token,
+                token = token,
                 refresh = obj["refresh_token"]?.jsonPrimitive?.content ?: "",
-                expiresAt = System.currentTimeMillis() + (obj["expires_in"]?.jsonPrimitive?.long ?: 3600L) * 1000L,
+                expiresIn = obj["expires_in"]?.jsonPrimitive?.long ?: 3600L,
             )
-            onLoggedIn(email)
-            persistSession()
-            syncNow()
             return null
         } catch (e: Exception) {
             return "Connexion impossible — vérifie Internet.".also { authError = it }
         } finally {
             busy = false
         }
+    }
+
+    private suspend fun applySession(email: String, userId: String, token: String, refresh: String, expiresIn: Long) {
+        session = CloudSession(email, userId, token, refresh, System.currentTimeMillis() + expiresIn * 1000L)
+        onLoggedIn(email)
+        persistSession()
+        syncNow()
     }
 
     private suspend fun onLoggedIn(email: String) {
@@ -156,35 +229,57 @@ object Cloud {
         scope.launch(Dispatchers.IO) {
             runCatching { http("POST", "/auth/v1/logout", "{}", access) }
         }
-        prefs.edit().remove("access").remove("refresh").remove("expiresAt").remove("userId").remove("email").apply()
+        prefs.edit()
+            .remove("session_box")
+            .remove("access").remove("refresh").remove("expiresAt").remove("userId").remove("email")
+            .remove("pkce_verifier").remove("pkce_state").remove("pkce_ts")
+            .apply()
         session = null
         skipped = false
         syncStatus = null
     }
 
-    // ================= Google sign-in (PKCE via browser / custom tab) =================
+    // ================= Google sign-in (PKCE + state via browser / custom tab) =================
 
     private const val REDIRECT = "hevyclone://auth-callback"
+    private const val PKCE_TTL_MS = 10 * 60_000L
 
-    /** Opens the browser on the GoTrue /authorize endpoint with a fresh PKCE pair. */
+    /** Opens the browser on the GoTrue /authorize endpoint with a fresh PKCE pair + CSRF state. */
     fun startGoogleAuth(ctx: Context) {
         val verifier = generatePkceVerifier()
-        prefs.edit().putString("pkce_verifier", verifier).apply()
+        val state = generatePkceVerifier()
+        prefs.edit()
+            .putString("pkce_verifier", verifier)
+            .putString("pkce_state", state)
+            .putLong("pkce_ts", System.currentTimeMillis())
+            .apply()
         val challenge = pkceChallenge(verifier)
         val url = "$BASE/auth/v1/authorize?provider=google&redirect_to=" +
             java.net.URLEncoder.encode(REDIRECT, "UTF-8") +
-            "&flow_type=pkce&code_challenge=$challenge&code_challenge_method=s256"
+            "&flow_type=pkce&code_challenge=$challenge&code_challenge_method=s256&state=" +
+            java.net.URLEncoder.encode(state, "UTF-8")
         ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 
-    /** Deep-link entry: hevyclone://auth-callback?code=... → exchange for a session. */
+    /**
+     * Deep-link entry: hevyclone://auth-callback?code=...&state=... → exchange for a session.
+     * The state must match the one issued in startGoogleAuth (single-use, 10 min TTL):
+     * a forged or replayed redirect from another app is rejected.
+     */
     fun handleAuthRedirect(uri: android.net.Uri?): Boolean {
         if (uri?.host != "auth-callback") return false
         val err = uri.getQueryParameter("error_description") ?: uri.getQueryParameter("error")
-        if (err != null) { authError = err.take(120); return true }
+        if (err != null) { authError = err.take(120); clearPkce(); return true }
+        val verifier = prefs.getString("pkce_verifier", null)
+        val savedState = prefs.getString("pkce_state", null)
+        val issuedAt = prefs.getLong("pkce_ts", 0L)
+        clearPkce()
+        val state = uri.getQueryParameter("state")
+        if (verifier == null || savedState == null || state != savedState || System.currentTimeMillis() - issuedAt > PKCE_TTL_MS) {
+            authError = "Session de connexion expirée — réessaie."
+            return true
+        }
         val code = uri.getQueryParameter("code") ?: return true
-        val verifier = prefs.getString("pkce_verifier", null) ?: return true
-        prefs.edit().remove("pkce_verifier").apply()
         busy = true
         authError = null
         scope.launch {
@@ -205,20 +300,21 @@ object Cloud {
         return true
     }
 
+    private fun clearPkce() {
+        prefs.edit().remove("pkce_verifier").remove("pkce_state").remove("pkce_ts").apply()
+    }
+
     private suspend fun applySessionResponse(resp: String) {
         val obj = json.parseToJsonElement(resp).jsonObject
         val token = obj["access_token"]?.jsonPrimitive?.content ?: run { authError = "Session Google invalide."; return }
         val email = obj["user"]?.jsonObject?.get("email")?.jsonPrimitive?.content ?: ""
-        session = CloudSession(
+        applySession(
             email = email,
             userId = obj["user"]?.jsonObject?.get("id")?.jsonPrimitive?.content ?: "",
-            access = token,
+            token = token,
             refresh = obj["refresh_token"]?.jsonPrimitive?.content ?: "",
-            expiresAt = System.currentTimeMillis() + (obj["expires_in"]?.jsonPrimitive?.long ?: 3600L) * 1000L,
+            expiresIn = obj["expires_in"]?.jsonPrimitive?.long ?: 3600L,
         )
-        onLoggedIn(email)
-        persistSession()
-        syncNow()
     }
 
     private fun generatePkceVerifier(): String {
@@ -248,7 +344,7 @@ object Cloud {
         return try {
             conn.connectTimeout = 12000
             conn.readTimeout = 20000
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) HevyClone/1.30")
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) Liftbook/1.35")
             if (conn.responseCode !in 200..299) null else conn.inputStream.use { it.readBytes() }
         } catch (e: Exception) { null } finally { conn.disconnect() }
     }
@@ -423,12 +519,23 @@ object Cloud {
 
     private fun persistSession() {
         val s = session ?: return
+        val blob = buildJsonObject {
+            put("email", s.email)
+            put("userId", s.userId)
+            put("access", s.access)
+            put("refresh", s.refresh)
+            put("expiresAt", s.expiresAt)
+        }.toString()
+        val boxed = SecretBox.encrypt(blob)
+        if (boxed == null) {
+            // KeyStore failure: fail secure — session stays in memory only, nothing hits disk in clear.
+            prefs.edit().remove("session_box").apply()
+            return
+        }
         prefs.edit()
-            .putString("email", s.email)
-            .putString("userId", s.userId)
-            .putString("access", s.access)
-            .putString("refresh", s.refresh)
-            .putLong("expiresAt", s.expiresAt)
+            .putString("session_box", boxed)
+            // legacy plaintext keys (≤ v1.34) are scrubbed once the box exists
+            .remove("access").remove("refresh").remove("expiresAt").remove("userId").remove("email")
             .apply()
     }
 
@@ -456,7 +563,7 @@ object Cloud {
             readTimeout = 25000
             setRequestProperty("apikey", ANON)
             if (!extraHeaders.containsKey("Content-Type")) setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) HevyClone/1.30")
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) Liftbook/1.35")
             bearer?.let { setRequestProperty("Authorization", "Bearer $it") }
             extraHeaders.forEach { (k, v) -> setRequestProperty(k, v) }
             if (body != null || raw != null) doOutput = true

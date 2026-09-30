@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- allowBackup="false" already disables backups; these excludes are defense in depth
+     if the flag is ever flipped: never ship auth tokens or draft data to the cloud. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="cloud.xml" />
+    <exclude domain="sharedpref" path="draft.xml" />
+</full-backup-content>
