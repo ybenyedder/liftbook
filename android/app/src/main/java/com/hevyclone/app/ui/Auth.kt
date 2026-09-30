@@ -285,14 +285,16 @@ fun AuthScreen() {
                     GoogleSignInNative.launch(ctx, googleScope) { result ->
                         when (result) {
                             GoogleSignInNative.NO_ACCOUNT -> {
-                                // pas de compte Google sur l'appareil → création d'un compte email dans l'app
-                                mode = 1
+                                // compte Google présent mais pas visible du système (ou absent) :
+                                // ouvrir la connexion Google dans le navigateur — elle accepte n'importe
+                                // quel compte Google ET permet d'en créer un
                                 Cloud.authError = L10n.s(
-                                    "No Google account on this device — create an account with your email below",
-                                    "Aucun compte Google sur cet appareil — crée un compte avec ton email ci-dessous",
-                                    "No hay cuenta de Google en este dispositivo — crea una cuenta con tu email",
-                                    "Kein Google-Konto auf diesem Gerät — erstelle ein Konto mit deiner E-Mail",
+                                    "Opening Google sign-in in the browser — sign in with your Google account there (you can also create one). Tip: add the account in Android Settings → Accounts for one-tap sign-in",
+                                    "Ouverture de la connexion Google dans le navigateur — connecte-toi avec ton compte Google (tu peux aussi en créer un). Astuce : ajoute le compte dans Réglages Android → Comptes pour la connexion en un geste",
+                                    "Abriendo el inicio de sesión de Google en el navegador — inicia sesión con tu cuenta de Google (también puedes crear una). Consejo: añade la cuenta en Ajustes de Android → Cuentas",
+                                    "Google-Anmeldung im Browser wird geöffnet — melde dich mit deinem Google-Konto an (du kannst auch eines erstellen). Tipp: Konto unter Android-Einstellungen → Konten hinzufügen",
                                 )
+                                Cloud.startGoogleAuth(ctx)
                             }
                             GoogleSignInNative.BROWSER_FALLBACK -> Cloud.startGoogleAuth(ctx)
                         }
