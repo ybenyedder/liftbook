@@ -21,8 +21,8 @@ android {
         applicationId = "com.hevyclone.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 37
-        versionName = "1.37"
+        versionCode = 38
+        versionName = "1.38"
     }
 
     signingConfigs {
@@ -66,6 +66,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.core:core-ktx:1.13.1")
+    implementation("androidx.browser:browser:1.8.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.1")
     // native Google sign-in (Credential Manager) — no browser
     implementation("androidx.credentials:credentials:1.3.0")

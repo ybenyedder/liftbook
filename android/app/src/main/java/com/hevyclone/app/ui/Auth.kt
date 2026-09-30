@@ -312,6 +312,26 @@ fun AuthScreen() {
                 )
             }
         }
+        if (Cloud.googlePending) {
+            Spacer(Modifier.height(12.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    L10n.s(
+                        "Finishing Google sign-in…",
+                        "Connexion Google en cours…",
+                        "Completando el acceso con Google…",
+                        "Google-Anmeldung läuft…",
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.5.sp,
+                )
+            }
+        }
         Spacer(Modifier.height(22.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
             Text(

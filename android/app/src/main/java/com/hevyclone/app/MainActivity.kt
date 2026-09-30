@@ -46,6 +46,12 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // back from the browser without completing Google sign-in → drop the pending spinner
+        Cloud.clearGooglePendingIfStale()
+    }
+
     override fun onStart() {
         super.onStart()
         // pull changes made on another device while the app was closed

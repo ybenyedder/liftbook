@@ -197,6 +197,7 @@ object Cloud {
             return "Connexion impossible — vérifie Internet.".also { authError = it }
         } finally {
             busy = false
+            googlePending = false
         }
     }
 
@@ -239,16 +240,21 @@ object Cloud {
         syncStatus = null
     }
 
-    // ================= Google sign-in (PKCE + state via browser / custom tab) =================
+    // ================= Google sign-in (native Credential Manager + PKCE browser fallback) =================
 
     private const val REDIRECT = "hevyclone://auth-callback"
     private const val PKCE_TTL_MS = 10 * 60_000L
     /** OAuth web client ID configured in GoTrue — audience of Credential Manager ID tokens. */
     const val GOOGLE_WEB_CLIENT_ID = "7717786340-jg07fhsa4eob2utkmr0fa30db58ekrha.apps.googleusercontent.com"
 
+    /** True while a Google flow is in flight (native sheet or browser tab). */
+    var googlePending by mutableStateOf(false)
+        private set
+
     /** Native sign-in: exchanges a Google ID token (Credential Manager) for a Supabase session. */
     suspend fun signInWithGoogleIdToken(idToken: String): Boolean {
         busy = true
+        googlePending = true
         authError = null
         try {
             val body = buildJsonObject { put("provider", "google"); put("token", idToken) }.toString()
@@ -275,7 +281,12 @@ object Cloud {
         }
     }
 
-    /** Opens the browser on the GoTrue /authorize endpoint with a fresh PKCE pair + CSRF state. */
+    /**
+     * Opens the auth URL in a Custom Tab: unlike a plain browser intent, Custom Tabs
+     * honor the final redirect to the hevyclone:// deep link, bringing the user back
+     * into the app automatically after Google sign-in. Falls back to the browser
+     * when no Custom Tab provider exists.
+     */
     fun startGoogleAuth(ctx: Context) {
         val verifier = generatePkceVerifier()
         val state = generatePkceVerifier()
@@ -289,7 +300,21 @@ object Cloud {
             java.net.URLEncoder.encode(REDIRECT, "UTF-8") +
             "&flow_type=pkce&code_challenge=$challenge&code_challenge_method=s256&state=" +
             java.net.URLEncoder.encode(state, "UTF-8")
-        ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        googlePending = true
+        authError = null
+        val uri = android.net.Uri.parse(url)
+        try {
+            androidx.browser.customtabs.CustomTabsIntent.Builder()
+                .setShowTitle(true)
+                .build()
+                .launchUrl(ctx, uri)
+        } catch (e: Exception) {
+            // no Custom Tab provider → full browser (custom-scheme redirect may not auto-return)
+            ctx.startActivity(
+                android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        }
     }
 
     /**
@@ -299,6 +324,7 @@ object Cloud {
      */
     fun handleAuthRedirect(uri: android.net.Uri?): Boolean {
         if (uri?.host != "auth-callback") return false
+        googlePending = false
         val err = uri.getQueryParameter("error_description") ?: uri.getQueryParameter("error")
         if (err != null) { authError = err.take(120); clearPkce(); return true }
         val verifier = prefs.getString("pkce_verifier", null)
@@ -310,7 +336,10 @@ object Cloud {
             authError = "Session de connexion expirée — réessaie."
             return true
         }
-        val code = uri.getQueryParameter("code") ?: return true
+        val code = uri.getQueryParameter("code") ?: run {
+            authError = "Connexion Google incomplète — réessaie."
+            return true
+        }
         busy = true
         authError = null
         scope.launch {
@@ -329,6 +358,16 @@ object Cloud {
             }
         }
         return true
+    }
+
+    /** Called from MainActivity.onResume: clears the pending spinner when the user comes back
+     *  without completing the browser flow (the deep link itself clears it on success). */
+    fun clearGooglePendingIfStale() {
+        // a flow still within its TTL may be mid-exchange; only clear when no session landed
+        if (googlePending && session == null && !busy) {
+            val issuedAt = prefs.getLong("pkce_ts", 0L)
+            if (issuedAt == 0L || System.currentTimeMillis() - issuedAt > 20_000L) googlePending = false
+        }
     }
 
     private fun clearPkce() {
