@@ -259,10 +259,14 @@ object Cloud {
         googlePending = true
         authError = null
         try {
-            val body = buildJsonObject { put("provider", "google"); put("token", idToken) }.toString()
+            // NB: field name is "id_token" — GoTrue v2.186+ rejects the legacy "token" name
+            val body = buildJsonObject { put("provider", "google"); put("id_token", idToken) }.toString()
             val (code, resp) = withContext(Dispatchers.IO) { http("POST", "/auth/v1/token?grant_type=id_token", body, null) }
             if (code !in 200..299) {
-                authError = "Connexion Google échouée ($code)"
+                val why = runCatching {
+                    json.parseToJsonElement(resp).jsonObject["error_description"]?.jsonPrimitive?.content
+                }.getOrNull()
+                authError = "Connexion Google échouée ($code)" + (why?.let { " : $it" } ?: "")
                 return false
             }
             val obj = json.parseToJsonElement(resp).jsonObject
