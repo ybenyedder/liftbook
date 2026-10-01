@@ -1,5 +1,7 @@
 package com.hevyclone.app.data
 
+import com.hevyclone.app.BuildConfig
+
 import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -278,6 +280,7 @@ object Cloud {
             return false
         } finally {
             busy = false
+            googlePending = false
         }
     }
 
@@ -286,20 +289,20 @@ object Cloud {
      * honor the final redirect to the hevyclone:// deep link, bringing the user back
      * into the app automatically after Google sign-in. Falls back to the browser
      * when no Custom Tab provider exists.
+     * NB: never add a `state` query param here — GoTrue v2.186 forwards it to Google
+     * where it overrides GoTrue's own flow-state UUID, and the /callback then rejects
+     * the response (bad_oauth_state). CSRF is covered by the S256 code_verifier.
      */
     fun startGoogleAuth(ctx: Context) {
         val verifier = generatePkceVerifier()
-        val state = generatePkceVerifier()
         prefs.edit()
             .putString("pkce_verifier", verifier)
-            .putString("pkce_state", state)
             .putLong("pkce_ts", System.currentTimeMillis())
             .apply()
         val challenge = pkceChallenge(verifier)
         val url = "$BASE/auth/v1/authorize?provider=google&redirect_to=" +
             java.net.URLEncoder.encode(REDIRECT, "UTF-8") +
-            "&flow_type=pkce&code_challenge=$challenge&code_challenge_method=s256&state=" +
-            java.net.URLEncoder.encode(state, "UTF-8")
+            "&flow_type=pkce&code_challenge=$challenge&code_challenge_method=s256"
         googlePending = true
         authError = null
         val uri = android.net.Uri.parse(url)
@@ -318,9 +321,9 @@ object Cloud {
     }
 
     /**
-     * Deep-link entry: hevyclone://auth-callback?code=...&state=... → exchange for a session.
-     * The state must match the one issued in startGoogleAuth (single-use, 10 min TTL):
-     * a forged or replayed redirect from another app is rejected.
+     * Deep-link entry: hevyclone://auth-callback?code=... → exchange for a session.
+     * The verifier must be the one issued in startGoogleAuth (single-use, 10 min
+     * TTL): a forged or replayed redirect from another app fails the PKCE exchange.
      */
     fun handleAuthRedirect(uri: android.net.Uri?): Boolean {
         if (uri?.host != "auth-callback") return false
@@ -328,11 +331,9 @@ object Cloud {
         val err = uri.getQueryParameter("error_description") ?: uri.getQueryParameter("error")
         if (err != null) { authError = err.take(120); clearPkce(); return true }
         val verifier = prefs.getString("pkce_verifier", null)
-        val savedState = prefs.getString("pkce_state", null)
         val issuedAt = prefs.getLong("pkce_ts", 0L)
         clearPkce()
-        val state = uri.getQueryParameter("state")
-        if (verifier == null || savedState == null || state != savedState || System.currentTimeMillis() - issuedAt > PKCE_TTL_MS) {
+        if (verifier == null || System.currentTimeMillis() - issuedAt > PKCE_TTL_MS) {
             authError = "Session de connexion expirée — réessaie."
             return true
         }
@@ -414,7 +415,7 @@ object Cloud {
         return try {
             conn.connectTimeout = 12000
             conn.readTimeout = 20000
-            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) Liftbook/1.35")
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) Liftbook/" + BuildConfig.VERSION_NAME)
             if (conn.responseCode !in 200..299) null else conn.inputStream.use { it.readBytes() }
         } catch (e: Exception) { null } finally { conn.disconnect() }
     }
@@ -633,7 +634,7 @@ object Cloud {
             readTimeout = 25000
             setRequestProperty("apikey", ANON)
             if (!extraHeaders.containsKey("Content-Type")) setRequestProperty("Content-Type", "application/json")
-            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) Liftbook/1.35")
+            setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) Liftbook/" + BuildConfig.VERSION_NAME)
             bearer?.let { setRequestProperty("Authorization", "Bearer $it") }
             extraHeaders.forEach { (k, v) -> setRequestProperty(k, v) }
             if (body != null || raw != null) doOutput = true

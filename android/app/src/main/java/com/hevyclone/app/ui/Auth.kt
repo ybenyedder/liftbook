@@ -296,7 +296,10 @@ fun AuthScreen() {
                                 )
                                 Cloud.startGoogleAuth(ctx)
                             }
-                            GoogleSignInNative.BROWSER_FALLBACK -> Cloud.startGoogleAuth(ctx)
+                            GoogleSignInNative.CANCELLED, GoogleSignInNative.ERROR -> {
+                                // annulation volontaire ou échec natif : Cloud.authError porte la cause,
+                                // on reste sur l'écran (pas de rebond silencieux vers le navigateur)
+                            }
                         }
                     }
                 },

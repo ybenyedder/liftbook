@@ -3,6 +3,7 @@ package com.hevyclone.app.data
 import android.content.Context
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.credentials.exceptions.NoCredentialException
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
@@ -19,13 +20,13 @@ import kotlinx.coroutines.launch
  * Result codes:
  *  - SUCCESS: session established
  *  - NO_ACCOUNT: no Google account on the device → caller should fall back to email sign-up
- *  - BROWSER_FALLBACK: user cancelled or another failure → caller may fall back to the browser flow
- *  - ERROR: session failure already surfaced via Cloud.authError
+ *  - CANCELLED: user closed the sheet → do nothing
+ *  - ERROR: failure — Cloud.authError carries the cause (no silent browser bounce)
  */
 object GoogleSignInNative {
     const val SUCCESS = "success"
     const val NO_ACCOUNT = "no_account"
-    const val BROWSER_FALLBACK = "browser_fallback"
+    const val CANCELLED = "cancelled"
     const val ERROR = "error"
 
     fun launch(activityContext: Context, scope: CoroutineScope, onDone: (String) -> Unit) {
@@ -44,15 +45,21 @@ object GoogleSignInNative {
                     val ok = Cloud.signInWithGoogleIdToken(credential.idToken)
                     onDone(if (ok) SUCCESS else ERROR)
                 } else {
-                    onDone(BROWSER_FALLBACK)
+                    Cloud.authError = "Connexion Google : type de compte inattendu (${credential.type}). Réessaie."
+                    onDone(ERROR)
                 }
             } catch (e: NoCredentialException) {
                 onDone(NO_ACCOUNT)
+            } catch (e: GetCredentialCancellationException) {
+                onDone(CANCELLED)
             } catch (e: GetCredentialException) {
-                onDone(BROWSER_FALLBACK)
+                Cloud.authError = "Connexion Google native a échoué (${e.javaClass.simpleName}) — réessaie dans quelques minutes."
+                onDone(ERROR)
             } catch (e: GoogleIdTokenParsingException) {
-                onDone(BROWSER_FALLBACK)
+                Cloud.authError = "Connexion Google : jeton illisible — réessaie."
+                onDone(ERROR)
             } catch (e: Exception) {
+                Cloud.authError = "Connexion Google : ${e.javaClass.simpleName} — vérifie Google Play Services."
                 onDone(ERROR)
             }
         }

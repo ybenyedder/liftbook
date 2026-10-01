@@ -21,8 +21,8 @@ android {
         applicationId = "com.hevyclone.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 39
-        versionName = "1.39"
+        versionCode = 40
+        versionName = "1.40"
     }
 
     signingConfigs {
@@ -53,6 +53,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
