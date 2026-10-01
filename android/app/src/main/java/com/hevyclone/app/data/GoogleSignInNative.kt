@@ -1,7 +1,9 @@
 package com.hevyclone.app.data
 
 import android.content.Context
+import androidx.credentials.Credential
 import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
@@ -39,10 +41,17 @@ object GoogleSignInNative {
         val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
         scope.launch {
             try {
-                val result = cm.getCredential(activityContext, request)
-                val credential = result.credential
-                if (credential is GoogleIdTokenCredential) {
-                    val ok = Cloud.signInWithGoogleIdToken(credential.idToken)
+                val credential = cm.getCredential(activityContext, request).credential
+                val idToken: String? = when {
+                    credential is GoogleIdTokenCredential -> credential.idToken
+                    // some Play Services versions hand the same token back as a raw
+                    // CustomCredential carrying the Google ID token type + Bundle
+                    credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL ->
+                        GoogleIdTokenCredential.createFrom(credential.data).idToken
+                    else -> null
+                }
+                if (idToken != null) {
+                    val ok = Cloud.signInWithGoogleIdToken(idToken)
                     onDone(if (ok) SUCCESS else ERROR)
                 } else {
                     Cloud.authError = "Connexion Google : type de compte inattendu (${credential.type}). Réessaie."
