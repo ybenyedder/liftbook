@@ -64,7 +64,7 @@ struct WorkoutSummaryView: View {
                     .tint(C.accent)
                     .padding(.horizontal, 12)
                     .frame(height: 52)
-                    .background(RoundedRectangle(cornerRadius: 11).fill(C.card))
+                    .background(C.card, in: RoundedRectangle(cornerRadius: 11))
                     .overlay(RoundedRectangle(cornerRadius: 11).strokeBorder(C.accent, lineWidth: 1))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 6)
@@ -96,7 +96,7 @@ struct WorkoutSummaryView: View {
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 9)
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Color(hex: 0x1F3B2C)))
+                    .background(Color(hex: 0x1F3B2C), in: RoundedRectangle(cornerRadius: 10))
                     .padding(.horizontal, 16)
                     .padding(.vertical, 3)
                 }
@@ -121,7 +121,7 @@ struct WorkoutSummaryView: View {
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 8)
-                                .background(RoundedRectangle(cornerRadius: 8).fill(s.prW || s.prE ? Color(hex: 0x1F3B2C) : C.card))
+                                .background(s.prW || s.prE ? Color(hex: 0x1F3B2C) : C.card, in: RoundedRectangle(cornerRadius: 8))
                             }
                         }
                         .padding(.horizontal, 16)
@@ -148,7 +148,7 @@ struct WorkoutSummaryView: View {
                 Txt(LS("TERMINER", "TERMINER"), weight: 700, size: 15, color: C.accText)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Capsule().fill(C.accent))
+                    .background(C.accent, in: Capsule())
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)

@@ -63,7 +63,7 @@ struct HistoryView: View {
                 }
                 .padding(.horizontal, 12)
                 .frame(height: 46)
-                .background(RoundedRectangle(cornerRadius: 12).fill(C.card))
+                .background(C.card, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(C.line, lineWidth: 1))
                 .padding(.horizontal, 16)
                 .padding(.vertical, 6)
@@ -73,7 +73,7 @@ struct HistoryView: View {
                         Button { filter = i } label: {
                             Txt(labels[i], weight: 600, size: 12, color: filter == i ? C.accText : C.mut)
                                 .padding(.horizontal, 12).padding(.vertical, 6)
-                                .background(Capsule().fill(filter == i ? accentColor(repo.settings.accent) : C.card))
+                                .background(filter == i ? accentColor(repo.settings.accent) : C.card, in: Capsule())
                                 .overlay(Capsule().strokeBorder(filter == i ? accentColor(repo.settings.accent) : C.line, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
@@ -150,7 +150,7 @@ struct HistoryView: View {
                                 Txt("\(cal.component(.day, from: date))", weight: 600, size: 12.5)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 38)
-                                    .background(RoundedRectangle(cornerRadius: 10).fill(has ? C.card2 : Color.clear))
+                                    .background(has ? C.card2 : Color.clear, in: RoundedRectangle(cornerRadius: 10))
                                     .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isToday ? accentColor(repo.settings.accent) : Color.clear, lineWidth: 1.5))
                                     .overlay(alignment: .bottom) {
                                         if has {
@@ -184,7 +184,7 @@ struct HistoryRow: View {
             }
             .frame(width: 46)
             .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 10).fill(C.card2))
+            .background(C.card2, in: RoundedRectangle(cornerRadius: 10))
             VStack(alignment: .leading, spacing: 1) {
                 Txt(w.name, weight: 700, size: 16).lineLimit(1)
                 Txt("\(Calc.fmtTime(w.startedAt)) — \(Calc.fmtTime(w.endedAt))", size: 13, color: C.mut)
@@ -193,7 +193,7 @@ struct HistoryRow: View {
             Txt("\(Calc.fmtVol(Calc.vol(w), repo.settings.unit)) kg", weight: 600, size: 15)
         }
         .padding(11)
-        .background(RoundedRectangle(cornerRadius: 14).fill(C.card))
+        .background(C.card, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(C.line, lineWidth: 1))
         .padding(.horizontal, 16)
         .padding(.vertical, 5)
@@ -375,7 +375,7 @@ struct WorkoutDetailView: View {
                             if s.prW || s.prE {
                                 Txt(s.prW ? "WEIGHT PR" : "1RM PR", weight: 800, size: 9, color: C.accText)
                                     .padding(.horizontal, 6).padding(.vertical, 3)
-                                    .background(RoundedRectangle(cornerRadius: 5).fill(accentColor(repo.settings.accent)))
+                                    .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 5))
                             }
                         }
                         .frame(width: 56, alignment: .leading)

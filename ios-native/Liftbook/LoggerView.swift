@@ -119,7 +119,7 @@ struct LoggerView: View {
                             .tint(C.accent)
                             .frame(height: 80, alignment: .top)
                             .padding(12)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(C.bg))
+                            .background(C.bg, in: RoundedRectangle(cornerRadius: 10))
                             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(C.line2, lineWidth: 1))
                     ),
                     onConfirm: {
@@ -202,7 +202,7 @@ struct LoggerView: View {
                 } label: {
                     Txt(LS("Finish", "Terminer"), weight: 600, size: 15, color: C.accText)
                         .padding(.horizontal, 18).padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(accentColor(repo.settings.accent)))
+                        .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
             }
@@ -253,7 +253,7 @@ struct LoggerView: View {
                 Button(action: trySaveRoutine) {
                     Txt(LS("Save", "Enregistrer"), weight: 600, size: 15, color: C.accText)
                         .padding(.horizontal, 16).padding(.vertical, 10)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(accentColor(repo.settings.accent)))
+                        .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
                 Menu {
@@ -330,7 +330,7 @@ struct LoggerView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(RoundedRectangle(cornerRadius: 12).fill(accentColor(repo.settings.accent)))
+                .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
             .listRowBackground(C.bg)
@@ -469,7 +469,7 @@ struct ExSection: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .background(RoundedRectangle(cornerRadius: 10).fill(C.card2))
+                .background(C.card2, in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 12)
@@ -500,7 +500,7 @@ struct ExSection: View {
                             .foregroundColor(C.text)
                             .frame(height: 80, alignment: .top)
                             .padding(12)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(C.bg))
+                            .background(C.bg, in: RoundedRectangle(cornerRadius: 10))
                             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(C.line2, lineWidth: 1))
                     ),
                     onConfirm: {
@@ -581,7 +581,7 @@ struct SetRow: View {
                     } else {
                         Txt("\(si + 1)", weight: 600, size: 15)
                             .frame(width: 38, height: 38)
-                            .background(RoundedRectangle(cornerRadius: 8).fill(C.card2))
+                            .background(C.card2, in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
             }
@@ -624,7 +624,7 @@ struct SetRow: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
-        .background(RoundedRectangle(cornerRadius: 10).fill(isPr ? C.greenBg : Color.clear))
+        .background(isPr ? C.greenBg : Color.clear, in: RoundedRectangle(cornerRadius: 10))
     }
 
     func kgText(_ s: SetEntry) -> String {
@@ -707,7 +707,7 @@ struct SetField: View {
                 .onChange(of: text) { v in onChange(v) }
                 .frame(height: 44)
         }
-        .background(RoundedRectangle(cornerRadius: 10).fill(C.card2))
+        .background(C.card2, in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(C.line2, lineWidth: 1))
     }
 }
@@ -746,7 +746,7 @@ struct RestSheet: View {
                     Txt(LS("Done", "Terminé"), weight: 700, size: 15, color: C.accText)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(Capsule().fill(accentColor(repo.settings.accent)))
+                        .background(accentColor(repo.settings.accent), in: Capsule())
                 }
                 .buttonStyle(.plain)
             }
@@ -796,7 +796,7 @@ struct ExercisePicker: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 52)
-            .background(RoundedRectangle(cornerRadius: 12).fill(C.card2))
+            .background(C.card2, in: RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal, 16)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {

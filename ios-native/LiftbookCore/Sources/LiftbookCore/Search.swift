@@ -3,7 +3,7 @@ import Foundation
 
 /// UI language (injected by the app from the device; tests force it).
 public enum L10n {
-    public static var lang: String = "fr"
+    nonisolated(unsafe) public static var lang: String = "fr"
 
     public static func s(_ en: String, _ fr: String, _ es: String? = nil, _ de: String? = nil) -> String {
         switch lang {

@@ -67,7 +67,7 @@ struct AuthView: View {
                             }
                         }
                         .frame(maxWidth: .infinity)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(canSubmit ? C.accent : C.card))
+                        .background(canSubmit ? C.accent : C.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .disabled(!canSubmit)
@@ -87,7 +87,7 @@ struct AuthView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white))
+                        .background(Color.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
                     .buttonStyle(.plain)
                     .disabled(repo.busy)
@@ -164,7 +164,7 @@ struct AuthView: View {
         .textInputAutocapitalization(.never)
         .padding(.horizontal, 12)
         .frame(height: 56)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(C.card2))
+        .background(C.card2, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     func startGoogle() {

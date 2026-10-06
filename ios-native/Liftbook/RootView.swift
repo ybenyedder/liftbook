@@ -160,7 +160,7 @@ struct RootView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(C.card2))
+                .background(C.card2, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .padding(.horizontal, 16)
                 .padding(.bottom, 76)
             }
@@ -183,7 +183,7 @@ struct RootView: View {
                     .foregroundColor(C.text)
                     .padding(.horizontal, 18)
                     .padding(.vertical, 10)
-                    .background(Capsule().fill(C.card2))
+                    .background(C.card2, in: Capsule())
                     .padding(.bottom, 90)
             }
             .allowsHitTesting(false)

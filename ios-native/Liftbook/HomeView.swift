@@ -89,7 +89,7 @@ private struct FeedPost: View {
                 HStack(spacing: 12) {
                     Txt("\(w.exercises[i].sets.count)", weight: 700, size: 13)
                         .padding(.horizontal, 9).padding(.vertical, 5)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(C.card2))
+                        .background(C.card2, in: RoundedRectangle(cornerRadius: 8))
                     Txt(exName(w.exercises[i].name), weight: 500, size: 16)
                         .lineLimit(2)
                     Spacer(minLength: 0)

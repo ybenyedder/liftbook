@@ -78,7 +78,7 @@ struct TrainingView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(C.card))
+                        .background(C.card, in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(C.line, lineWidth: 1))
                     }
                     .buttonStyle(.plain)
@@ -155,7 +155,7 @@ struct TrainingView: View {
             }
             .frame(maxWidth: .infinity)
             .frame(height: 46)
-            .background(RoundedRectangle(cornerRadius: 12).fill(C.card))
+            .background(C.card, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(C.line, lineWidth: 1))
         }
         .buttonStyle(.plain)
@@ -202,12 +202,12 @@ struct RoutineCard: View {
                 Txt(LS("Start routine", "Commencer la Routine"), weight: 600, size: 15, color: C.accText)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
-                    .background(RoundedRectangle(cornerRadius: 12).fill(accentColor(repo.settings.accent)))
+                    .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
         }
         .padding(16)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(C.card))
+        .background(C.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             Group {
                 if rename {
@@ -343,7 +343,7 @@ struct DayCell: View {
                 weight: has || isToday ? 700 : 400, size: 14.5,
                 color: has ? C.accText : C.text)
                 .frame(width: 40, height: 40)
-                .background(Circle().fill(has ? accentColor(repo.settings.accent) : Color.clear))
+                .background(has ? accentColor(repo.settings.accent) : Color.clear, in: Circle())
                 .overlay(Circle().strokeBorder(isToday && !has ? C.mut : Color.clear, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
@@ -541,7 +541,7 @@ struct RoutineDetailView: View {
                     Button { metric = idx } label: {
                         Txt(labels[idx], weight: 600, size: 13.5, color: metric == idx ? C.accText : C.text)
                             .padding(.horizontal, 16).padding(.vertical, 8)
-                            .background(Capsule().fill(metric == idx ? accent : C.card2))
+                            .background(metric == idx ? accent : C.card2, in: Capsule())
                     }
                     .buttonStyle(.plain)
                 }

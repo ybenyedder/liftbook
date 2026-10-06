@@ -52,7 +52,7 @@ struct Chip: View {
                 .foregroundColor(selected ? C.accText : C.mut)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 7)
-                .background(Capsule().fill(selected ? accentColor(repo.settings.accent) : C.card))
+                .background(selected ? accentColor(repo.settings.accent) : C.card, in: Capsule())
                 .overlay(Capsule().strokeBorder(selected ? accentColor(repo.settings.accent) : C.line, lineWidth: 1))
         }
         .buttonStyle(.plain)
@@ -70,7 +70,7 @@ struct PrimaryButton: View {
                 .foregroundColor(C.accText)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(Capsule().fill(accentColor(repo.settings.accent)))
+                .background(accentColor(repo.settings.accent), in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -140,7 +140,7 @@ struct PrBadgeView: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
-        .background(Capsule().fill(C.card2))
+        .background(C.card2, in: Capsule())
         .padding(.horizontal, 20)
     }
 }
@@ -172,7 +172,7 @@ struct WorkoutInProgressDialog: View {
         }
         .padding(22)
         .frame(maxWidth: 340)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(C.card2))
+        .background(C.card2, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(40)
     }
 }
@@ -221,7 +221,7 @@ struct AlertView: View {
         }
         .padding(22)
         .frame(maxWidth: 360)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(C.card2))
+        .background(C.card2, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
@@ -264,7 +264,7 @@ struct PromptAlert: View {
                         }
                 }
                 .padding(12)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(C.bg))
+                .background(C.bg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).strokeBorder(C.line2, lineWidth: 1))
             ),
             onConfirm: { onConfirm(value) },
@@ -296,7 +296,7 @@ struct RestBar: View {
                     Button { timer.minus15() } label: {
                         Txt("−15", weight: 600, size: 15)
                             .padding(.horizontal, 12).padding(.vertical, 9)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(C.card2))
+                            .background(C.card2, in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                     Spacer()
@@ -307,19 +307,19 @@ struct RestBar: View {
                     Spacer()
                     Button { timer.plus15() } label: {
                         Txt("+15", weight: 600, size: 15)
-                            .padding(.horizontal, 12).padding().background(RoundedRectangle(cornerRadius: 10).fill(C.card2))
+                            .padding(.horizontal, 12).padding().background(C.card2, in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                     Button { timer.clear() } label: {
                         Txt(LS("Skip", "Passer"), weight: 600, size: 15, color: C.accText)
                             .padding(.horizontal, 18).padding(.vertical, 11)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(accentColor(repo.settings.accent)))
+                            .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                 }
                 .padding(10)
             }
-            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(C.card))
+            .background(C.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
     }

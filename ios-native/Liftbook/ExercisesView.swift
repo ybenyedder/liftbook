@@ -38,7 +38,7 @@ struct ExercisesView: View {
             }
             .padding(.horizontal, 12)
             .frame(height: 52)
-            .background(RoundedRectangle(cornerRadius: 12).fill(C.card))
+            .background(C.card, in: RoundedRectangle(cornerRadius: 12))
             .padding(.horizontal, 16)
             .padding(.vertical, 2)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -134,7 +134,7 @@ struct ExerciseDetailView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Capsule().fill(C.accent))
+                    .background(C.accent, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)
@@ -192,7 +192,7 @@ struct ExerciseDetailView: View {
                         Button { period = i } label: {
                             Txt(labels[i], weight: 600, size: 12.5, color: period == i ? accentColor(repo.settings.accent) : C.mut)
                                 .padding(.horizontal, 14).padding(.vertical, 7)
-                                .background(Capsule().fill(period == i ? C.card2 : C.card))
+                                .background(period == i ? C.card2 : C.card, in: Capsule())
                                 .overlay(Capsule().strokeBorder(period == i ? accentColor(repo.settings.accent) : C.line, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
@@ -335,7 +335,7 @@ struct ExerciseDetailView: View {
                             .font(.system(size: 14))
                             .foregroundColor(C.text)
                             .frame(width: 38, height: 38)
-                            .background(Circle().fill(C.card2))
+                            .background(C.card2, in: Circle())
                     }
                     .buttonStyle(.plain)
                     .padding(10)
@@ -365,7 +365,7 @@ struct ExerciseDetailView: View {
                             HStack(alignment: .top, spacing: 10) {
                                 Txt("\(si + 1)", weight: 700, size: 12, color: C.accText)
                                     .frame(width: 22, height: 22)
-                                    .background(Circle().fill(accentColor(repo.settings.accent)))
+                                    .background(accentColor(repo.settings.accent), in: Circle())
                                 Txt(step, size: 14)
                                     .lineSpacing(6)
                             }
