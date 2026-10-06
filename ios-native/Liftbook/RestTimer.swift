@@ -197,7 +197,7 @@ final class RestTimerModel: ObservableObject {
 }
 
 @MainActor
-final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+final class NotificationDelegate: NSObject, @preconcurrency UNUserNotificationCenterDelegate {
     static let shared = NotificationDelegate()
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
