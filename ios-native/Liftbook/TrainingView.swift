@@ -61,7 +61,7 @@ struct TrainingView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .confirmationDialog("", isPresented: $viewMenu, titleVisibility: .invisible) {
+                    .confirmationDialog("", isPresented: $viewMenu, titleVisibility: .hidden) {
                         Button(LS("Training", "Entraînement")) { view = 0 }
                         Button(LS("Calendar", "Calendrier")) { view = 1 }
                     }
@@ -317,7 +317,7 @@ extension Calendar {
         let count = range(of: .day, in: .month, for: first)?.count ?? 30
         var out: [Date?] = Array(repeating: nil, count: lead)
         for d in 0..<count {
-            out.append(byAdding: .day, value: d, to: first)
+            out.append(self.date(byAdding: .day, value: d, to: first))
         }
         return out
     }

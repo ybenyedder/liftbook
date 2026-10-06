@@ -4,6 +4,20 @@ import LiftbookCore
 
 /** Post-workout recap — port of WorkoutSummary.kt. */
 struct WorkoutSummaryView: View {
+    static func computeStats(_ d: Draft) -> (Double, Int, Int) {
+        var vol = 0.0
+        var repsCount = 0
+        var setCount = 0
+        for ex in d.exercises {
+            for s in ex.sets where s.done && s.kg != nil && s.reps != nil {
+                vol += s.kg! * Double(s.reps!)
+                repsCount += s.reps!
+                setCount += 1
+            }
+        }
+        return (vol, repsCount, setCount)
+    }
+
     @EnvironmentObject var repo: Repo
     @EnvironmentObject var nav: Nav
     @State private var name = ""
@@ -21,16 +35,10 @@ struct WorkoutSummaryView: View {
 
     func content(d: Draft) -> some View {
         let unit = repo.settings.unit
-        var vol = 0.0
-        var repsCount = 0
-        var setCount = 0
-        for ex in d.exercises {
-            for s in ex.sets where s.done && s.kg != nil && s.reps != nil {
-                vol += s.kg! * Double(s.reps!)
-                repsCount += s.reps!
-                setCount += 1
-            }
-        }
+        let stats = WorkoutSummaryView.computeStats(d)
+        let vol = stats.0
+        let repsCount = stats.1
+        let setCount = stats.2
         // records are evaluated against history strictly before this session
         var prs: [PrRec] = []
         for ex in d.exercises {
