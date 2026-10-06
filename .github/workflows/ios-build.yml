@@ -1,0 +1,65 @@
+name: ios-native-build
+
+on:
+  push:
+    paths:
+      - "ios-native/**"
+      - ".github/workflows/ios-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Choisir le Xcode le plus récent
+        run: |
+          ls /Applications/ | grep -i xcode || true
+          XC=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Xcode sélectionné : $XC"
+          sudo xcode-select -s "$XC" || true
+          xcodebuild -version
+
+      - name: Simulateurs disponibles
+        run: xcrun simctl list devices available | head -25
+
+      - name: Build (simulateur, sans signature)
+        run: |
+          set -o pipefail
+          cd ios-native
+          xcodebuild -project Liftbook.xcodeproj -scheme Liftbook \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGN_IDENTITY="" CODE_SIGN_ENTITLEMENTS="" \
+            build 2>&1 | tee ../build.log
+
+      - name: Installer, lancer, capturer
+        if: success()
+        run: |
+          cd ios-native
+          UDID=$(xcrun simctl list devices available | grep -E "iPhone .* \(" | head -1 | sed -E 's/.*\(([A-F0-9-]{36})\).*/\1/')
+          echo "Simulateur : $UDID"
+          xcrun simctl boot "$UDID" 2>/dev/null || true
+          xcrun simctl bootstatus "$UDID" -b
+          APP=$(find build/DerivedData/Build/Products -name "Liftbook.app" -path "*iphonesimulator*" | head -1)
+          echo "App : $APP"
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl launch "$UDID" net.webtvmedia.liftbook
+          sleep 10
+          xcrun simctl io "$UDID" screenshot ../app-ecran-1-auth.png
+          xcrun simctl launch "$UDID" net.webtvmedia.liftbook 2>/dev/null || true
+
+      - name: Artifacts (toujours)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-artifacts
+          path: |
+            build.log
+            app-ecran-1-auth.png
+          if-no-files-found: warn
