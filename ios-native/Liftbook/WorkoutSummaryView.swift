@@ -238,11 +238,11 @@ struct WorkoutSummaryView: View {
                 repo.updateRoutineFromDraft()
                 doFinish()
             },
-            onDismissPress: {
+            onDismiss: {
                 showSaveRoutine = false
                 doFinish()
             },
-            onDismiss: {
+            onDismissPress: {
                 showSaveRoutine = false
                 doFinish()
             }
