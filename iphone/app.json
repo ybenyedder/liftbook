@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "Liftbook",
+    "slug": "liftbook",
+    "scheme": "liftbook",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#000000",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "net.webtvmedia.liftbook",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Choisir une photo de profil."
+      }
+    },
+    "android": {
+      "package": "net.webtvmedia.liftbook",
+      "adaptiveIcon": {
+        "backgroundColor": "#000000",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-web-browser",
+      "expo-localization",
+      "expo-secure-store",
+      "expo-sharing",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "color": "#000000"
+        }
+      ]
+    ]
+  }
+}
