@@ -46,6 +46,14 @@ final class RestTimerModel: ObservableObject {
         (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])) ?? false
     }
 
+    /// Permission is asked lazily, at the first rest-timer use (Hevy behavior) — not at launch.
+    static func ensurePermission() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        if settings.authorizationStatus == .notDetermined {
+            _ = await requestPermission()
+        }
+    }
+
     static func registerCategory() async {
         let minus = UNNotificationAction(identifier: "minus15", title: "−15s", options: [])
         let plus = UNNotificationAction(identifier: "plus15", title: "+15s", options: [])
@@ -62,7 +70,10 @@ final class RestTimerModel: ObservableObject {
         d.set(endAt, forKey: "rest_endAt")
         d.set(totalMs, forKey: "rest_totalMs")
         postOngoing()
-        scheduleEnd()
+        Task {
+            await Self.ensurePermission()
+            scheduleEnd()
+        }
         startTicker()
     }
 

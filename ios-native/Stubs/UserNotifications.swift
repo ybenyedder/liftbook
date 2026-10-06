@@ -3,6 +3,7 @@ import Foundation
 public final class UNUserNotificationCenter {
     public static func current() -> UNUserNotificationCenter { UNUserNotificationCenter() }
     public func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool { true }
+    public func notificationSettings() async -> UNNotificationSettings { UNNotificationSettings() }
     public func setNotificationCategories(_ categories: Set<UNNotificationCategory>) async {}
     public func add(_ request: UNNotificationRequest) {}
     public func removeDeliveredNotifications(withIdentifiers ids: [String]) {}
@@ -16,6 +17,12 @@ public struct UNAuthorizationOptions: OptionSet {
     public static let sound = UNAuthorizationOptions(rawValue: 2)
     public static let badge = UNAuthorizationOptions(rawValue: 1)
 
+}
+public struct UNNotificationSettings: Sendable {
+    public var authorizationStatus: UNAuthorizationStatus { .authorized }
+}
+public enum UNAuthorizationStatus: Sendable {
+    case notDetermined, denied, authorized, provisional, ephemeral
 }
 public final class UNNotificationAction {
     public var _x: Int = 0

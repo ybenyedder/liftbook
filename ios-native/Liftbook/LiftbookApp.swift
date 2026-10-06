@@ -8,7 +8,6 @@ struct LiftbookApp: App {
 
     init() {
         RestTimerModel.wireActions()
-        Task { _ = await RestTimerModel.requestPermission() }
     }
 
     var body: some Scene {
