@@ -73,8 +73,8 @@ struct HistoryView: View {
                         Button { filter = i } label: {
                             Txt(labels[i], weight: 600, size: 12, color: filter == i ? C.accText : C.mut)
                                 .padding(.horizontal, 12).padding(.vertical, 6)
-                                .background(filter == i ? accentColor(repo.settings.accent) : C.card, in: Capsule())
-                                .overlay(Capsule().strokeBorder(filter == i ? accentColor(repo.settings.accent) : C.line, lineWidth: 1))
+                                .background(filter == i ? accentCol(repo.settings.accent) : C.card, in: Capsule())
+                                .overlay(Capsule().strokeBorder(filter == i ? accentCol(repo.settings.accent) : C.line, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                     }
@@ -151,10 +151,10 @@ struct HistoryView: View {
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 38)
                                     .background(has ? C.card2 : Color.clear, in: RoundedRectangle(cornerRadius: 10))
-                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isToday ? accentColor(repo.settings.accent) : Color.clear, lineWidth: 1.5))
+                                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(isToday ? accentCol(repo.settings.accent) : Color.clear, lineWidth: 1.5))
                                     .overlay(alignment: .bottom) {
                                         if has {
-                                            Circle().fill(accentColor(repo.settings.accent)).frame(width: 5, height: 5).padding(.bottom, 3)
+                                            Circle().fill(accentCol(repo.settings.accent)).frame(width: 5, height: 5).padding(.bottom, 3)
                                         }
                                     }
                             }
@@ -276,7 +276,7 @@ struct WorkoutDetailView: View {
                 if !w.prs.isEmpty {
                     AppCard {
                         HStack(alignment: .top, spacing: 10) {
-                            Image(systemName: "trophy.fill").font(.system(size: 15)).foregroundColor(accentColor(repo.settings.accent))
+                            Image(systemName: "trophy.fill").font(.system(size: 15)).foregroundColor(accentCol(repo.settings.accent))
                             VStack(spacing: 3) {
                                 ForEach(Array(w.prs.enumerated()), id: \.offset) { _, p in
                                     HStack {
@@ -375,7 +375,7 @@ struct WorkoutDetailView: View {
                             if s.prW || s.prE {
                                 Txt(s.prW ? "WEIGHT PR" : "1RM PR", weight: 800, size: 9, color: C.accText)
                                     .padding(.horizontal, 6).padding(.vertical, 3)
-                                    .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 5))
+                                    .background(accentCol(repo.settings.accent), in: RoundedRectangle(cornerRadius: 5))
                             }
                         }
                         .frame(width: 56, alignment: .leading)

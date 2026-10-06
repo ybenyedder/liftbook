@@ -160,7 +160,7 @@ struct ExerciseDetailView: View {
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Rectangle().fill(C.line).frame(height: 0.5)
-                    Rectangle().fill(accentColor(repo.settings.accent))
+                    Rectangle().fill(accentCol(repo.settings.accent))
                         .frame(width: g.size.width / 3, height: 2)
                         .offset(x: g.size.width / 3 * CGFloat(tab))
                 }
@@ -190,10 +190,10 @@ struct ExerciseDetailView: View {
                     ForEach(0..<4, id: \.self) { i in
                         let labels = [LS("3m", "3m"), LS("6m", "6m"), LS("1y", "1a"), LS("All", "Tout")]
                         Button { period = i } label: {
-                            Txt(labels[i], weight: 600, size: 12.5, color: period == i ? accentColor(repo.settings.accent) : C.mut)
+                            Txt(labels[i], weight: 600, size: 12.5, color: period == i ? accentCol(repo.settings.accent) : C.mut)
                                 .padding(.horizontal, 14).padding(.vertical, 7)
                                 .background(period == i ? C.card2 : C.card, in: Capsule())
-                                .overlay(Capsule().strokeBorder(period == i ? accentColor(repo.settings.accent) : C.line, lineWidth: 1))
+                                .overlay(Capsule().strokeBorder(period == i ? accentCol(repo.settings.accent) : C.line, lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                     }
@@ -222,7 +222,7 @@ struct ExerciseDetailView: View {
         return AppCard {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 7) {
-                    Image(systemName: "trophy.fill").font(.system(size: 13)).foregroundColor(accentColor(repo.settings.accent))
+                    Image(systemName: "trophy.fill").font(.system(size: 13)).foregroundColor(accentCol(repo.settings.accent))
                     Txt(LS("Records", "Records"), weight: 700, size: 14)
                 }
                 HStack(spacing: 14) {
@@ -247,14 +247,14 @@ struct ExerciseDetailView: View {
                 }
                 if sessions.count >= 2 {
                     Txt("\(LS("Last session vs best", "Dernière séance vs record")) : \(delta >= 0 ? "+" : "")\(Calc.fmtKg(delta, unit)) kg (\(pct)%)",
-                        weight: 600, size: 12, color: delta < 0 ? C.red : accentColor(repo.settings.accent))
+                        weight: 600, size: 12, color: delta < 0 ? C.red : accentCol(repo.settings.accent))
                 }
             }
         }
     }
 
     func chartCard(title: String, value: String, points: [(Int, Double)], fmt: @escaping (Double) -> String) -> some View {
-        let accent = accentColor(repo.settings.accent)
+        let accent = accentCol(repo.settings.accent)
         return AppCard {
             VStack(alignment: .leading, spacing: 6) {
                 Txt(title, weight: 500, size: 13, color: C.mut)
@@ -365,7 +365,7 @@ struct ExerciseDetailView: View {
                             HStack(alignment: .top, spacing: 10) {
                                 Txt("\(si + 1)", weight: 700, size: 12, color: C.accText)
                                     .frame(width: 22, height: 22)
-                                    .background(accentColor(repo.settings.accent), in: Circle())
+                                    .background(accentCol(repo.settings.accent), in: Circle())
                                 Txt(step, size: 14)
                                     .lineSpacing(6)
                             }
@@ -381,7 +381,7 @@ struct ExerciseDetailView: View {
                             .padding(.bottom, 4)
                         ForEach(cueList, id: \.self) { cue in
                             HStack(alignment: .top, spacing: 0) {
-                                Txt("•", weight: 700, size: 14, color: accentColor(repo.settings.accent))
+                                Txt("•", weight: 700, size: 14, color: accentCol(repo.settings.accent))
                                     .frame(width: 14, alignment: .leading)
                                 Txt(cue, size: 14)
                                     .lineSpacing(6)

@@ -22,7 +22,7 @@ enum C {
     static let greenBg = Color(hex: 0x1F3B2C)
 }
 
-func accentColor(_ name: String) -> Color {
+func accentCol(_ name: String) -> Color {
     switch name {
     case "teal": return Color(hex: 0x20B49A)
     case "violet": return Color(hex: 0x7C5CFF)

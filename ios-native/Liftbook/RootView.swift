@@ -136,7 +136,7 @@ struct RootView: View {
                 Image(systemName: icon).font(.system(size: 21))
                 Text(label).font(.inter(500, 11))
             }
-            .foregroundColor(nav.tab == idx ? accentColor(repo.settings.accent) : C.mut)
+            .foregroundColor(nav.tab == idx ? accentCol(repo.settings.accent) : C.mut)
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
@@ -154,7 +154,7 @@ struct RootView: View {
                         repo.restoreWorkout(victim)
                         nav.deletedUndo = nil
                     } label: {
-                        Txt(LS("UNDO", "ANNULER"), weight: 700, size: 14, color: accentColor(repo.settings.accent))
+                        Txt(LS("UNDO", "ANNULER"), weight: 700, size: 14, color: accentCol(repo.settings.accent))
                     }
                     .buttonStyle(.plain)
                 }

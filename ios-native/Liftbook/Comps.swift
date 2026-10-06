@@ -52,8 +52,8 @@ struct Chip: View {
                 .foregroundColor(selected ? C.accText : C.mut)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 7)
-                .background(selected ? accentColor(repo.settings.accent) : C.card, in: Capsule())
-                .overlay(Capsule().strokeBorder(selected ? accentColor(repo.settings.accent) : C.line, lineWidth: 1))
+                .background(selected ? accentCol(repo.settings.accent) : C.card, in: Capsule())
+                .overlay(Capsule().strokeBorder(selected ? accentCol(repo.settings.accent) : C.line, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -70,7 +70,7 @@ struct PrimaryButton: View {
                 .foregroundColor(C.accText)
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(accentColor(repo.settings.accent), in: Capsule())
+                .background(accentCol(repo.settings.accent), in: Capsule())
         }
         .buttonStyle(.plain)
     }
@@ -100,7 +100,7 @@ struct AvatarView: View {
                 Image(uiImage: img).resizable().scaledToFill()
             } else {
                 ZStack {
-                    Circle().fill(accentColor(repo.settings.accent))
+                    Circle().fill(accentCol(repo.settings.accent))
                     Text(letter)
                         .font(.inter(800, size * 0.42))
                         .foregroundColor(C.accText)
@@ -288,7 +288,7 @@ struct RestBar: View {
                 GeometryReader { g in
                     ZStack(alignment: .leading) {
                         Rectangle().fill(C.line)
-                        Rectangle().fill(accentColor(repo.settings.accent)).frame(width: g.size.width * fraction)
+                        Rectangle().fill(accentCol(repo.settings.accent)).frame(width: g.size.width * fraction)
                     }
                 }
                 .frame(height: 4)
@@ -313,7 +313,7 @@ struct RestBar: View {
                     Button { timer.clear() } label: {
                         Txt(LS("Skip", "Passer"), weight: 600, size: 15, color: C.accText)
                             .padding(.horizontal, 18).padding(.vertical, 11)
-                            .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 10))
+                            .background(accentCol(repo.settings.accent), in: RoundedRectangle(cornerRadius: 10))
                     }
                     .buttonStyle(.plain)
                 }

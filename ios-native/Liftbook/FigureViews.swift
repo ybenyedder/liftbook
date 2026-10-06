@@ -76,7 +76,7 @@ struct BodyMap: View {
     @EnvironmentObject var repo: Repo
 
     var body: some View {
-        let accent = accentColor(repo.settings.accent)
+        let accent = accentCol(repo.settings.accent)
         let body = Color(hex: 0x4A4F56)
         return Canvas { ctx, sz in
             let w = sz.width

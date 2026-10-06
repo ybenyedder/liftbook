@@ -202,7 +202,7 @@ struct LoggerView: View {
                 } label: {
                     Txt(LS("Finish", "Terminer"), weight: 600, size: 15, color: C.accText)
                         .padding(.horizontal, 18).padding(.vertical, 10)
-                        .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
+                        .background(accentCol(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
             }
@@ -243,7 +243,7 @@ struct LoggerView: View {
                 Button {
                     if hasData() { showDiscard = true } else { discardDraftSilent() }
                 } label: {
-                    Txt(LS("Cancel", "Annuler"), weight: 600, size: 15, color: accentColor(repo.settings.accent))
+                    Txt(LS("Cancel", "Annuler"), weight: 600, size: 15, color: accentCol(repo.settings.accent))
                         .padding(.horizontal, 6).padding(.vertical, 10)
                 }
                 .buttonStyle(.plain)
@@ -253,7 +253,7 @@ struct LoggerView: View {
                 Button(action: trySaveRoutine) {
                     Txt(LS("Save", "Enregistrer"), weight: 600, size: 15, color: C.accText)
                         .padding(.horizontal, 16).padding(.vertical, 10)
-                        .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
+                        .background(accentCol(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
                 }
                 .buttonStyle(.plain)
                 Menu {
@@ -330,7 +330,7 @@ struct LoggerView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
+                .background(accentCol(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
             .listRowBackground(C.bg)
@@ -358,7 +358,7 @@ struct LiveStat: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Txt(label, weight: 500, size: 13, color: C.mut)
-            Txt(value, weight: 800, size: 21, color: accent ? accentColor(repo.settings.accent) : C.text)
+            Txt(value, weight: 800, size: 21, color: accent ? accentCol(repo.settings.accent) : C.text)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
         }
@@ -384,11 +384,11 @@ struct ExSection: View {
             // title row
             HStack(spacing: 10) {
                 if ex.superset {
-                    RoundedRectangle(cornerRadius: 2).fill(accentColor(repo.settings.accent)).frame(width: 3, height: 34)
+                    RoundedRectangle(cornerRadius: 2).fill(accentCol(repo.settings.accent)).frame(width: 3, height: 34)
                 }
                 ExCircle(muscle: ex.muscle, size: 46)
                 Button { nav.push(.exerciseDetail(ex.name)) } label: {
-                    Txt(exName(ex.name), weight: 700, size: 17, color: accentColor(repo.settings.accent))
+                    Txt(exName(ex.name), weight: 700, size: 17, color: accentCol(repo.settings.accent))
                         .multilineTextAlignment(.leading)
                         .lineLimit(2)
                 }
@@ -432,9 +432,9 @@ struct ExSection: View {
             // blue rest line
             Button { showRest = true } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: "timer").font(.system(size: 13)).foregroundColor(accentColor(repo.settings.accent))
+                    Image(systemName: "timer").font(.system(size: 13)).foregroundColor(accentCol(repo.settings.accent))
                     Txt("\(LS("Rest", "Repos")): \(fmtRestLabel(ex.restSec ?? repo.settings.restSec))",
-                        weight: 500, size: 15, color: accentColor(repo.settings.accent))
+                        weight: 500, size: 15, color: accentCol(repo.settings.accent))
                 }
             }
             .buttonStyle(.plain)
@@ -725,7 +725,7 @@ struct RestSheet: View {
         VStack(spacing: 8) {
             Txt(LS("Rest Timer", "Minuteur de Repos"), weight: 800, size: 17)
                 .padding(.top, 12)
-            Txt("\(LS("Rest", "Repos")): \(fmtRestLabel(initialSec.clamped(15, 600)))", weight: 800, size: 26, color: accentColor(repo.settings.accent))
+            Txt("\(LS("Rest", "Repos")): \(fmtRestLabel(initialSec.clamped(15, 600)))", weight: 800, size: 26, color: accentCol(repo.settings.accent))
             Picker("", selection: Binding(get: { initialSec }, set: { onDone($0) })) {
                 ForEach(Self.values, id: \.self) { v in
                     Text(fmtRestLabel(v)).tag(v)
@@ -746,7 +746,7 @@ struct RestSheet: View {
                     Txt(LS("Done", "Terminé"), weight: 700, size: 15, color: C.accText)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
-                        .background(accentColor(repo.settings.accent), in: Capsule())
+                        .background(accentCol(repo.settings.accent), in: Capsule())
                 }
                 .buttonStyle(.plain)
             }
@@ -782,7 +782,7 @@ struct ExercisePicker: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                 Button("OK") { dismiss() }
                     .font(.inter(700, 14))
-                    .foregroundColor(accentColor(repo.settings.accent))
+                    .foregroundColor(accentCol(repo.settings.accent))
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -822,7 +822,7 @@ struct ExercisePicker: View {
                                     Txt("\(muscleName(e.muscle)) · \(equipName(e.equip))", size: 12.5, color: C.mut)
                                 }
                                 Spacer()
-                                Circle().fill(accentColor(repo.settings.accent)).frame(width: 30, height: 30)
+                                Circle().fill(accentCol(repo.settings.accent)).frame(width: 30, height: 30)
                                     .overlay(Image(systemName: "plus").font(.system(size: 14)).foregroundColor(C.accText))
                             }
                             .padding(.horizontal, 20)

@@ -202,7 +202,7 @@ struct RoutineCard: View {
                 Txt(LS("Start routine", "Commencer la Routine"), weight: 600, size: 15, color: C.accText)
                     .frame(maxWidth: .infinity)
                     .frame(height: 46)
-                    .background(accentColor(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
+                    .background(accentCol(repo.settings.accent), in: RoundedRectangle(cornerRadius: 12))
             }
             .buttonStyle(.plain)
         }
@@ -343,7 +343,7 @@ struct DayCell: View {
                 weight: has || isToday ? 700 : 400, size: 14.5,
                 color: has ? C.accText : C.text)
                 .frame(width: 40, height: 40)
-                .background(has ? accentColor(repo.settings.accent) : Color.clear, in: Circle())
+                .background(has ? accentCol(repo.settings.accent) : Color.clear, in: Circle())
                 .overlay(Circle().strokeBorder(isToday && !has ? C.mut : Color.clear, lineWidth: 1.5))
         }
         .buttonStyle(.plain)
@@ -450,7 +450,7 @@ struct RoutineDetailView: View {
                             nav.push(.logger)
                         }
                     } label: {
-                        Txt(LS("Edit Routine", "Modifier la Routine"), weight: 600, size: 15, color: accentColor(repo.settings.accent))
+                        Txt(LS("Edit Routine", "Modifier la Routine"), weight: 600, size: 15, color: accentCol(repo.settings.accent))
                     }
                     .buttonStyle(.plain)
                 }
@@ -506,7 +506,7 @@ struct RoutineDetailView: View {
 
     @ViewBuilder
     func chartBlock(r: Routine, sessions: [Workout]) -> some View {
-        let accent = accentColor(repo.settings.accent)
+        let accent = accentCol(repo.settings.accent)
         let totalReps = r.exercises.reduce(0) { $0 + $1.sets.reduce(0) { $0 + ($1.reps ?? 0) } }
         let totalLabel: String = metric == 0 ? "\(Calc.fmtVol(volTargetFor(r), repo.settings.unit)) kg" : metric == 1 ? "\(totalReps) réps" : "—"
         let series: [(String, Double)] = sessions.suffix(10).map { w in
@@ -564,7 +564,7 @@ struct RoutineDetailView: View {
                 Circle().fill(C.card2).frame(width: 42, height: 42)
                     .overlay(IllIcon(muscle: ex.muscle, size: 30))
                 Button { nav.push(.exerciseDetail(ex.name)) } label: {
-                    Txt(exName(ex.name), weight: 600, size: 18, color: accentColor(repo.settings.accent))
+                    Txt(exName(ex.name), weight: 600, size: 18, color: accentCol(repo.settings.accent))
                         .lineLimit(1)
                 }
                 .buttonStyle(.plain)
@@ -572,9 +572,9 @@ struct RoutineDetailView: View {
             }
             .padding(.horizontal, 16)
             HStack(spacing: 8) {
-                Image(systemName: "timer").font(.system(size: 14)).foregroundColor(accentColor(repo.settings.accent))
+                Image(systemName: "timer").font(.system(size: 14)).foregroundColor(accentCol(repo.settings.accent))
                 Txt("\(LS("Rest Timer", "Minuteur de Repos")): \(m > 0 ? "\(m)min " : "")\(s)s",
-                    weight: 500, size: 14.5, color: accentColor(repo.settings.accent))
+                    weight: 500, size: 14.5, color: accentCol(repo.settings.accent))
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)

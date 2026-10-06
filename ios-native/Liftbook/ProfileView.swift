@@ -56,8 +56,8 @@ struct ProfileView: View {
                         heatYear = heatYear > y - 5 ? heatYear - 1 : y
                     } label: {
                         HStack(spacing: 3) {
-                            Txt("\(heatYear)", weight: 600, size: 14, color: accentColor(repo.settings.accent))
-                            Txt("˅", weight: 600, size: 12, color: accentColor(repo.settings.accent))
+                            Txt("\(heatYear)", weight: 600, size: 14, color: accentCol(repo.settings.accent))
+                            Txt("˅", weight: 600, size: 12, color: accentCol(repo.settings.accent))
                         }
                     }
                     .buttonStyle(.plain)
@@ -65,7 +65,7 @@ struct ProfileView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
                 .padding(.bottom, 8)
-                HeatmapYear(dayVolumes: dayVolumes, year: heatYear, accent: accentColor(repo.settings.accent))
+                HeatmapYear(dayVolumes: dayVolumes, year: heatYear, accent: accentCol(repo.settings.accent))
                 Txt("\(Calc.fmtVol(Calc.totalVol(repo.workouts), unit)) kg · \(repo.workouts.reduce(0) { $0 + Calc.setsDone($1) }) \(LS("series", "séries")) · \(repo.workouts.reduce(0) { $0 + Calc.reps($1) }) \(LS("reps", "réps"))",
                     size: 13, color: C.mut)
                     .padding(.horizontal, 16)
@@ -90,7 +90,7 @@ struct ProfileView: View {
                 AppCard {
                     Button { nav.push(.history) } label: {
                         HStack(spacing: 12) {
-                            Image(systemName: "calendar").font(.system(size: 17)).foregroundColor(accentColor(repo.settings.accent))
+                            Image(systemName: "calendar").font(.system(size: 17)).foregroundColor(accentCol(repo.settings.accent))
                             Txt(LS("Workout history", "Historique des séances"), weight: 500, size: 15)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(C.mut)
@@ -119,7 +119,7 @@ struct ProfileView: View {
                                 GeometryReader { g in
                                     ZStack(alignment: .leading) {
                                         Capsule().fill(C.card2)
-                                        Capsule().fill(accentColor(repo.settings.accent))
+                                        Capsule().fill(accentCol(repo.settings.accent))
                                             .frame(width: g.size.width * CGFloat(min(1, max(0.02, v / maxVol))))
                                     }
                                 }
@@ -168,7 +168,7 @@ struct ProfileView: View {
                         VStack {
                             Spacer()
                             RoundedRectangle(cornerRadius: 6)
-                                .fill(accentColor(repo.settings.accent))
+                                .fill(accentCol(repo.settings.accent))
                                 .frame(height: g.size.height * CGFloat(min(1, mv.1 / maxV)) * 0.92)
                         }
                     }
