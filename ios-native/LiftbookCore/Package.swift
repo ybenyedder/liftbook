@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "LiftbookCore",
+    platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
         .library(name: "LiftbookCore", targets: ["LiftbookCore"]),
     ],
