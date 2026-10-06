@@ -62,7 +62,7 @@ public protocol UNNotificationTrigger {}
 public final class UNTimeIntervalNotificationTrigger: UNNotificationTrigger {
     public init(timeInterval: TimeInterval, repeats: Bool) {}
 }
-public protocol UNUserNotificationCenterDelegate: AnyObject {
+@MainActor public protocol UNUserNotificationCenterDelegate: AnyObject {
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async
 }

@@ -191,11 +191,12 @@ final class RestTimerModel: ObservableObject {
     }
 
     /// Wire the notification action buttons once at app start.
-    static func wireActions() {
+    @MainActor static func wireActions() {
         UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
     }
 }
 
+@MainActor
 final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationDelegate()
 
