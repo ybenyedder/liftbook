@@ -11,3 +11,7 @@ captures/
 *.keystore
 ios-native/LiftbookCore/.build/
 ios-native/*.tar.gz
+ios-native/Stubs/build/
+ios-native/LiftbookCore/.build/
+ios-native/Stubs/build/
+ios-native/LiftbookCore/.build/

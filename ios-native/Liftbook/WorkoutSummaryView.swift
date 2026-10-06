@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 import LiftbookCore
 
 /** Post-workout recap — port of WorkoutSummary.kt. */

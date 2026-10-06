@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 import LiftbookCore
 
 /** Séance screen — port of Logger.kt (workout logger + routine editor, PR badge, rest bar, picker). */

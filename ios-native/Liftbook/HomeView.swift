@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 import LiftbookCore
 
 /** Home feed — port of Home.kt. */
@@ -29,7 +30,7 @@ struct HomeView: View {
                                          "Aucune séance pour le moment.\nVa dans Entraînement pour démarrer !"))
                 } else {
                     ForEach(posts) { w in
-                        FeedPost(workout: w)
+                        FeedPost(w: w)
                         Rectangle().fill(C.bg).frame(height: 8)
                     }
                 }

@@ -1,4 +1,6 @@
 import SwiftUI
+import Foundation
+import UIKit
 import LiftbookCore
 
 /** History list with filters + calendar — port of History.kt. */

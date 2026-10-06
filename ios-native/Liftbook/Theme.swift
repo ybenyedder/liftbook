@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 /** Palette sampled from the user's Hevy screenshots (dark, blue accent) — port of Theme.kt. */
 enum C {

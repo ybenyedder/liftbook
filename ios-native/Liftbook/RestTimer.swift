@@ -1,4 +1,6 @@
 import SwiftUI
+import Foundation
+import Foundation
 import UserNotifications
 import LiftbookCore
 
@@ -137,7 +139,7 @@ final class RestTimerModel: ObservableObject {
         let sec = Int(ceil(remain / 1000))
         let content = UNMutableNotificationContent()
         content.title = L10n.s("Rest", "Repos") + String(format: " %02d:%02d", sec / 60, sec % 60)
-        if let n = exName { content.body = exName }
+        if let n = exName { content.body = n }
         content.sound = nil
         content.categoryIdentifier = Self.category
         let req = UNNotificationRequest(identifier: Self.restId, content: content, trigger: nil)

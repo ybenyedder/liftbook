@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 
 /** Minimal SVG path-data parser (M L H V C S Q A Z, absolute/relative) → SwiftUI Path.
  *  Same command coverage as the Android app's pathNodesOf — the muscle figures render natively. */

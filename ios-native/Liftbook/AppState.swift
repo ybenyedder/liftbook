@@ -1,4 +1,9 @@
 import SwiftUI
+import Foundation
+import Foundation
+#if canImport(FoundationNetworking)
+import FoundationNetworking
+#endif
 import LiftbookCore
 import Security
 
@@ -166,7 +171,7 @@ final class Repo: ObservableObject {
             queueSave(); touch(); markDirty()
             return existing
         }
-        var r = Routine(id: nextRoutineId(), name: name, exercises: d.exercises, pos: nextPos())
+        let r = Routine(id: nextRoutineId(), name: name, exercises: d.exercises, pos: nextPos())
         routines.append(r)
         draft = nil
         queueSave(); touch(); markDirty()
@@ -544,7 +549,7 @@ final class Repo: ObservableObject {
     }
 
     func signOut() {
-        if let s = session { Task.detached { try? await self.client.logout(s) } }
+        if let s = session { Task.detached { await self.client.logout(s) } }
         Keychain.deleteSession()
         session = nil
         skipped = false
@@ -625,14 +630,14 @@ enum Keychain {
             kSecAttrService as String: service,
             kSecAttrAccount as String: s.email,
         ]
-        SecItemDelete(query as CFDictionary)
+        _ = SecItemDelete(query as CFDictionary)
         var add = query
         add[kSecValueData as String] = data
-        SecItemAdd(add as CFDictionary, nil)
+        _ = SecItemAdd(add as CFDictionary, nil)
     }
 
     static func loadSession() -> CloudSession? {
-        var query: [String: Any] = [
+        let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecReturnAttributes as String: true,
@@ -651,6 +656,6 @@ enum Keychain {
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
         ]
-        SecItemDelete(query as CFDictionary)
+        _ = SecItemDelete(query as CFDictionary)
     }
 }

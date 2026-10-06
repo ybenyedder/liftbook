@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 import LiftbookCore
 
 /** Muscle pictograms (extracted 1:1 from the Android drawables) rendered as native SwiftUI Paths. */
@@ -12,13 +13,13 @@ struct FigureView: View {
         let entry = Figures.map[muscle] ?? Figures.map["Chest"]!
         let fig = dark ? entry.dark : entry.light
         let h = size * fig.vh / fig.vw
-        Canvas { ctx, sz in
+        return Canvas { ctx, sz in
             let sx = sz.width / CGFloat(fig.vw)
             let sy = sz.height / CGFloat(fig.vh)
             for (fill, d) in fig.paths {
                 let path = SVGPath.path(from: d)
                 let scaled = path.applying(CGAffineTransform(scaleX: sx, y: sy))
-                ctx.fill(Path(scaled), with: .color(Color(hexString: fill)))
+                ctx.fill(scaled, with: .color(Color(hexString: fill)))
             }
         }
         .frame(width: size, height: h)
@@ -77,7 +78,7 @@ struct BodyMap: View {
     var body: some View {
         let accent = accentColor(repo.settings.accent)
         let body = Color(hex: 0x4A4F56)
-        Canvas { ctx, sz in
+        return Canvas { ctx, sz in
             let w = sz.width
             let h = sz.height
             func limb(_ x1: CGFloat, _ y1: CGFloat, _ x2: CGFloat, _ y2: CGFloat, _ t: CGFloat) {

@@ -1,4 +1,6 @@
 import SwiftUI
+import Foundation
+import Foundation
 import UIKit
 import AuthenticationServices
 import LiftbookCore
@@ -34,88 +36,94 @@ struct AuthView: View {
                 Txt(LS("Your workouts and routines, synced on all your devices.",
                        "Tes séances et tes routines, synchronisées sur tous tes appareils."), size: 14, color: C.mut)
                     .lineSpacing(5)
-                Spacer().frame(height: 26)
-                VStack(spacing: 12) {
-                    field(text: $email, placeholder: LS("Email", "Email"), keyboard: .emailAddress, next: true)
-                    HStack(spacing: 6) {
-                        field(text: $pw, placeholder: LS("Password", "Mot de passe"), keyboard: .default, next: false, secure: !showPw)
-                        Button { showPw.toggle() } label: {
-                            Image(systemName: showPw ? "eye.slash" : "eye")
-                                .font(.system(size: 17))
-                                .foregroundColor(C.mut)
-                                .padding(8)
+                Group {
+                    Spacer().frame(height: 26)
+                    VStack(spacing: 12) {
+                        field(text: $email, placeholder: LS("Email", "Email"), keyboard: .emailAddress, next: true)
+                        HStack(spacing: 6) {
+                            field(text: $pw, placeholder: LS("Password", "Mot de passe"), keyboard: .default, next: false, secure: !showPw)
+                            Button { showPw.toggle() } label: {
+                                Image(systemName: showPw ? "eye.slash" : "eye")
+                                    .font(.system(size: 17))
+                                    .foregroundColor(C.mut)
+                                    .padding(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    if let err = repo.authError {
+                        Txt(err, size: 13.5, color: C.red).padding(.top, 10)
+                    }
+                    Spacer().frame(height: 20)
+                    Button(action: submit) {
+                        Group {
+                            if repo.busy {
+                                ProgressView().tint(C.mut).frame(height: 52)
+                            } else {
+                                Txt(mode == 0 ? LS("Sign in", "Se connecter") : LS("Create account", "Créer un compte"),
+                                    weight: 700, size: 16, color: canSubmit ? C.accText : C.mut)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 52)
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(canSubmit ? C.accent : C.card))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!canSubmit)
+                }
+                Group {
+                    Spacer().frame(height: 18)
+                    HStack(spacing: 14) {
+                        Rectangle().fill(C.line).frame(height: 1)
+                        Txt(LS("or", "ou"), size: 13, color: C.mut)
+                        Rectangle().fill(C.line).frame(height: 1)
+                    }
+                    Spacer().frame(height: 18)
+                    Button(action: startGoogle) {
+                        HStack(spacing: 12) {
+                            GoogleG(size: 22)
+                            Txt(LS("Continue with Google", "Continuer avec Google"), weight: 600, size: 15.5, color: Color(hex: 0x1F1F1F))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(repo.busy)
+                    if repo.googlePending {
+                        HStack(spacing: 10) {
+                            ProgressView().scaleEffect(0.8)
+                            Txt(LS("Finishing Google sign-in…", "Connexion Google en cours…"), size: 13.5, color: C.mut)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 12)
+                    }
+                    Spacer().frame(height: 22)
+                    HStack(spacing: 0) {
+                        Txt(mode == 0 ? LS("No account yet? ", "Pas encore de compte ? ") : LS("Already have an account? ", "Déjà un compte ? "), size: 14, color: C.mut)
+                        Button {
+                            mode = 1 - mode
+                            repo.authError = nil
+                        } label: {
+                            Txt(mode == 0 ? LS("Sign up", "S'inscrire") : LS("Sign in", "Se connecter"), weight: 600, size: 14, color: C.accent)
                         }
                         .buttonStyle(.plain)
                     }
-                }
-                if let err = repo.authError {
-                    Txt(err, size: 13.5, color: C.red).padding(.top, 10)
-                }
-                Spacer().frame(height: 20)
-                Button(action: submit) {
-                    Group {
-                        if repo.busy {
-                            ProgressView().tint(C.mut).frame(height: 52)
-                        } else {
-                            Txt(mode == 0 ? LS("Sign in", "Se connecter") : LS("Create account", "Créer un compte"),
-                                weight: 700, size: 16, color: canSubmit ? C.accText : C.mut)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 52)
-                        }
-                    }
                     .frame(maxWidth: .infinity)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(canSubmit ? C.accent : C.card))
                 }
-                .buttonStyle(.plain)
-                .disabled(!canSubmit)
-                Spacer().frame(height: 18)
-                HStack(spacing: 14) {
-                    Rectangle().fill(C.line).frame(height: 1)
-                    Txt(LS("or", "ou"), size: 13, color: C.mut)
-                    Rectangle().fill(C.line).frame(height: 1)
-                }
-                Spacer().frame(height: 18)
-                Button(action: startGoogle) {
-                    HStack(spacing: 12) {
-                        GoogleG(size: 22)
-                        Txt(LS("Continue with Google", "Continuer avec Google"), weight: 600, size: 15.5, color: Color(hex: 0x1F1F1F))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white))
-                }
-                .buttonStyle(.plain)
-                .disabled(repo.busy)
-                if repo.googlePending {
-                    HStack(spacing: 10) {
-                        ProgressView().scaleEffect(0.8)
-                        Txt(LS("Finishing Google sign-in…", "Connexion Google en cours…"), size: 13.5, color: C.mut)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 12)
-                }
-                Spacer().frame(height: 22)
-                HStack(spacing: 0) {
-                    Txt(mode == 0 ? LS("No account yet? ", "Pas encore de compte ? ") : LS("Already have an account? ", "Déjà un compte ? "), size: 14, color: C.mut)
+                Group {
+                    Spacer().frame(height: 40)
                     Button {
-                        mode = 1 - mode
-                        repo.authError = nil
+                        repo.skipped = true
+                        repo.persistMeta()
                     } label: {
-                        Txt(mode == 0 ? LS("Sign up", "S'inscrire") : LS("Sign in", "Se connecter"), weight: 600, size: 14, color: C.accent)
+                        Txt(LS("Continue without an account", "Continuer sans compte"), weight: 500, size: 14, color: C.mut)
                     }
                     .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity)
+                    Spacer().frame(height: 24)
                 }
-                .frame(maxWidth: .infinity)
-                Spacer().frame(height: 40)
-                Button {
-                    repo.skipped = true
-                    repo.persistMeta()
-                } label: {
-                    Txt(LS("Continue without an account", "Continuer sans compte"), weight: 500, size: 14, color: C.mut)
-                }
-                .buttonStyle(.plain)
-                .frame(maxWidth: .infinity)
-                Spacer().frame(height: 24)
             }
             .padding(.horizontal, 24)
         }
@@ -226,7 +234,7 @@ extension RootView {
 
 /** Presentation anchor for ASWebAuthenticationSession. */
 @MainActor
-final class WebAuthContext: NSObject, ASWebAuthenticationPresentationContextProviding {
+final class WebAuthContext: NSObject, @preconcurrency ASWebAuthenticationPresentationContextProviding {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         return scenes.first?.keyWindow ?? ASPresentationAnchor()

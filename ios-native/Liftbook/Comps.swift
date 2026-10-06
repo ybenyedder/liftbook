@@ -1,4 +1,6 @@
 import SwiftUI
+import Foundation
+import UIKit
 import LiftbookCore
 
 /** Shared components — port of Comps.kt. */
@@ -309,7 +311,7 @@ struct RestBar: View {
                     }
                     .buttonStyle(.plain)
                     Button { timer.clear() } label: {
-                        Txt("Skip", "Passer", weight: 600, size: 15, color: C.accText)
+                        Txt(LS("Skip", "Passer"), weight: 600, size: 15, color: C.accText)
                             .padding(.horizontal, 18).padding(.vertical, 11)
                             .background(RoundedRectangle(cornerRadius: 10).fill(accentColor(repo.settings.accent)))
                     }

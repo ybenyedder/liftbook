@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 import LiftbookCore
 import Charts
 
@@ -335,7 +336,7 @@ struct DayCell: View {
     var body: some View {
         let has = workout != nil
         let isToday = Calendar.current.isDateInToday(date)
-        Button {
+        return Button {
             if let w = workout { nav.push(.workoutDetail(w.id)) }
         } label: {
             Txt("\(Calendar.current.component(.day, from: date))",

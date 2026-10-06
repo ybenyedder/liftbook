@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 import LiftbookCore
 
 /** Profile — port of Profile.kt (heatmap Canvas, monthly bars, muscle distribution). */

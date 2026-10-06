@@ -1,4 +1,5 @@
 import SwiftUI
+import Foundation
 import LiftbookCore
 
 /** Navigation stack + tab bar + global undo bar + toast — port of App.kt / MainActivity. */
