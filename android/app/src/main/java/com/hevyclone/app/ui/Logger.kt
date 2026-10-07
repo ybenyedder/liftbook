@@ -111,29 +111,23 @@ object WorkoutNotif {
             nm.createNotificationChannel(
                 android.app.NotificationChannel(CHANNEL, "Chronomètre de séance", android.app.NotificationManager.IMPORTANCE_LOW)
             )
-            // Hevy-style media card: app icon, "Entraînement" + running chronometer.
-            // NB: Chronometer bases run on elapsedRealtime, not wall clock — offset by the
-            // session's age or it displays a huge negative value.
-            val rv = android.widget.RemoteViews(ctx.packageName, R.layout.notif_workout)
-            rv.setImageViewResource(R.id.iv_app, R.drawable.notif_logo)
-            rv.setChronometer(
-                R.id.workout_chrono,
-                android.os.SystemClock.elapsedRealtime() - (System.currentTimeMillis() - startedAt),
-                null, true,
-            )
+            // Standard template (like Hevy): title + system chronometer counting the
+            // session's elapsed time since startedAt.
+            val fr = ctx.resources.configuration.locales.get(0)?.language == "fr"
             val content = android.app.PendingIntent.getActivity(
                 ctx, 0,
                 android.content.Intent(ctx, MainActivity::class.java),
                 android.app.PendingIntent.FLAG_IMMUTABLE,
             )
-            val notif = android.app.Notification.Builder(ctx, CHANNEL)
-                .setSmallIcon(android.R.drawable.ic_media_play)
-                .setColor(android.graphics.Color.BLACK)
+            val notif = androidx.core.app.NotificationCompat.Builder(ctx, CHANNEL)
+                .setSmallIcon(com.hevyclone.app.R.drawable.ic_notif)
+                .setColor(0xFF028CFD.toInt())
+                .setContentTitle(if (fr) "Entraînement" else "Workout")
+                .setWhen(startedAt)
+                .setUsesChronometer(true)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setContentIntent(content)
-                .setCustomContentView(rv)
-                .setCustomBigContentView(rv)
                 .build()
             nm.notify(NOTIF_ID, notif)
         }
