@@ -9,6 +9,8 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.content.res.AssetFileDescriptor
 import android.media.AudioAttributes
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
@@ -129,14 +131,30 @@ class RestNotifService : Service() {
         return ((remainMs + 999L) / 1000L).toInt() // ceil, so "90" shows for the full 90 s
     }
 
-    /** Soft bell chime when the rest countdown reaches 0 (Hevy-like). */
+    /**
+     * Soft bell chime when the rest countdown reaches 0 (Hevy-like).
+     *
+     * The chime plays on the notification stream when that stream is audible,
+     * but falls back to the ALARM stream (audible even in silent/vibrate mode
+     * and through DND) when the phone is silenced or notification volume is 0 —
+     * the typical gym setup where the sound would otherwise never be heard.
+     * A short double vibration accompanies it either way.
+     */
     private fun playDoneChime() {
         runCatching {
+            val vib = getSystemService(Vibrator::class.java)
+            vib?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 70, 90, 70), -1))
+        }
+        runCatching {
             releasePlayer()
+            val am = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+            val usage = if (am.ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL &&
+                am.getStreamVolume(android.media.AudioManager.STREAM_NOTIFICATION) > 0
+            ) AudioAttributes.USAGE_NOTIFICATION else AudioAttributes.USAGE_ALARM
             val mp = MediaPlayer()
             mp.setAudioAttributes(
                 AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                    .setUsage(usage)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build()
             )
