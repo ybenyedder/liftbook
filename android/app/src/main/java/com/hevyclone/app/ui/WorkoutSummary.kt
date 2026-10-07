@@ -94,7 +94,6 @@ fun WorkoutSummaryScreen() {
     fun doFinish() {
         val w = Repo.finishWorkout(name)
         RestTimer.clear()
-        WorkoutNotif.cancel()
         Nav.toTab(Screen.HomeTab)
         if (w != null && w.prs.isNotEmpty()) toast(ctx, L10n.s("Workout saved", "Séance enregistrée") + " · ${w.prs.size} ${L10n.s("PRs", "records")}!")
         else toast(ctx, L10n.s("Workout saved", "Séance enregistrée"))

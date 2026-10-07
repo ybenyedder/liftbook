@@ -89,7 +89,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hevyclone.app.MainActivity
 import com.hevyclone.app.R
 import com.hevyclone.app.RestNotifService
 import com.hevyclone.app.data.Calc
@@ -99,48 +98,6 @@ import com.hevyclone.app.data.EXERCISES
 import com.hevyclone.app.data.Repo
 import com.hevyclone.app.data.SetEntry
 import kotlinx.coroutines.delay
-
-object WorkoutNotif {
-    private const val CHANNEL = "workout_chrono"
-    private const val NOTIF_ID = 4243
-
-    fun post(startedAt: Long) {
-        val ctx = RestTimer.appContext ?: return
-        runCatching {
-            val nm = ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-            nm.createNotificationChannel(
-                android.app.NotificationChannel(CHANNEL, "Chronomètre de séance", android.app.NotificationManager.IMPORTANCE_LOW)
-            )
-            // Standard template (like Hevy): title + system chronometer counting the
-            // session's elapsed time since startedAt.
-            val fr = ctx.resources.configuration.locales.get(0)?.language == "fr"
-            val content = android.app.PendingIntent.getActivity(
-                ctx, 0,
-                android.content.Intent(ctx, MainActivity::class.java),
-                android.app.PendingIntent.FLAG_IMMUTABLE,
-            )
-            val notif = androidx.core.app.NotificationCompat.Builder(ctx, CHANNEL)
-                .setSmallIcon(com.hevyclone.app.R.drawable.ic_notif)
-                .setColor(0xFF028CFD.toInt())
-                .setContentTitle(if (fr) "Entraînement" else "Workout")
-                .setWhen(startedAt)
-                .setUsesChronometer(true)
-                .setOngoing(true)
-                .setOnlyAlertOnce(true)
-                .setContentIntent(content)
-                .build()
-            nm.notify(NOTIF_ID, notif)
-        }
-    }
-
-    fun cancel() {
-        val ctx = RestTimer.appContext ?: return
-        runCatching {
-            (ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
-                .cancel(NOTIF_ID)
-        }
-    }
-}
 
 object RestTimer {
     var endAt by mutableStateOf(0L)
@@ -313,11 +270,6 @@ fun LoggerScreen() {
         list.add(to, list.removeAt(from))
         dragIndex = to
         Repo.touchPublic()
-    }
-
-    LaunchedEffect(isWorkout, draft.startedAt) {
-        if (isWorkout && draft.startedAt != null) WorkoutNotif.post(draft.startedAt!!)
-        else WorkoutNotif.cancel()
     }
 
     fun hasData(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.kg != null || it.reps != null } }
