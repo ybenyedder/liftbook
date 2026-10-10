@@ -63,54 +63,65 @@ fun SettingsScreen() {
     var confirmWipe by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // ---------- pickers ----------
+    // ---------- pickers (parse + import run off the main thread: full Hevy exports
+    //              are several MB and used to freeze/ANR the UI) ----------
     val hevyPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) runCatching {
-            val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching
-            val csvs: List<String> = if (bytes.size > 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
-                java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(bytes)).use { z ->
-                    val out = mutableListOf<String>()
-                    var e = z.nextEntry
-                    while (e != null) {
-                        if (!e.isDirectory && e.name.endsWith(".csv", true)) out.add(String(z.readBytes()))
-                        e = z.nextEntry
+        if (uri != null) scope.launch {
+            val msg = withContext(Dispatchers.IO) {
+                runCatching {
+                    val bytes = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@runCatching ""
+                    val csvs: List<String> = if (bytes.size > 4 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()) {
+                        java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(bytes)).use { z ->
+                            val out = mutableListOf<String>()
+                            var e = z.nextEntry
+                            while (e != null) {
+                                if (!e.isDirectory && e.name.endsWith(".csv", true)) out.add(String(z.readBytes()))
+                                e = z.nextEntry
+                            }
+                            out
+                        }
+                    } else listOf(String(bytes))
+                    var ws = listOf<com.hevyclone.app.data.Workout>()
+                    var rs = listOf<com.hevyclone.app.data.Routine>()
+                    for (csv in csvs) {
+                        val (w, r) = com.hevyclone.app.data.Calc.parseHevyCsv(csv)
+                        ws += w; rs += r
                     }
-                    out
-                }
-            } else listOf(String(bytes))
-            var ws = listOf<com.hevyclone.app.data.Workout>()
-            var rs = listOf<com.hevyclone.app.data.Routine>()
-            for (csv in csvs) {
-                val (w, r) = com.hevyclone.app.data.Calc.parseHevyCsv(csv)
-                ws += w; rs += r
+                    if (ws.isEmpty() && rs.isEmpty()) {
+                        val head = csvs.firstOrNull()?.lineSequence()?.firstOrNull()?.take(90) ?: ""
+                        L10n.s("No Hevy data found — header:", "Aucune donnée Hevy trouvée — en-tête :") + " " + head
+                    } else {
+                        val n = Repo.importHevy(ws, rs)
+                        L10n.s("%1\$d workouts imported from Hevy (routines rebuilt)", "%1\$d séances importées (routines reconstruites)").format(n)
+                    }
+                }.getOrElse { L10n.s("Import failed (check format)", "Import échoué (vérifie le format)") }
             }
-            if (ws.isEmpty() && rs.isEmpty()) {
-                val head = csvs.firstOrNull()?.lineSequence()?.firstOrNull()?.take(90) ?: ""
-                toast(ctx, L10n.s("No Hevy data found — header:", "Aucune donnée Hevy trouvée — en-tête :") + " " + head)
-            } else {
-                val n = Repo.importHevy(ws, rs)
-                toast(ctx, L10n.s("%1\$d workouts imported from Hevy (routines rebuilt)", "%1\$d séances importées (routines reconstruites)").format(n))
-            }
-        }.onFailure { toast(ctx, L10n.s("Import failed (check format)", "Import échoué (vérifie le format)")) }
+            if (msg.isNotEmpty()) toast(ctx, msg)
+        }
     }
     val csvPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) runCatching {
-            ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-        }.getOrNull()?.let { text ->
-            var n = Repo.importCsv(text)
-            if (n == 0) {
-                val (ws, rs) = com.hevyclone.app.data.Calc.parseHevyCsv(text)
-                if (ws.isNotEmpty() || rs.isNotEmpty()) n = Repo.importHevy(ws, rs)
+        if (uri != null) scope.launch {
+            val msg = withContext(Dispatchers.IO) {
+                runCatching { ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }
+                    .getOrNull()?.let { text ->
+                        var n = Repo.importCsv(text)
+                        if (n == 0) {
+                            val (ws, rs) = com.hevyclone.app.data.Calc.parseHevyCsv(text)
+                            if (ws.isNotEmpty() || rs.isNotEmpty()) n = Repo.importHevy(ws, rs)
+                        }
+                        if (n > 0) L10n.s("%1\$d workouts imported", "%1\$d séances importées").format(n)
+                        else L10n.s("Nothing imported (check format)", "Rien d'importé (vérifie le format)")
+                    } ?: L10n.s("Import failed (check format)", "Import échoué (vérifie le format)")
             }
-            toast(ctx, if (n > 0) L10n.s("%1\$d workouts imported", "%1\$d séances importées").format(n)
-                else L10n.s("Nothing imported (check format)", "Rien d'importé (vérifie le format)"))
+            toast(ctx, msg)
         }
     }
     val restorePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) runCatching {
-            ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-        }.getOrNull()?.let { text ->
-            val ok = Repo.restoreBackup(text)
+        if (uri != null) scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCatching { ctx.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } }
+                    .getOrNull()?.let { text -> Repo.restoreBackup(text) } ?: false
+            }
             toast(ctx, if (ok) L10n.s("Backup restored", "Sauvegarde restaurée") else L10n.s("Invalid backup file", "Fichier de sauvegarde invalide"))
         }
     }
@@ -131,7 +142,7 @@ fun SettingsScreen() {
         LazyColumn(Modifier.fillMaxSize()) {
             // ---- COMPTE ----
             item {
-                SectionHeader("COMPTE")
+                SectionHeader(L10n.s("ACCOUNT", "COMPTE", "CUENTA", "KONTO"))
                 val sess = Cloud.session
                 if (sess != null) {
                     Row(
@@ -166,7 +177,7 @@ fun SettingsScreen() {
             }
             // ---- PROFIL ----
             item {
-                SectionHeader("PROFIL")
+                SectionHeader(L10n.s("PROFILE", "PROFIL", "PERFIL", "PROFIL"))
                 SettingsRow(L10n.s("Name", "Nom"), value = Repo.settings.profileName, onClick = { editName = true })
                 RowDivider()
                 SettingsRow(L10n.s("Username", "Pseudo"), value = "@" + Repo.settings.handle, onClick = { editHandle = true })
@@ -226,7 +237,7 @@ fun SettingsScreen() {
             }
             item {
                 Text(
-                    "Hevy Clone 1.30" + (Cloud.session?.let { " · " + L10n.s("synced as", "synchronisé en tant que") + " " + it.email } ?: ""),
+                    "Liftbook " + com.hevyclone.app.BuildConfig.VERSION_NAME + (Cloud.session?.let { " · " + L10n.s("synced as", "synchronisé en tant que") + " " + it.email } ?: ""),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp,
                     modifier = Modifier.fillMaxWidth().padding(top = 26.dp, bottom = 30.dp),
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -321,18 +332,13 @@ private fun restLabel(sec: Int): String {
 
 /** Downscale + save the picked image locally, then push it to the account storage (if signed in). */
 private fun applyProfilePhoto(ctx: android.content.Context, uri: android.net.Uri): Boolean {
-    android.util.Log.d("HevyPhoto", "apply uri=$uri")
-    val bytes = runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
-    if (bytes == null) { android.util.Log.d("HevyPhoto", "read failed"); return false }
-    android.util.Log.d("HevyPhoto", "bytes=${bytes.size}")
+    val bytes = runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() ?: return false
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-    if (bounds.outWidth <= 0) { android.util.Log.d("HevyPhoto", "bounds failed"); return false }
+    if (bounds.outWidth <= 0) return false
     var sample = 1
     while (bounds.outWidth / sample > 640 || bounds.outHeight / sample > 640) sample *= 2
-    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample }) ?: run {
-        android.util.Log.d("HevyPhoto", "decode failed"); return false
-    }
+    val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample }) ?: return false
     // center-crop to a square
     val side = minOf(bmp.width, bmp.height)
     val square = Bitmap.createBitmap(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side)
@@ -341,15 +347,14 @@ private fun applyProfilePhoto(ctx: android.content.Context, uri: android.net.Uri
     val jpg = out.toByteArray()
     AvatarCache.file(ctx).writeBytes(jpg)
     AvatarCache.reload(ctx)
-    android.util.Log.d("HevyPhoto", "saved local ${jpg.size} bmp=${AvatarCache.bmp != null}")
     Repo.touchPublic()
     val s = Cloud.session
     if (s != null) {
-        Thread {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             val url = Cloud.uploadAvatar(jpg)
-            android.util.Log.d("HevyPhoto", "upload url=$url")
             if (url != null) Repo.setAvatar(url)
-        }.start()
+            else android.util.Log.w("LiftbookPhoto", "avatar upload failed")
+        }
     }
     return true
 }

@@ -71,7 +71,8 @@ class RestNotifService : Service() {
         when (intent?.action) {
             ACTION_ADD15 -> RestTimer.plus15()
             ACTION_MINUS15 -> RestTimer.minus15()
-            ACTION_SKIP -> RestTimer.skip()
+            // "Skip" ends the rest silently — jumping to endAt would ring the chime 500 ms later.
+            ACTION_SKIP -> RestTimer.clear()
             else -> {
                 totalSec = intent?.getIntExtra(EXTRA_TOTAL, 0) ?: 0
                 if (totalSec <= 0) totalSec = remainingSec().coerceAtLeast(1)
@@ -129,6 +130,12 @@ class RestNotifService : Service() {
         val remainMs = RestTimer.endAt - System.currentTimeMillis()
         if (remainMs <= 0L) return 0
         return ((remainMs + 999L) / 1000L).toInt() // ceil, so "90" shows for the full 90 s
+    }
+
+    /** Progress-bar max: the live total (+15s buttons grow it); fallback to the start extra. */
+    private fun totalSecNow(): Int {
+        val live = (RestTimer.totalMs / 1000L).toInt()
+        return if (live > 0) live else totalSec.coerceAtLeast(1)
     }
 
     /**
@@ -195,11 +202,11 @@ class RestNotifService : Service() {
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)
         if (finished) {
             builder.setContentTitle(L10nText.restDone(this))
-                .setProgress(totalSec.coerceAtLeast(1), 0, false)
+                .setProgress(totalSecNow(), 0, false)
         } else {
             val remain = remainingSec()
             builder.setContentTitle(L10nText.restRemaining(this, remain))
-                .setProgress(totalSec.coerceAtLeast(1), remain, false)
+                .setProgress(totalSecNow(), remain, false)
         }
         builder.addAction(0, L10nText.actMinus15(this), actionPendingIntent(ACTION_MINUS15, 1))
         builder.addAction(0, L10nText.actPlus15(this), actionPendingIntent(ACTION_ADD15, 2))

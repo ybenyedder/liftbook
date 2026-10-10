@@ -106,7 +106,7 @@ private fun buildPosts(unit: String): List<PostUi> =
             timeLabel = relativeTime(w.startedAt),
             dayTitle = dayName(w.startedAt),
             duration = Calc.fmtDur(w.endedAt - w.startedAt),
-            volume = "${Calc.fmtVol(Calc.vol(w), unit)} kg",
+            volume = "${Calc.fmtVol(Calc.vol(w), unit)} ${Calc.unitLabel(unit)}",
             prCount = w.prs.size,
             exerciseLines = w.exercises.map { seriesLabel(it.sets.size, exName(it.name)) },
             names = w.exercises.map { exName(it.name) },
@@ -218,6 +218,7 @@ private fun dayName(ms: Long): String {
 
 private fun relativeTime(ms: Long): String {
     val diff = System.currentTimeMillis() - ms
+    if (diff < 0) return dayName(ms) // future-dated import: show the date, not "1 min ago"
     val hours = diff / 3600000
     if (L10n.lang != "fr") {
         return when {

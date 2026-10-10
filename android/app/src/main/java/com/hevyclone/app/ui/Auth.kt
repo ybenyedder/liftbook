@@ -281,7 +281,7 @@ fun AuthScreen() {
                 .height(52.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(androidx.compose.ui.graphics.Color.White)
-                .clickable(enabled = !Cloud.busy) {
+                .clickable(enabled = !Cloud.busy && !Cloud.googlePending) {
                     GoogleSignInNative.launch(ctx, googleScope) { result ->
                         when (result) {
                             GoogleSignInNative.NO_ACCOUNT -> {

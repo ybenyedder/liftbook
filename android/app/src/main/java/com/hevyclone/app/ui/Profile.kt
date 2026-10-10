@@ -129,7 +129,7 @@ fun ProfileScreen() {
         item(key = "totals") {
             Text(
                 buildString {
-                    append("${Calc.fmtVol(totalVol, unit)} kg")
+                    append("${Calc.fmtVol(totalVol, unit)} ${Calc.unitLabel(unit)}")
                     append("  ·  ")
                     append(
                         (if (totalSets > 1) L10n.s("%1\$d series", "%1\$d séries") else L10n.s("%1\$d series", "%1\$d série")).format(totalSets)
@@ -142,17 +142,17 @@ fun ProfileScreen() {
             )
         }
         item(key = "month-stats") {
-            val monthStart = remember {
+            val monthStart = remember(rev) {
                 val d = LocalDate.now().withDayOfMonth(1)
                 d.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
             }
-            val month = remember(rev) { Repo.workouts.filter { it.startedAt >= monthStart } }
+            val month = remember(rev, monthStart) { Repo.workouts.filter { it.startedAt >= monthStart } }
             if (month.isNotEmpty()) {
                 val mVol = month.sumOf { Calc.vol(it) }
                 val mPrs = month.sumOf { it.prs.size }
                 Text(
                     L10n.s("This month", "Ce mois-ci") + " : ${month.size} " +
-                        L10n.s("workouts", "séances") + " · ${Calc.fmtVol(mVol, unit)} kg · ${mPrs} " +
+                        L10n.s("workouts", "séances") + " · ${Calc.fmtVol(mVol, unit)} ${Calc.unitLabel(unit)} · ${mPrs} " +
                         L10n.s("PRs", "records"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
                     modifier = Modifier.padding(start = 16.dp, top = 10.dp),
@@ -160,18 +160,18 @@ fun ProfileScreen() {
             }
         }
         item(key = "rolling-week") {
-            val now = System.currentTimeMillis()
-            val last7 = remember(rev) { Repo.workouts.filter { it.startedAt >= now - 7L * 86400000L } }
-            val prev7 = remember(rev) { Repo.workouts.filter { it.startedAt in (now - 14L * 86400000L) until (now - 7L * 86400000L) } }
+            val now = remember(rev) { System.currentTimeMillis() }
+            val last7 = remember(rev, now) { Repo.workouts.filter { it.startedAt >= now - 7L * 86400000L } }
+            val prev7 = remember(rev, now) { Repo.workouts.filter { it.startedAt in (now - 14L * 86400000L) until (now - 7L * 86400000L) } }
             if (last7.isNotEmpty() || prev7.isNotEmpty()) {
                 val v1 = last7.sumOf { Calc.vol(it) }
                 val v2 = prev7.sumOf { Calc.vol(it) }
                 val delta = if (v2 > 0) ((v1 - v2) / v2 * 100).toInt() else null
                 Text(
-                    L10n.s("Last 7 days", "7 derniers jours") + " : ${Calc.fmtVol(v1, unit)} kg · ${last7.size} " +
+                    L10n.s("Last 7 days", "7 derniers jours") + " : ${Calc.fmtVol(v1, unit)} ${Calc.unitLabel(unit)} · ${last7.size} " +
                         L10n.s("workouts", "séances") +
                         (delta?.let { "  (" + (if (it >= 0) "+" else "") + "$it% " + L10n.s("vs previous week", "vs semaine précédente") + ")" } ?: "") +
-                        "\n" + L10n.s("Previous 7 days", "7 jours précédents") + " : ${Calc.fmtVol(v2, unit)} kg · ${prev7.size} " + L10n.s("workouts", "séances"),
+                        "\n" + L10n.s("Previous 7 days", "7 jours précédents") + " : ${Calc.fmtVol(v2, unit)} ${Calc.unitLabel(unit)} · ${prev7.size} " + L10n.s("workouts", "séances"),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(start = 16.dp, top = 10.dp),
                 )
@@ -180,11 +180,12 @@ fun ProfileScreen() {
         item(key = "monthly-chart") {
             val monthly = remember(rev) {
                 val cal = java.time.LocalDate.now().withDayOfMonth(1)
+                val mLoc = if (L10n.lang == "fr") java.util.Locale.FRANCE else java.util.Locale.getDefault()
                 (5 downTo 0).map { back ->
                     val m = cal.minusMonths(back.toLong())
                     val start = m.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
                     val end = m.plusMonths(1).atStartOfDay(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-                    val label = m.format(java.time.format.DateTimeFormatter.ofPattern("MMM", java.util.Locale.FRANCE))
+                    val label = m.format(java.time.format.DateTimeFormatter.ofPattern("MMM", mLoc))
                     label to Repo.workouts.filter { it.startedAt in start until end }.sumOf { Calc.vol(it) }
                 }
             }
@@ -289,7 +290,7 @@ fun ProfileScreen() {
                     Column(Modifier.weight(1f)) {
                         Row(Modifier.fillMaxWidth()) {
                             Text(muscleName(muscle), fontSize = 13.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                            Text("${Calc.fmtVol(vol, unit)} kg", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                            Text("${Calc.fmtVol(vol, unit)} ${Calc.unitLabel(unit)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                         }
                         Spacer(Modifier.height(5.dp))
                         Box(

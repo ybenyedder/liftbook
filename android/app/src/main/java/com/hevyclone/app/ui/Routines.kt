@@ -333,7 +333,7 @@ class DragDropState(
             val lastVisible = info.visibleItemsInfo.lastOrNull() ?: return
             val bottom = lastVisible.offset + lastVisible.size
             val overshootDown = endOffset - bottom
-            if (overshootDown > 10 && current < info.totalItemsCount - 2) {
+            if (overshootDown > 10 && current < info.totalItemsCount - 1) { // -1: trailing spacer item made the last routine unreachable
                 listState.dispatchRawDelta(overshootDown.coerceAtMost(14f))
             } else {
                 val first = info.visibleItemsInfo.first()
@@ -601,8 +601,8 @@ fun RoutineDetailScreen(id: Long) {
                 }
                 val lastDate = sessions.lastOrNull()?.let { Calc.fmtDateShort(it.startedAt) } ?: ""
                 val total = when (metric) {
-                    0 -> "${Calc.fmtVol(volTargets(r), unit)} kg"
-                    1 -> "${r.exercises.sumOf { e -> e.sets.sumOf { it.reps ?: 0 } }} réps"
+                    0 -> "${Calc.fmtVol(volTargets(r), unit)} ${Calc.unitLabel(unit)}"
+                    1 -> "${r.exercises.sumOf { e -> e.sets.sumOf { it.reps ?: 0 } }} ${L10n.s("reps", "réps")}"
                     else -> "—"
                 }
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 4.dp), verticalAlignment = Alignment.Bottom) {
@@ -679,7 +679,7 @@ fun RoutineDetailScreen(id: Long) {
                     }
                     Row(Modifier.padding(horizontal = 16.dp)) {
                         Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                        Text("KG", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                        Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
                         Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f))
                     }
                     ex.sets.forEachIndexed { si, s ->
@@ -746,13 +746,14 @@ fun RoutineDetailScreen(id: Long) {
 
 /** Real Android share sheet with the routine summary. */
 private fun shareRoutine(ctx: android.content.Context, r: Routine) {
+    val uLabel = com.hevyclone.app.data.Calc.unitLabel(Repo.settings.unit)
     val sb = StringBuilder()
     sb.appendLine(r.name)
     sb.appendLine()
     for (ex in r.exercises) {
         sb.appendLine(exName(ex.name) + " (" + ex.sets.size + " séries)")
         for ((i, st) in ex.sets.withIndex()) {
-            val kgLabel = st.kg?.let { com.hevyclone.app.data.Calc.fmtKg(it, Repo.settings.unit) + " kg" } ?: ""
+            val kgLabel = st.kg?.let { "${com.hevyclone.app.data.Calc.fmtKg(it, Repo.settings.unit)} $uLabel" } ?: ""
             sb.appendLine("  " + (i + 1) + ". " + kgLabel + " × " + (st.reps ?: "—"))
         }
     }
@@ -763,10 +764,13 @@ private fun shareRoutine(ctx: android.content.Context, r: Routine) {
     ctx.startActivity(android.content.Intent.createChooser(intent, "Partager la routine"))
 }
 
-private fun sessionsFor(r: Routine): List<com.hevyclone.app.data.Workout> =
-    Repo.workouts.sortedBy { it.startedAt }
-        .filter { w -> w.exercises.any { e -> r.exercises.any { it.name == e.name } } }
+/** Sessions matching this routine's exercises, within the last 3 months (the chart label says so). */
+private fun sessionsFor(r: Routine): List<com.hevyclone.app.data.Workout> {
+    val cutoff = System.currentTimeMillis() - 90L * 86400000L
+    return Repo.workouts.sortedBy { it.startedAt }
+        .filter { w -> w.startedAt >= cutoff && w.exercises.any { e -> r.exercises.any { it.name == e.name } } }
         .takeLast(12)
+}
 
 private fun volTargets(r: Routine): Double =
     r.exercises.sumOf { e -> e.sets.sumOf { (it.kg ?: 0.0) * (it.reps ?: 0) } }

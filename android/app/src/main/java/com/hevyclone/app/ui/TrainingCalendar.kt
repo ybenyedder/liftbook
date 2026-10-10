@@ -48,7 +48,9 @@ import java.util.Locale
 fun TrainingCalendar() {
     val rev = Repo.rev
     val unit = Repo.settings.unit
-    var month by remember { mutableStateOf(YearMonth.now()) }
+    // Survives rotation/process death (was a plain remember).
+    var monthStr by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(YearMonth.now().toString()) }
+    val month = remember(monthStr) { YearMonth.parse(monthStr) }
     val loc = if (L10n.lang == "fr") Locale.FRENCH else Locale.US
 
     val byDay = remember(rev) {
@@ -74,22 +76,23 @@ fun TrainingCalendar() {
                 Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = { month = month.minusMonths(1) }) { Icon(Icons.Rounded.ChevronLeft, null) }
+                IconButton(onClick = { monthStr = month.minusMonths(1).toString() }) { Icon(Icons.Rounded.ChevronLeft, null) }
                 Text(
                     month.format(DateTimeFormatter.ofPattern("MMMM yyyy", loc)).replaceFirstChar { it.uppercase(loc) },
                     fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = { if (month.isBefore(YearMonth.now())) month = month.plusMonths(1) }) {
+                IconButton(onClick = { if (month.isBefore(YearMonth.now())) monthStr = month.plusMonths(1).toString() }) {
                     Icon(Icons.Rounded.ChevronRight, null, tint = if (month.isBefore(YearMonth.now())) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            // weekday header (Monday-first)
+            // weekday header (Monday-first, localized narrow day names)
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                listOf("L", "M", "M", "J", "V", "S", "D").forEach {
+                java.time.DayOfWeek.entries.forEach { dow ->
                     Text(
-                        it, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        dow.getDisplayName(java.time.format.TextStyle.NARROW, loc).uppercase(),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontSize = 12.sp, fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.weight(1f),
@@ -116,7 +119,7 @@ fun TrainingCalendar() {
                 val vol = monthWorkouts.sumOf { Calc.vol(it) }
                 Text(
                     monthWorkouts.size.toString() + " " + L10n.s("workouts", "séances", "entrenamientos", "Workouts") +
-                        "  ·  " + Calc.fmtVol(vol, unit) + " kg",
+                        "  ·  " + Calc.fmtVol(vol, unit) + " " + Calc.unitLabel(unit),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 )

@@ -87,7 +87,8 @@ fun App(refreshKey: Int = 0) {
         if (Nav.pendingStartEmpty) {
             Nav.pendingStartEmpty = false
             if (Repo.draft == null) Repo.startWorkout(null)
-            Nav.push(Screen.Logger)
+            // don't stack a second Logger if one is already on top (widget tapped mid-workout)
+            if (Nav.current != Screen.Logger) Nav.push(Screen.Logger)
         }
     }
     val tabs = listOf(

@@ -68,20 +68,20 @@ fun HistoryScreen() {
     var filter by remember { mutableStateOf(0) } // 0=Toutes 1=Semaine 2=Mois 3=Année
     val byDay = remember(rev) { Repo.workouts.groupBy { Calc.dayKey(it.startedAt) } }
     val cutoff = remember(filter) {
-        val now = System.currentTimeMillis()
         when (filter) {
-            1 -> now - 7L * 86400000L
-            2 -> now - 30L * 86400000L
-            3 -> now - 365L * 86400000L
+            // civil week (Monday) so the chip matches the "Cette semaine" group header
+            1 -> Calc.weekStart(System.currentTimeMillis())
+            2 -> System.currentTimeMillis() - 30L * 86400000L
+            3 -> System.currentTimeMillis() - 365L * 86400000L
             else -> 0L
         }
     }
     val filteredWorkouts = remember(rev, query, filter) {
         Repo.workoutsDesc().filter { w ->
             w.startedAt >= cutoff && (
-                query.isBlank() ||
-                com.hevyclone.app.data.L10nData.matches(query, "") .let { true } && (
-                    w.name.lowercase().contains(query.lowercase()) ||
+                query.isBlank() || (
+                    // normalized (accents/case) match on the workout name, like the exercise filter
+                    com.hevyclone.app.data.L10nData.matches(query, w.name) ||
                     w.exercises.any { com.hevyclone.app.data.L10nData.matches(query, it.name) }
                 )
             )
@@ -165,7 +165,7 @@ fun HistoryScreen() {
         }, onNext = {
             if (viewMonth == 12) { viewMonth = 1; viewYear++ } else viewMonth++
         }, onDay = { key ->
-            byDay[key]?.firstOrNull()?.let { Nav.push(Screen.WorkoutDetail(it.id)) }
+            byDay[key]?.maxByOrNull { it.startedAt }?.let { Nav.push(Screen.WorkoutDetail(it.id)) }
         }) }
         if (groups.isEmpty()) item { EmptyState("Aucune séance enregistrée.") }
         else {
@@ -188,12 +188,13 @@ fun HistoryScreen() {
 
 private fun buildGroups(desc: List<Workout>): List<Pair<String, List<Workout>>> {
     val ws = Calc.weekStart(System.currentTimeMillis())
+    val loc = if (L10n.lang == "fr") java.util.Locale.FRANCE else java.util.Locale.getDefault()
     val groups = mutableListOf<Pair<String, MutableList<Workout>>>()
     for (w in desc) {
         val label = when {
-            w.startedAt >= ws -> "Cette semaine"
-            w.startedAt >= ws - 7L * 86400000L -> "Semaine dernière"
-            else -> java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", java.util.Locale.US)
+            w.startedAt >= ws -> L10n.s("This week", "Cette semaine")
+            w.startedAt >= ws - 7L * 86400000L -> L10n.s("Last week", "Semaine dernière")
+            else -> java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy", loc)
                 .format(Calc.localDate(w.startedAt))
         }
         val g = groups.firstOrNull { it.first == label }
@@ -305,7 +306,7 @@ fun HistoryRow(w: Workout, onClick: () -> Unit) {
             )
         }
         Text(
-            "${Calc.fmtVol(Calc.vol(w), Repo.settings.unit)} kg",
+            "${Calc.fmtVol(Calc.vol(w), Repo.settings.unit)} ${Calc.unitLabel(Repo.settings.unit)}",
             color = MaterialTheme.colorScheme.onBackground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
         )
     }
@@ -375,7 +376,6 @@ fun WorkoutDetailScreen(id: Long) {
                     modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 2.dp),
                 )
             }
-            val linked = Repo.photoForWorkout(id)
             if (linked != null) item(key = "progress-photo") {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                     Text(
@@ -446,7 +446,7 @@ fun WorkoutDetailScreen(id: Long) {
             }
             items(w.exercises.size, key = { w.exercises[it].name + it }) { ei ->
                 val ex = w.exercises[ei]
-                val prevSets = remember(ex.name, w.id) { Repo.prevSetsBefore(w.startedAt, ex.name) }
+                val prevSets = remember(rev, ex.name, w.id) { Repo.prevSetsBefore(w.startedAt, ex.name) }
                 AppCard {
                     Column(Modifier.padding(14.dp)) {
                         Row(
@@ -540,17 +540,17 @@ fun WorkoutDetailScreen(id: Long) {
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Supprimer la séance ?", fontWeight = FontWeight.ExtraBold) },
-            text = { Text("Cette séance et ses records seront définitivement supprimés.") },
+            title = { Text(L10n.s("Delete workout?", "Supprimer la séance ?"), fontWeight = FontWeight.ExtraBold) },
+            text = { Text(L10n.s("This workout and its records will be permanently deleted.", "Cette séance et ses records seront définitivement supprimés.")) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     Repo.deleteWorkout(w.id)
                     DeletedUndo.set(w)
                     Nav.pop()
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                }) { Text(L10n.s("Delete", "Supprimer"), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(L10n.s("Cancel", "Annuler")) } },
         )
     }
 }

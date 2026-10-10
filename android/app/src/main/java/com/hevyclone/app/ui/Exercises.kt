@@ -79,10 +79,11 @@ import com.hevyclone.app.data.Repo
 fun ExercisesScreen() {
     var q by remember { mutableStateOf("") }
     var mus by remember { mutableStateOf("All") }
-    val filtered = remember(q, mus) {
+    val rev = Repo.rev // a freshly created custom must show up without retyping the search
+    val filtered = remember(q, mus, rev) {
         EXERCISES
             .filter { (mus == "All" || it.muscle == mus) && com.hevyclone.app.data.L10nData.matches(q, it.name) }
-            .sortedBy { exName(it.name) }
+            .sortedWith(compareBy { exName(it.name) }) // accent-insensitive-ish collation
     }
     val grouped = remember(filtered) { filtered.groupBy { it.muscle } }
 
@@ -283,11 +284,11 @@ fun ExerciseDetailScreen(name: String) {
                                 .mapNotNull { w -> w.exercises.firstOrNull { it.name == name }?.let { w to it } }
                         }
                         val heaviest = sessions.map { (w, e) ->
-                            Calc.fmtDateShort(w.startedAt) to (e.sets.maxOfOrNull { it.kg ?: 0.0 } ?: 0.0)
-                        }
-                        val volumes = sessions.map { (w, e) ->
-                            Calc.fmtDateShort(w.startedAt) to e.sets.filter { it.done }.sumOf { (it.kg ?: 0.0) * (it.reps ?: 0) }
-                        }
+            Calc.fmtDateShort(w.startedAt) to (e.sets.filter { it.done }.maxOfOrNull { it.kg ?: 0.0 } ?: 0.0)
+        }
+        val volumes = sessions.map { (w, e) ->
+            Calc.fmtDateShort(w.startedAt) to e.sets.filter { it.done }.sumOf { (it.kg ?: 0.0) * (it.reps ?: 0) }
+        }
                         if (heaviest.isEmpty()) {
                             EmptyState(L10n.s("No data yet.\nLog this exercise to see charts.", "Aucune donnée.\nEnregistre cet exercice pour voir les graphiques."))
                         } else {
@@ -306,11 +307,11 @@ fun ExerciseDetailScreen(name: String) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         Column(Modifier.weight(1f)) {
                             Text(L10n.s("Best est. 1RM", "1RM max est."), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
-                            Text("${Calc.fmtKg(best1rm, unit)} kg", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("${Calc.fmtKg(best1rm, unit)} ${Calc.unitLabel(unit)}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                         Column(Modifier.weight(1f)) {
                             Text(L10n.s("Heaviest set", "Série lourde"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
-                            Text("${Calc.fmtKg(bestSet, unit)} kg", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("${Calc.fmtKg(bestSet, unit)} ${Calc.unitLabel(unit)}", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                         Column(Modifier.weight(1f)) {
                             Text(L10n.s("Sessions", "Séances"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.5.sp)
@@ -326,13 +327,13 @@ fun ExerciseDetailScreen(name: String) {
                                     }
                                     if (sessions.size >= 2) {
                                         Spacer(Modifier.height(8.dp))
-                                        val lastTop = sessions.last().second.sets.maxOfOrNull { it.kg ?: 0.0 } ?: 0.0
+                                        val lastTop = sessions.last().second.sets.filter { it.done }.maxOfOrNull { it.kg ?: 0.0 } ?: 0.0
                                         val bestTop = bestSet ?: 0.0
                                         val delta = lastTop - bestTop
                                         val pct = if (bestTop > 0) (delta / bestTop * 100).toInt() else 0
                                         Text(
                                             L10n.s("Last session vs best", "Dernière séance vs record") + " : " +
-                                                (if (delta >= 0) "+" else "") + "${Calc.fmtKg(delta, unit)} kg ($pct%)",
+                                                (if (delta >= 0) "+" else "") + "${Calc.fmtKg(delta, unit)} ${Calc.unitLabel(unit)} ($pct%)",
                                             color = if (delta < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                                             fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                                         )
@@ -344,7 +345,7 @@ fun ExerciseDetailScreen(name: String) {
                                     Text(L10n.s("Heaviest weight", "Poids le plus lourd"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                                     Spacer(Modifier.height(6.dp))
                                     Text(
-                                        "${Calc.fmtKg(heaviest.lastOrNull()?.second, unit)} kg",
+                                        "${Calc.fmtKg(heaviest.maxOfOrNull { it.second }, unit)} ${Calc.unitLabel(unit)}",
                                         fontSize = 19.sp, fontWeight = FontWeight.Bold,
                                     )
                                     LineChart(heaviest, fmtLabel = { Calc.fmtKg(it, unit) })
@@ -355,7 +356,7 @@ fun ExerciseDetailScreen(name: String) {
                                     Text(L10n.s("Total volume", "Volume total"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                                     Spacer(Modifier.height(6.dp))
                                     Text(
-                                        "${Calc.fmtVol(volumes.sumOf { it.second }, unit)} kg",
+                                        "${Calc.fmtVol(volumes.sumOf { it.second }, unit)} ${Calc.unitLabel(unit)}",
                                         fontSize = 19.sp, fontWeight = FontWeight.Bold,
                                     )
                                     LineChart(volumes, fmtLabel = { Calc.fmtVol(it, unit) })
@@ -369,18 +370,28 @@ fun ExerciseDetailScreen(name: String) {
                     if (sessions.isEmpty()) item { EmptyState(L10n.s("No sessions logged yet.", "Aucune séance enregistrée.")) }
                     else items(sessions.size, key = { sessions[it].first.id }) { i ->
                         val (w, ex) = sessions[i]
+                        val cardio = ex.muscle == "Cardio" || Calc.isCardioName(ex.name)
                         Column(Modifier.fillMaxWidth().padding(bottom = 14.dp)) {
                             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
                                 Text(Calc.fmtDateFull(w.startedAt), fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
                                 Text(
-                                    "${Calc.fmtVol(ex.sets.filter { it.done }.sumOf { (it.kg ?: 0.0) * (it.reps ?: 0) }, unit)} kg",
+                                    if (cardio) Calc.fmtCardioSet(
+                                        ex.sets.maxOfOrNull { it.mins ?: 0 },
+                                        ex.sets.maxOfOrNull { it.km ?: 0.0 },
+                                    )
+                                    else "${Calc.fmtVol(ex.sets.filter { it.done }.sumOf { (it.kg ?: 0.0) * (it.reps ?: 0) }, unit)} ${Calc.unitLabel(unit)}",
                                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
                                 )
                             }
                             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                                Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                                Text("KG", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                                Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                if (cardio) {
+                                    Text(L10n.s("MIN", "MIN"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                    Text(L10n.s("KM", "KM"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                } else {
+                                    Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                    Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                }
                             }
                             ex.sets.forEachIndexed { si, st ->
                                 Row(
@@ -389,8 +400,13 @@ fun ExerciseDetailScreen(name: String) {
                                         .padding(horizontal = 16.dp, vertical = 9.dp),
                                 ) {
                                     Text("${si + 1}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                                    Text(if (st.kg != null) Calc.fmtKg(st.kg, unit) else "—", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                                    Text("${st.reps ?: "—"}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    if (cardio) {
+                                        Text(st.mins?.toString() ?: "—", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                        Text(st.km?.let { Calc.trimNum(it) } ?: "—", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    } else {
+                                        Text(if (st.kg != null) Calc.fmtKg(st.kg, unit) else "—", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                        Text("${st.reps ?: "—"}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                                    }
                                 }
                             }
                         }
@@ -753,6 +769,10 @@ fun CreateExerciseDialog(initialName: String, onCreated: (String) -> Unit, onClo
         },
         confirmButton = {
             TextButton(onClick = {
+                if (name.trim().isEmpty()) {
+                    toast(ctx, L10n.s("Give this exercise a name", "Donne un nom à cet exercice"))
+                    return@TextButton
+                }
                 val cx = Repo.addCustom(name, muscle, equip)
                 if (cx == null) toast(ctx, L10n.s("This exercise already exists", "Cet exercice existe déjà"))
                 else { toast(ctx, L10n.s("Exercise created", "Exercice créé")); onCreated(cx.name) }

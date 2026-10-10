@@ -7,6 +7,7 @@ import com.hevyclone.app.data.Workout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -332,5 +333,64 @@ class LogicTest {
         assertEquals(1, com.hevyclone.app.data.Calc.streak(listOf(w(0), w(2)), now))
         // rien → 0
         assertEquals(0, com.hevyclone.app.data.Calc.streak(emptyList(), now))
+    }
+
+    // ---- v1.50 audit: régressions corrigées ----
+
+    @Test
+    fun `csv cardio columns Min Km round-trip`() {
+        val csv = "Date;Heure;Exercice;Serie;KG;Reps;Min;Km\n5 janv. 2026;18:00;Tapis de Course;1;;;22;5.2"
+        val ws = Calc.parseCsv(csv)
+        assertEquals(1, ws.size)
+        val s = ws[0].exercises[0].sets[0]
+        assertEquals(22, s.mins)
+        assertEquals(5.2, s.km!!, 1e-9)
+        assertNull(s.kg)
+        assertNull(s.reps)
+    }
+
+    @Test
+    fun `plate calculator no-bar puts everything on plates`() {
+        // Sans barre : 50 kg → 25 kg par côté (l'ancien code soustrayait la barre par défaut)
+        val plates = Calc.platesForSide(50.0, 0.0, "kg")
+        assertEquals(25.0, plates.sumOf { it.first * it.second }, 1e-9)
+        // Barre 20 kg : 50 kg → 15 kg par côté
+        val withBar = Calc.platesForSide(50.0, 20.0, "kg")
+        assertEquals(15.0, withBar.sumOf { it.first * it.second }, 1e-9)
+    }
+
+    @Test
+    fun `fmtDur and fmtClock never negative`() {
+        assertEquals("0m", Calc.fmtDur(-3_600_000L))
+        assertEquals("00:00", Calc.fmtClock(-90_000L))
+        assertEquals("1h 0m", Calc.fmtDur(3_600_000L))
+    }
+
+    @Test
+    fun `custom name collision covers EN, FR, case and accents`() {
+        val repo = com.hevyclone.app.data.Repo
+        assertTrue(repo.customNameTaken("Barbell Bench Press"))            // clé EN exacte
+        assertTrue(repo.customNameTaken("Developpe Couche (Barre)"))       // nom FR, sans accents ni casse
+        assertTrue(repo.customNameTaken("barbell bench press"))            // casse seule
+        assertFalse(repo.customNameTaken("Zedtest Unique Alpha"))
+    }
+
+    @Test
+    fun `routine names stay unique for sync identity`() {
+        val repo = com.hevyclone.app.data.Repo
+        val saved = repo.routines.toList()
+        try {
+            repo.routines.clear()
+            assertEquals("Push", repo.uniqueRoutineName("Push"))
+            repo.routines.add(com.hevyclone.app.data.Routine(1, "Push", mutableListOf(), 0))
+            assertEquals("Push (2)", repo.uniqueRoutineName("Push"))
+            repo.routines.add(com.hevyclone.app.data.Routine(2, "Push (2)", mutableListOf(), 1))
+            assertEquals("Push (3)", repo.uniqueRoutineName("Push"))
+            // un nom vide retombe sur un libellé par défaut
+            assertTrue(repo.uniqueRoutineName("  ").isNotEmpty())
+        } finally {
+            repo.routines.clear()
+            repo.routines.addAll(saved)
+        }
     }
 }

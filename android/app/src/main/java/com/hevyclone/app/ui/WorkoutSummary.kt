@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import com.hevyclone.app.data.Calc
 import com.hevyclone.app.data.PrRec
 import com.hevyclone.app.data.Repo
+import kotlinx.coroutines.launch
 
 /**
  * Hevy-style post-workout recap shown after tapping TERMINER:
@@ -92,17 +93,21 @@ fun WorkoutSummaryScreen() {
         out
     }
     val muscles = remember(draft) { draft.exercises.map { it.muscle }.toSet() }
-    val duration = Calc.fmtDur(System.currentTimeMillis() - draft.startedAt!!)
+    // Frozen at summary-open time (was recomputed live — the duration kept growing on screen).
+    val duration = remember(draft) { Calc.fmtDur(System.currentTimeMillis() - draft.startedAt!!) }
 
     var showSaveRoutine by remember { mutableStateOf(false) }
     var addedPhotoId by remember { mutableStateOf<Long?>(null) }
+    val summaryScope = androidx.compose.runtime.rememberCoroutineScope()
     val photoPicker = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
         if (uri != null) {
-            val p = Repo.addPhotoFromUri(ctx, uri)
-            if (p == null) toast(ctx, L10n.s("Could not read this image", "Impossible de lire cette image"))
-            else addedPhotoId = p.id
+            summaryScope.launch {
+                val p = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { Repo.addPhotoFromUri(ctx, uri) }
+                if (p == null) toast(ctx, L10n.s("Could not read this image", "Impossible de lire cette image"))
+                else addedPhotoId = p.id
+            }
         }
     }
     fun doFinish() {
@@ -149,7 +154,7 @@ fun WorkoutSummaryScreen() {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SummaryStat(duration, L10n.s("Duration", "Durée"), Modifier.weight(1f), accent = true)
-                    SummaryStat("${Calc.fmtVol(vol, unit)}${Calc.unitLabel(unit)}", L10n.s("Volume", "Volume"), Modifier.weight(1f))
+                    SummaryStat("${Calc.fmtVol(vol, unit)} ${Calc.unitLabel(unit)}", L10n.s("Volume", "Volume"), Modifier.weight(1f))
                     SummaryStat("$sets", L10n.s("Sets", "Séries"), Modifier.weight(1f))
                     BodyMap(front = true, muscles = muscles)
                     BodyMap(front = false, muscles = muscles)

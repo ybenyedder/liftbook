@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -150,17 +151,12 @@ object RestTimer {
         if (endAt > 0) { endAt += 15_000L; totalMs += 15_000L; persistEnd() }
     }
 
-    /** −15s from the notification button (never below 0.5 s left). */
+    /** −15s from the notification button (never below 0.5 s left, never on a finished rest). */
     fun minus15() {
-        if (endAt > 0) {
+        if (endAt > System.currentTimeMillis()) {
             endAt = maxOf(System.currentTimeMillis() + 500L, endAt - 15_000L)
             persistEnd()
         }
-    }
-
-    /** Jump straight to the finished state ("Passer"). */
-    fun skip() {
-        if (endAt > 0) { endAt = System.currentTimeMillis(); persistEnd() }
     }
 
     private fun persistEnd() {
@@ -271,7 +267,6 @@ fun LoggerScreen() {
         dragIndex = to
         Repo.touchPublic()
     }
-
     fun hasData(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.kg != null || it.reps != null || it.mins != null || it.km != null } }
     fun anyDone(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.done && (it.kg != null || it.reps != null || it.mins != null || it.km != null) } }
 
@@ -310,7 +305,7 @@ fun LoggerScreen() {
                             )
                             DropdownMenuItem(
                                 text = { Text(L10n.s("Discard workout", "Supprimer la séance"), color = MaterialTheme.colorScheme.error) },
-                                onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
+                                onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, L10n.s("Discarded", "Supprimée")) } },
                             )
                         }
                     }
@@ -395,7 +390,7 @@ fun LoggerScreen() {
                             }
                             DropdownMenuItem(
                                 text = { Text(L10n.s("Discard changes", "Ignorer les modifications"), color = MaterialTheme.colorScheme.error) },
-                                onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, "Supprimée") } },
+                                onClick = { showMenu = false; if (hasData()) showDiscard = true else { Repo.discardDraft(); Nav.pop(); toast(ctx, L10n.s("Discarded", "Supprimée")) } },
                             )
                         }
                     }
@@ -404,7 +399,7 @@ fun LoggerScreen() {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                     BasicTextField(
                         value = nameText,
-                        onValueChange = { nameText = it; draft.name = it },
+                        onValueChange = { nameText = it; draft.name = it; Repo.persistDraftNow() },
                         singleLine = true,
                         textStyle = TextStyle(fontWeight = FontWeight.Bold, fontSize = 24.sp, color = MaterialTheme.colorScheme.onBackground),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
@@ -433,9 +428,19 @@ fun LoggerScreen() {
                         )
                     }
                 }
-                items(draft.exercises.size, key = { "${draft.exercises[it].name}-$it" }) { ei ->
+                // Stable keys (name + occurrence rank) so reorders keep item state and
+                // animateItemPlacement actually animates; index-based keys reset everything.
+                items(draft.exercises.size, key = { i ->
+                    val n = draft.exercises[i].name
+                    var occ = 0
+                    for (j in 0..i) if (draft.exercises[j].name == n) occ++
+                    "$n#$occ"
+                }) { ei ->
                     Box(Modifier.animateItemPlacement()) {
-                        ExCard(draft.exercises[ei], ei, isWorkout, unit, dragIndex == ei, ::moveExercise)
+                        ExCard(
+                            draft.exercises[ei], ei, isWorkout, unit, dragIndex == ei, ::moveExercise,
+                            onDragEnd = { if (dragIndex == ei) dragIndex = -1 },
+                        )
                     }
                 }
                 item(key = "addEx") {
@@ -505,15 +510,15 @@ fun LoggerScreen() {
         AlertDialog(
             onDismissRequest = { showDiscard = false },
             title = { Text(if (isWorkout) L10n.s("Discard workout?", "Supprimer la séance ?") else L10n.s("Discard changes?", "Ignorer les modifications ?"), fontWeight = FontWeight.ExtraBold) },
-            text = { Text(if (isWorkout) "Your logged sets from this session will be lost." else "Changes to this routine will be lost.") },
+            text = { Text(if (isWorkout) L10n.s("Your logged sets from this session will be lost.", "Les séances enregistrées de cette session seront perdues.") else L10n.s("Changes to this routine will be lost.", "Les modifications de cette routine seront perdues.")) },
             confirmButton = {
                 TextButton(onClick = {
                     showDiscard = false
                     RestTimer.clear()
                     Repo.discardDraft()
                     Nav.pop()
-                    toast(ctx, "Supprimée")
-                }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
+                    toast(ctx, L10n.s("Discarded", "Supprimée"))
+                }) { Text(L10n.s("Discard", "Supprimer"), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showDiscard = false }) { Text(L10n.s("Cancel", "Annuler")) } },
         )
@@ -522,15 +527,15 @@ fun LoggerScreen() {
         AlertDialog(
             onDismissRequest = { showNoSets = false },
             title = { Text(L10n.s("No sets completed", "Aucune série terminée"), fontWeight = FontWeight.ExtraBold) },
-            text = { Text("There is nothing to save yet. Discard this workout?") },
+            text = { Text(L10n.s("There is nothing to save yet. Discard this workout?", "Il n'y a rien à enregistrer pour l'instant. Supprimer cette séance ?")) },
             confirmButton = {
                 TextButton(onClick = {
                     showNoSets = false
                     RestTimer.clear()
                     Repo.discardDraft()
                     Nav.pop()
-                    toast(ctx, "Supprimée")
-                }) { Text("Discard", color = MaterialTheme.colorScheme.error) }
+                    toast(ctx, L10n.s("Discarded", "Supprimée"))
+                }) { Text(L10n.s("Discard", "Supprimer"), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { showNoSets = false }) { Text(L10n.s("Keep editing", "Continuer")) } },
         )
@@ -551,6 +556,7 @@ fun LoggerScreen() {
             confirmButton = {
                 TextButton(onClick = {
                     draft.notes = notesText
+                    Repo.persistDraftNow()
                     showNotesDialog = false
                 }) { Text(L10n.s("Save", "Enregistrer")) }
             },
@@ -560,8 +566,8 @@ fun LoggerScreen() {
     if (showDeleteRoutine) {
         AlertDialog(
             onDismissRequest = { showDeleteRoutine = false },
-            title = { Text("Delete routine?", fontWeight = FontWeight.ExtraBold) },
-            text = { Text("This routine will be removed from your list.") },
+            title = { Text(L10n.s("Delete routine?", "Supprimer la routine ?"), fontWeight = FontWeight.ExtraBold) },
+            text = { Text(L10n.s("This routine will be removed from your list.", "Cette routine sera retirée de ta liste.")) },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteRoutine = false
@@ -569,10 +575,10 @@ fun LoggerScreen() {
                     RestTimer.clear()
                     Repo.discardDraft()
                     Nav.pop()
-                    toast(ctx, "Routine deleted")
-                }) { Text(L10n.s("Discard", "Supprimer"), color = MaterialTheme.colorScheme.error) }
+                    toast(ctx, L10n.s("Routine deleted", "Routine supprimée"))
+                }) { Text(L10n.s("Delete", "Supprimer"), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { showDeleteRoutine = false }) { Text("Annuler") } },
+            dismissButton = { TextButton(onClick = { showDeleteRoutine = false }) { Text(L10n.s("Cancel", "Annuler")) } },
         )
     }
 }
@@ -583,7 +589,7 @@ fun LoggerScreen() {
 @Composable
 private fun ExCard(
     ex: ExEntry, ei: Int, isWorkout: Boolean, unit: String,
-    isDragging: Boolean, moveExercise: (Int, Int) -> Unit,
+    isDragging: Boolean, moveExercise: (Int, Int) -> Unit, onDragEnd: () -> Unit = {},
 ) {
     var showNotes by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
@@ -603,16 +609,24 @@ private fun ExCard(
             }
             .onGloballyPositioned { cardHeight = it.size.height.toFloat() }
             .pointerInput(Unit) {
+                // Accumulate the per-event deltas: dragAmount is NOT the total travel,
+                // comparing it to the full card height never moved anything.
+                var acc = 0f
                 detectDragGesturesAfterLongPress(
                     onDragStart = {
                         view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
                     },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        val steps = (dragAmount.y / cardHeight).toInt()
-                        if (steps != 0) moveExercise(ei, ei + steps)
+                        acc += dragAmount.y
+                        val steps = (acc / cardHeight).toInt()
+                        if (steps != 0) {
+                            acc -= steps * cardHeight
+                            moveExercise(ei, ei + steps)
+                        }
                     },
-                    onDragEnd = { },
+                    onDragEnd = { onDragEnd() },
+                    onDragCancel = { onDragEnd() },
                 )
             }
             .padding(vertical = 8.dp)
@@ -658,10 +672,12 @@ private fun ExCard(
                         leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(16.dp)) },
                         onClick = {
                             menuOpen = false
+                            // By identity: ei may be stale between composition and click.
                             Repo.draft?.exercises?.let { list ->
-                                if (ei < list.size) {
+                                val idx = list.indexOfFirst { it === ex }
+                                if (idx >= 0) {
                                     val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.mins, it.km, it.done) }.toMutableList())
-                                    list.add(ei + 1, copy)
+                                    list.add(idx + 1, copy)
                                 }
                             }
                             Repo.touchPublic()
@@ -698,7 +714,7 @@ private fun ExCard(
                         leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) },
                         onClick = {
                             menuOpen = false
-                            Repo.draft?.exercises?.let { list -> if (ei < list.size) list.removeAt(ei) }
+                            Repo.draft?.exercises?.removeAll { it === ex }
                             Repo.touchPublic()
                         },
                     )
@@ -749,7 +765,7 @@ private fun ExCard(
         }
         Spacer(Modifier.height(8.dp))
         // column headers
-        val isCardio = ex.muscle == "Cardio"
+        val isCardio = ex.muscle == "Cardio" || Calc.isCardioName(ex.name)
         if (isWorkout) {
             Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.width(38.dp), textAlign = TextAlign.Center)
@@ -771,7 +787,7 @@ private fun ExCard(
             }
         } else {
             Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.width(38.dp), textAlign = TextAlign.Center)
+                Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.width(38.dp), textAlign = TextAlign.Center)
                 if (isCardio) {
                     Text(L10n.s("MIN", "MIN"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                     Text(L10n.s("KM", "KM"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
@@ -781,7 +797,7 @@ private fun ExCard(
                         Spacer(Modifier.width(3.dp))
                         Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                     }
-                    Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 }
                 Box(Modifier.width(44.dp))
             }
@@ -823,7 +839,7 @@ private fun ExCard(
                     onClose = { showReplace = false },
                     onPick = { newName ->
                         ex.name = newName
-                        ex.muscle = com.hevyclone.app.data.EX[newName]?.muscle ?: ""
+                        ex.muscle = com.hevyclone.app.data.EX[newName]?.muscle ?: ex.muscle
                         Repo.touchPublic()
                         showReplace = false
                     },
@@ -884,10 +900,12 @@ fun evaluatePr(ex: ExEntry, s: SetEntry) {
     val bestW = pr?.weight ?: 0.0
     val bestE = pr?.e1rm ?: 0.0
     val e = Calc.e1rm(kg, reps)
+    // Independent checks: a set can beat both records and deserve both badges.
     if (kg > bestW && !s.prW) {
         s.prW = true
         PrBadge.show(ex.name, ex.muscle, L10n.s("Heaviest Weight", "Plus Gros Poids"), "${Calc.fmtKg(kg, Repo.settings.unit)} ${Calc.unitLabel(Repo.settings.unit)}")
-    } else if (e > bestE && !s.prE) {
+    }
+    if (e > bestE && !s.prE) {
         s.prE = true
         PrBadge.show(ex.name, ex.muscle, L10n.s("Best Est. 1RM", "Meilleure Est. 1RM"), "${Calc.fmtKg(e, Repo.settings.unit)} ${Calc.unitLabel(Repo.settings.unit)}")
     }
@@ -901,7 +919,8 @@ private fun SetRow(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val rowView = androidx.compose.ui.platform.LocalView.current
-    val isPr = isWorkout && (s.prW || s.prE)
+    // PR styling only while the set is actually checked.
+    val isPr = isWorkout && s.done && (s.prW || s.prE)
     Row(
         Modifier
             .fillMaxWidth()
@@ -945,8 +964,11 @@ private fun SetRow(
                 })
                 DropdownMenuItem(text = { Text(L10n.s("Delete set", "Supprimer la série"), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(15.dp)) }, onClick = {
                     menuOpen = false
-                    Repo.draft?.exercises?.getOrNull(ei)?.let { exx ->
-                        if (exx.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else exx.sets.removeAt(si)
+                    // By identity: a double-tap before recomposition must not delete the neighbour.
+                    Repo.draft?.exercises?.let { list ->
+                        val exx = list.getOrNull(ei) ?: return@let
+                        if (exx.sets.size == 1) list.removeAll { it === exx }
+                        else exx.sets.removeAll { it === s }
                     }
                     Repo.touchPublic()
                 })
@@ -1037,8 +1059,11 @@ private fun SetRow(
             // routine editor: direct delete button
             IconButton(
                 onClick = {
-                    Repo.draft?.exercises?.getOrNull(ei)?.let { exx ->
-                        if (exx.sets.size == 1) Repo.draft?.exercises?.removeAt(ei) else exx.sets.removeAt(si)
+                    Repo.draft?.exercises?.let { list ->
+                        val exx = list.getOrNull(ei) ?: return@let
+                        // By identity: a double-tap before recomposition must not delete the neighbour.
+                        if (exx.sets.size == 1) list.removeAll { it === exx }
+                        else exx.sets.removeAll { it === s }
                     }
                     Repo.touchPublic()
                 },
@@ -1052,7 +1077,11 @@ private fun SetRow(
 
 @Composable
 private fun SetField(init: String, hint: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
-    var text by remember(init) { mutableStateOf(init) }
+    // Local text is king while focused (typing "102.5" or a leading "0" must not be
+    // rewritten by the kg→display roundtrip); external values apply on blur only.
+    var text by remember { mutableStateOf(init) }
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(init) { if (!focused) text = init }
     BasicTextField(
         value = text,
         onValueChange = { v -> text = v; onChange(v) },
@@ -1066,6 +1095,7 @@ private fun SetField(init: String, hint: String, onChange: (String) -> Unit, mod
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
         modifier = modifier
             .height(44.dp)
+            .onFocusChanged { focused = it.isFocused }
             .clip(RoundedCornerShape(10.dp))
             .background(C.Card2)
             .border(1.dp, C.Line2, RoundedCornerShape(10.dp))
@@ -1109,7 +1139,7 @@ fun RestSheet(
     onReset: () -> Unit,
 ) {
     val values = remember { (3..120).map { it * 5 } } // 15s → 10min
-    var sel by remember { mutableStateOf(initialSec.coerceIn(15, 600)) }
+    var sel by remember { mutableStateOf(((initialSec + 2) / 5 * 5).coerceIn(15, 600)) } // snap to the 5s grid so one row is always selected
     val selIndex = values.indexOf(sel).coerceAtLeast(0)
     val listState = androidx.compose.foundation.lazy.rememberLazyListState(
         initialFirstVisibleItemIndex = maxOf(0, selIndex - 4),

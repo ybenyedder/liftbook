@@ -64,9 +64,13 @@ object Repo {
     }
     fun touchPublic() { touch() }
 
+    /** Names of the stock catalog (captured before any custom is registered). */
+    private var builtinNames: Set<String> = emptySet()
+
     fun init(ctx: Context) {
         if (this::db.isInitialized) return
         appCtx = ctx.applicationContext
+        builtinNames = EX.keys.toSet()
         draftPrefs = ctx.getSharedPreferences("draft", Context.MODE_PRIVATE)
         draft = draftPrefs?.getString("draft", null)?.let {
             runCatching { json.decodeFromString<Draft>(it) }.getOrNull()
@@ -174,16 +178,25 @@ object Repo {
         touch()
     }
 
+    /** Routine identity is its name in the sync merge — never allow duplicates. */
+    fun uniqueRoutineName(base: String): String {
+        val b = base.trim().ifEmpty { "Routine" }
+        if (routines.none { it.name == b }) return b
+        var i = 2
+        while (routines.any { it.name == "$b ($i)" }) i++
+        return "$b ($i)"
+    }
+
     fun saveRoutine(name: String): Routine? {
         val d = draft ?: return null
         if (d.exercises.isEmpty()) return null
         val r: Routine = if (d.routineId != null) {
             val existing = routineById(d.routineId!!) ?: return null
-            existing.name = name
+            existing.name = uniqueRoutineName(name)
             existing.exercises = d.exercises
             existing
         } else {
-            Routine(nextRoutineId(), name, d.exercises, nextPos()).also { routines.add(it) }
+            Routine(nextRoutineId(), uniqueRoutineName(name), d.exercises, nextPos()).also { routines.add(it) }
         }
         persistRoutine(r)
         draft = null
@@ -259,6 +272,9 @@ object Repo {
     }
 
     fun restoreWorkout(w: Workout) {
+        // Undo of a delete: the tombstone must go too, or the next sync merge would
+        // silently delete the restored workout again (it rides in delW).
+        Cloud.untombstoneWorkout(w.startedAt)
         workouts.removeAll { it.id == w.id }
         workouts.add(w)
         workouts.sortBy { it.startedAt }
@@ -279,7 +295,7 @@ object Repo {
 
     fun routineFromWorkout(workoutId: Long, name: String): Routine? {
         val w = workoutById(workoutId) ?: return null
-        val r = Routine(nextRoutineId(), name.trim().ifEmpty { w.name }, w.exercises.map { ex ->
+        val r = Routine(nextRoutineId(), uniqueRoutineName(name.ifEmpty { w.name }), w.exercises.map { ex ->
             ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.mins, it.km, it.done) }.toMutableList())
         }.toMutableList(), nextPos())
         routines.add(r)
@@ -291,7 +307,9 @@ object Repo {
 
     fun renameRoutine(id: Long, name: String) {
         val r = routineById(id) ?: return
-        r.name = name.trim().ifEmpty { r.name }
+        val n = name.trim()
+        if (n.isEmpty() || n == r.name) return
+        r.name = uniqueRoutineName(n)
         persistRoutine(r)
         touch()
         Cloud.markDirty()
@@ -299,7 +317,7 @@ object Repo {
 
     fun duplicateRoutine(id: Long): Routine? {
         val r = routineById(id) ?: return null
-        val copy = Routine(nextRoutineId(), r.name + " (2)", r.exercises.map { ex ->
+        val copy = Routine(nextRoutineId(), uniqueRoutineName(r.name), r.exercises.map { ex ->
             ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.mins, it.km, it.done) }.toMutableList())
         }.toMutableList(), nextPos())
         routines.add(copy)
@@ -338,9 +356,21 @@ object Repo {
         EX[cx.name] = def
     }
 
+    /** Case/accent-insensitive identity for exercise names (creation collision check). */
+    private fun normName(s: String): String = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "")
+        .replace(Regex("[^a-z0-9]"), "")
+
+    /** True when a custom name would shadow a catalog exercise (EN key OR localized display name). */
+    fun customNameTaken(raw: String): Boolean {
+        val n = normName(raw)
+        if (n.isEmpty()) return false
+        return EXERCISES.any { normName(it.name) == n || normName(L10nData.name(it.name)) == n }
+    }
+
     fun addCustom(nameRaw: String, muscle: String, equip: String): CustomExDef? {
         val name = nameRaw.trim()
-        if (name.isEmpty() || EX.containsKey(name)) return null
+        if (name.isEmpty() || customNameTaken(name)) return null
         val cx = CustomExDef(name, muscle, equip)
         customs.add(cx)
         registerCustomCatalog(cx)
@@ -482,16 +512,22 @@ object Repo {
 
     fun importCsv(content: String): Int {
         val imported = Calc.parseCsv(content)
-        imported.forEach { w ->
-            workouts.add(w)
-            persistWorkout(w)
+        val knownDates = workouts.map { it.startedAt }.toSet()
+        var added = 0
+        for (w in imported) {
+            if (w.startedAt in knownDates) continue // re-import of the same export: skip twins
+            val fixed = w.copy(id = nextWorkoutId()) // re-id: parser ids are fixed offsets and would collide in the DB/LazyColumn keys
+            workouts.add(fixed)
+            persistWorkout(fixed)
+            added++
         }
-        if (imported.isNotEmpty()) {
+        if (added > 0) {
+            workouts.sortBy { it.startedAt }
             prCache = Calc.rebuildPrs(workouts)
             touch()
             Cloud.markDirty()
         }
-        return imported.size
+        return added
     }
 
     /** Merge a Hevy/Strong export: workouts are added once per start date, routines appended.
@@ -523,6 +559,21 @@ object Repo {
     }
 
     fun wipe(markDirty: Boolean = true) {
+        // Queue remote photo removal + tombstones so "Erase all" propagates to other
+        // devices (only for the signed-in erase; account-switch wipe keeps the cloud copy).
+        if (markDirty) {
+            for (p in photos) {
+                Cloud.tombstonePhoto(p.id)
+                if (p.remote.isNotEmpty()) Cloud.deletePhotoObject(p.remote)
+            }
+        }
+        // Drop customs from the persisted settings row AND the global catalog — otherwise
+        // they resurrect on next launch ("Tout effacer" ghost exercises). Built-in catalog
+        // names are never removed (a legacy custom could share a built-in name).
+        val gone = customs.map { it.name }.toSet().filter { it !in builtinNames }
+        db.writableDatabase.delete("settings", "k=?", arrayOf("customs"))
+        EXERCISES.removeAll { gone.contains(it.name) }
+        gone.forEach { EX.remove(it) }
         workouts.clear(); routines.clear(); photos.clear(); customs.clear(); draft = null
         db.writableDatabase.delete("workouts", null, null)
         db.writableDatabase.delete("routines", null, null)

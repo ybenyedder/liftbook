@@ -25,9 +25,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         com.hevyclone.app.ui.RestTimer.restore(applicationContext)
+        // Ask for POST_NOTIFICATIONS once, not on every launch (system re-prompt was spammy).
+        val notifPrefs = getSharedPreferences("boot", MODE_PRIVATE)
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            !notifPrefs.getBoolean("notifAsked", false) &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
         ) {
+            notifPrefs.edit().putBoolean("notifAsked", true).apply()
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
         }
         Repo.init(applicationContext)

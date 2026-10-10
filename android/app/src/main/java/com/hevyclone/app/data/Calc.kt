@@ -56,11 +56,10 @@ object Calc {
 
     /** Greedy plate breakdown per side for a target total (bar included). Returns plate→count. */
     fun platesForSide(targetKg: Double, barKg: Double, unit: String): List<Pair<Double, Int>> {
-        val (avail, bar) = if (unit == "lb")
-            listOf(45.0, 35.0, 25.0, 10.0, 5.0, 2.5) to 45.0
-        else
-            listOf(25.0, 20.0, 15.0, 10.0, 5.0, 2.5, 1.25) to 20.0
-        var perSide = ((targetKg - (if (barKg > 0) barKg else bar)) / 2 * 100).toInt() / 100.0
+        val avail = if (unit == "lb") listOf(45.0, 35.0, 25.0, 10.0, 5.0, 2.5)
+        else listOf(25.0, 20.0, 15.0, 10.0, 5.0, 2.5, 1.25)
+        // barKg == 0 means "no bar" — everything goes on plates (was: default bar subtracted).
+        var perSide = ((targetKg - barKg) / 2 * 100).toInt() / 100.0
         if (perSide < 0) perSide = 0.0
         val out = mutableListOf<Pair<Double, Int>>()
         for (p in avail) {
@@ -82,15 +81,15 @@ object Calc {
     fun toDisplay(kg: Double, unit: String): Double = if (unit == "lb") kg * LB else kg
 
     fun fmtDur(ms: Long): String {
-        val totalMin = ms / 60000
+        val totalMin = (maxOf(0L, ms)) / 60000
         val h = totalMin / 60
         val m = totalMin % 60
         return if (h > 0) "${h}h ${m}m" else "${m}m"
     }
 
-    /** Live per-second clock label: 04:37, or 1:12:45 past the hour. */
+    /** Live per-second clock label: 04:37, or 1:12:45 past the hour. Never negative. */
     fun fmtClock(ms: Long): String {
-        val s = ms / 1000
+        val s = maxOf(0L, ms) / 1000
         val h = s / 3600
         val m = (s % 3600) / 60
         val sec = s % 60
@@ -121,11 +120,11 @@ object Calc {
 
     fun streak(workouts: List<Workout>, nowMs: Long): Int {
         val days = workouts.map { dayKey(it.startedAt) }.toSet()
-        var d = LocalDate.now().let { it }
-        var now = nowMs
-        if (dayKey(now) !in days) now -= 86400000L
+        // Walk calendar days (not 24h steps) so a DST change can't skip a day.
+        var d = localDate(nowMs)
+        if (d.toString() !in days) d = d.minusDays(1)
         var n = 0
-        while (dayKey(now) in days) { n++; now -= 86400000L }
+        while (d.toString() in days) { n++; d = d.minusDays(1) }
         return n
     }
 
@@ -231,11 +230,12 @@ object Calc {
     }
 
     // ---------- CSV import ----------
-    // Format (export): Date;Heure;Exercice;Serie;KG;Reps — ';' or ',' accepted.
+    // Format (export): Date;Heure;Exercice;Serie;KG;Reps[;Min;Km] — ';' or ',' accepted.
     fun parseCsv(content: String): List<Workout> {
         data class Key(val date: String, val time: String)
+        data class Row(val si: Int, val kg: Double?, val reps: Int?, val mins: Int?, val km: Double?)
 
-        val groups = LinkedHashMap<Key, LinkedHashMap<String, MutableList<Triple<Int, Double?, Int?>>>>()
+        val groups = LinkedHashMap<Key, LinkedHashMap<String, MutableList<Row>>>()
         content.lines().drop(1).filter { it.isNotBlank() }.forEach { line ->
             val sep = if (line.contains(';')) ';' else ','
             val parts = line.split(sep)
@@ -244,9 +244,11 @@ object Calc {
             val si = parts[3].trim().toIntOrNull() ?: return@forEach
             val kg = parts[4].trim().replace(',', '.').toDoubleOrNull()
             val reps = parts[5].trim().toIntOrNull()
+            val mins = parts.getOrNull(6)?.trim()?.takeIf { it.isNotEmpty() }?.replace(',', '.')?.toDoubleOrNull()?.toInt()
+            val km = parts.getOrNull(7)?.trim()?.takeIf { it.isNotEmpty() }?.replace(',', '.')?.toDoubleOrNull()
             groups.getOrPut(Key(date, time)) { LinkedHashMap() }
                 .getOrPut(exName) { mutableListOf() }
-                .add(Triple(si, kg, reps))
+                .add(Row(si, kg, reps, mins, km))
         }
         val fmt = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.FRANCE)
         return groups.entries.sortedBy { it.key.date }.mapIndexed { i, (key, exMap) ->
@@ -257,7 +259,7 @@ object Calc {
                 val canonical = L10nData.NAME_FR.entries.firstOrNull { it.value == frName }?.key ?: frName
                 val muscle = EX[canonical]?.muscle ?: ""
                 ExEntry(canonical, muscle, "", false, null,
-                    sets.sortedBy { it.first }.map { SetEntry(it.second, it.third, done = true) }.toMutableList())
+                    sets.sortedBy { it.si }.map { SetEntry(it.kg, it.reps, it.mins, it.km, done = true) }.toMutableList())
             }.toMutableList()
             Workout(10_000_000L + i, "Séance", ms, ms + 3_600_000, exercises)
         }

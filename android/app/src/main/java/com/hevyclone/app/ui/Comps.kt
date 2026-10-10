@@ -40,6 +40,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.text.font.FontWeight
@@ -226,7 +228,7 @@ fun EmptyState(text: String, slim: Boolean = false) {
     }
 }
 
-/** Smooth line chart with gradient fill — no charting library. */
+/** Smooth line chart with gradient fill — no charting library. Y-axis labels on the right. */
 @Composable
 fun LineChart(points: List<Pair<String, Double>>, fmtLabel: (Double) -> String, modifier: Modifier = Modifier) {
     val accent = MaterialTheme.colorScheme.primary
@@ -245,6 +247,7 @@ fun LineChart(points: List<Pair<String, Double>>, fmtLabel: (Double) -> String, 
         var min = vals.min(); var max = vals.max()
         if (max - min < max * 0.06 + 1.0) { val mid = (max + min) / 2; min = mid * 0.97; max = mid * 1.03 }
         val pad = (max - min) * 0.1; min -= pad; max += pad
+        if (max - min < 1e-9) { min -= 1.0; max += 1.0 } // all-equal values (0/0) → flat line, no NaN
         fun x(i: Int): Float = padL + (i.toFloat() / (points.size - 1)) * iw.toFloat()
         fun y(v: Double): Float = (padT + ih - ((v - min) / (max - min)) * ih).toFloat()
 
@@ -278,6 +281,18 @@ fun LineChart(points: List<Pair<String, Double>>, fmtLabel: (Double) -> String, 
             val lx = x(points.size - 1); val ly = y(vals.last())
             drawCircle(accent, 6f, Offset(lx, ly))
             drawCircle(C.Bg, 3.5f, Offset(lx, ly))
+        }
+        // Y-axis labels (max / mid / min) — fmtLabel finally used, Hevy-style right rail
+        val paint = android.graphics.Paint().apply {
+            color = labelColor.copy(alpha = 0.85f).toArgb()
+            textSize = 9.sp.toPx()
+            isAntiAlias = true
+            textAlign = android.graphics.Paint.Align.RIGHT
+        }
+        drawContext.canvas.nativeCanvas.run {
+            drawText(fmtLabel(max - pad / 2), size.width - 4f, padT + 8f, paint)
+            drawText(fmtLabel((min + max) / 2), size.width - 4f, padT + ih / 2 + 3f, paint)
+            drawText(fmtLabel(min + pad / 2), size.width - 4f, padT + ih, paint)
         }
     }
 }

@@ -23,12 +23,13 @@ fun toast(ctx: android.content.Context, msg: String) {
 /** Real Android share sheet with the workout summary. */
 fun shareWorkout(ctx: android.content.Context, w: com.hevyclone.app.data.Workout) {
     val unit = com.hevyclone.app.data.Repo.settings.unit
+    val uLabel = com.hevyclone.app.data.Calc.unitLabel(unit)
     val sb = StringBuilder()
     sb.appendLine(w.name)
     sb.appendLine(com.hevyclone.app.data.Calc.fmtDateFull(w.startedAt))
     sb.appendLine(
         "Temps " + com.hevyclone.app.data.Calc.fmtDur(w.endedAt - w.startedAt) +
-        " · Volume " + com.hevyclone.app.data.Calc.fmtVol(com.hevyclone.app.data.Calc.vol(w), unit) + " kg" +
+        " · Volume " + com.hevyclone.app.data.Calc.fmtVol(com.hevyclone.app.data.Calc.vol(w), unit) + " $uLabel" +
         " · Records " + w.prs.size
     )
     sb.appendLine()
@@ -36,7 +37,7 @@ fun shareWorkout(ctx: android.content.Context, w: com.hevyclone.app.data.Workout
         sb.appendLine(exName(ex.name) + " (" + ex.sets.size + " séries)")
         for (st in ex.sets) {
             val line = if (ex.muscle == "Cardio") com.hevyclone.app.data.Calc.fmtCardioSet(st.mins, st.km)
-                else (if (st.kg != null) com.hevyclone.app.data.Calc.fmtKg(st.kg, unit) + " kg" else "") + " × " + (st.reps ?: "—")
+                else (if (st.kg != null) "${com.hevyclone.app.data.Calc.fmtKg(st.kg, unit)} $uLabel × " else "× ") + (st.reps ?: "—")
             sb.appendLine("  " + line)
         }
     }
@@ -47,19 +48,27 @@ fun shareWorkout(ctx: android.content.Context, w: com.hevyclone.app.data.Workout
     ctx.startActivity(android.content.Intent.createChooser(intent, "Partager la séance"))
 }
 
-/** Export all workouts as CSV to cache dir, then share the file. */
+/** Export all workouts as CSV to cache dir, then share the file.
+ *  Cardio sets export their Min/Km columns (round-trips through parseCsv). */
 fun exportCsv(ctx: android.content.Context) {
     val unit = com.hevyclone.app.data.Repo.settings.unit
     val dir = java.io.File(ctx.cacheDir, "exports").apply { mkdirs() }
     val f = java.io.File(dir, "hevy-seances.csv")
     f.bufferedWriter().use { out ->
-        out.write("Date;Heure;Exercice;Serie;KG;Reps\n")
+        out.write("Date;Heure;Exercice;Serie;${com.hevyclone.app.data.Calc.unitLabel(unit)};Reps;Min;Km\n")
         for (w in com.hevyclone.app.data.Repo.workouts.sortedBy { it.startedAt }) {
-            val date = com.hevyclone.app.data.Calc.fmtDateShort(w.startedAt)
+            // full "d MMM yyyy" date — parseCsv needs the year (fmtDateShort omits it and
+            // re-imports used to collapse every workout around "now")
+            val date = com.hevyclone.app.data.Calc.localDate(w.startedAt)
+                .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy", java.util.Locale.FRANCE))
             val time = com.hevyclone.app.data.Calc.fmtTime(w.startedAt)
             for (ex in w.exercises) {
                 ex.sets.forEachIndexed { i, st ->
-                    out.write("$date;$time;${exName(ex.name).replace(';', ',')};${i + 1};${st.kg?.let { com.hevyclone.app.data.Calc.fmtKg(it, unit) } ?: ""};${st.reps ?: ""}\n")
+                    out.write(
+                        "$date;$time;${exName(ex.name).replace(';', ',')};${i + 1};" +
+                            "${st.kg?.let { com.hevyclone.app.data.Calc.fmtKg(it, unit) } ?: ""};${st.reps ?: ""};" +
+                            "${st.mins ?: ""};${st.km?.let { com.hevyclone.app.data.Calc.trimNum(it) } ?: ""}\n"
+                    )
                 }
             }
         }

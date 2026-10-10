@@ -43,6 +43,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -72,6 +73,7 @@ import com.hevyclone.app.data.Calc
 import com.hevyclone.app.data.ProgressPhoto
 import com.hevyclone.app.data.Repo
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -81,13 +83,14 @@ import java.util.Locale
 
 /** Small LRU of decoded photos ("path@target" -> bitmap), keeps the grid smooth. */
 private val photoMemCache = object : LinkedHashMap<String, ImageBitmap>(16, 0.75f, true) {
-    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap>): Boolean = size > 24
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ImageBitmap>): Boolean = size > 12
 }
 
 /** Decodes a photo file off the main thread, roughly sized for its destination. */
 @Composable
 fun rememberPhotoBitmap(id: Long, targetPx: Int = 720): ImageBitmap? {
-    val path = remember(id) { Repo.photoFile(id)?.takeIf { it.exists() }?.absolutePath }
+    // Key on rev too: a photo downloaded by the sync turns path null→file without id changing.
+    val path = remember(id, Repo.rev) { Repo.photoFile(id)?.takeIf { it.exists() }?.absolutePath }
     return produceState<ImageBitmap?>(null, path, targetPx) {
         if (path == null) return@produceState
         val key = "$path@$targetPx"
@@ -145,6 +148,7 @@ private fun fmtDayLong(ts: Long): String =
 fun ProgressScreen() {
     val rev = Repo.rev
     val ctx = LocalContext.current
+    val galleryScope = androidx.compose.runtime.rememberCoroutineScope()
     val photos = remember(rev) { Repo.photosDesc() }
     val weights = remember(rev) { photos.filter { it.kg != null }.sortedBy { it.ts } }
     var selecting by remember { mutableStateOf(false) }
@@ -152,8 +156,10 @@ fun ProgressScreen() {
 
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) {
-            val p = Repo.addPhotoFromUri(ctx, uri)
-            if (p == null) toast(ctx, L10n.s("Could not read this image", "Impossible de lire cette image"))
+            galleryScope.launch {
+                val p = withContext(Dispatchers.IO) { Repo.addPhotoFromUri(ctx, uri) }
+                if (p == null) toast(ctx, L10n.s("Could not read this image", "Impossible de lire cette image"))
+            }
         }
     }
 
@@ -318,6 +324,12 @@ fun PhotoViewerScreen(id: Long) {
     val start = photos.indexOfFirst { it.id == id }
     if (start < 0) { Nav.pop(); return }
     val pager = rememberPagerState(initialPage = start) { photos.size }
+    // Deleting the last page must pull the pager back inside the new bounds.
+    LaunchedEffect(photos.size) {
+        if (pager.currentPage >= photos.size && photos.isNotEmpty()) {
+            pager.scrollToPage(photos.size - 1)
+        }
+    }
     var confirmDelete by remember { mutableStateOf(false) }
     var edit by remember { mutableStateOf(false) }
     val current = photos.getOrNull(pager.currentPage)
@@ -326,7 +338,7 @@ fun PhotoViewerScreen(id: Long) {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { Nav.pop() }) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = Color.White) }
             Text(
-                if (photos.size > 1) "${pager.currentPage + 1}/${photos.size}" else "",
+                if (photos.size > 1) "${(pager.currentPage + 1).coerceAtMost(photos.size)}/${photos.size}" else "",
                 color = C.Mut, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f), textAlign = TextAlign.Center,
             )
@@ -413,7 +425,9 @@ private fun EditPhotoDialog(p: ProgressPhoto, onDone: () -> Unit) {
         },
         confirmButton = {
             TextButton(onClick = {
-                val parsed = kg.toDoubleOrNull()
+                // Convert the typed display-unit value back to kg (the field is prefilled
+                // in lb in lb mode — saving it raw used to multiply the weight by 2.2 per edit).
+                val parsed = kg.toDoubleOrNull()?.let { com.hevyclone.app.data.Calc.toKg(it.toString(), Repo.settings.unit) }
                 Repo.updatePhoto(p.id, note = note, kg = parsed, kgSet = kg.isNotBlank())
                 onDone()
             }) { Text(L10n.s("Save", "Enregistrer"), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
@@ -432,6 +446,7 @@ private fun EditPhotoDialog(p: ProgressPhoto, onDone: () -> Unit) {
  */
 @Composable
 fun ComparePhotosScreen(aId: Long, bId: Long) {
+    val rev = Repo.rev // a photo deleted by a background sync must recompose this screen
     val a = Repo.photoById(aId)
     val b = Repo.photoById(bId)
     if (a == null || b == null) { Nav.pop(); return }
@@ -442,7 +457,8 @@ fun ComparePhotosScreen(aId: Long, bId: Long) {
     var mode by remember { mutableStateOf(0) } // 0 = slider, 1 = side by side
     var fraction by remember { mutableStateOf(0.5f) }
     var boxSize by remember { mutableStateOf(IntSize.Zero) }
-    val days = ((after.ts - before.ts) / 86400000L).toInt()
+    // Calendar-day gap (a 22h→9h overnight pair is 2 days apart, not "same day").
+    val days = java.time.temporal.ChronoUnit.DAYS.between(Calc.localDate(before.ts), Calc.localDate(after.ts)).toInt()
     val kgDelta = if (before.kg != null && after.kg != null) after.kg!! - before.kg!! else null
 
     Column(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()) {

@@ -200,6 +200,8 @@ object Cloud {
                 expiresIn = obj["expires_in"]?.jsonPrimitive?.long ?: 3600L,
             )
             return null
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // scope cancelled (rotation) — not a network error
         } catch (e: Exception) {
             return "Connexion impossible — vérifie Internet.".also { authError = it }
         } finally {
@@ -244,6 +246,7 @@ object Cloud {
             .apply()
         session = null
         skipped = false
+        googlePending = false
         syncStatus = null
     }
 
@@ -284,6 +287,8 @@ object Cloud {
                 expiresIn = obj["expires_in"]?.jsonPrimitive?.long ?: 3600L,
             )
             return true
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
         } catch (e: Exception) {
             authError = "Connexion impossible — vérifie Internet."
             return false
@@ -531,6 +536,12 @@ object Cloud {
             if (delW.size > 400) delW.removeAt(0)
             persistMeta()
         }
+    }
+
+    /** A deleted-then-restored (UNDO) workout must leave the tombstone list, or the
+     *  next merge re-applies the deletion and the workout vanishes silently. */
+    fun untombstoneWorkout(startedAt: Long) {
+        if (this::prefs.isInitialized && delW.remove(startedAt)) persistMeta()
     }
 
     fun tombstoneRoutine(name: String) {
