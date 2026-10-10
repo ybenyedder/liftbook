@@ -35,9 +35,13 @@ le téléphone apparaît dans le navigateur après « Synchroniser maintenant »
 d'onglet), et réciproquement — payload v4 identique, tombstones comprises.
 
 ## Déploiement
-Publié sur GitHub Pages par `.github/workflows/pages.yml` (dossier `web/` servi à la racine du
-site). OAuth Google : `redirect_to = <origine>/auth-callback` (URL déclarée dans
-`ADDITIONAL_REDIRECT_URLS` du GoTrue du serveur).
+- **GitHub Pages** : `.github/workflows/pages.yml` (dossier `web/` servi à la racine du site).
+- **Serveur perso (volthost)** : `./deploy-volthost.sh` — rsync vers `volt@192.168.1.87:~/liftbook-web/`,
+  servi par le service systemd `liftbook-web.service` sur **http://192.168.1.87:8913**
+  (aussi reachable via Tailscale : http://100.107.129.74:8913). Redémarrer le service :
+  `ssh volt@192.168.1.87 'sudo systemctl restart liftbook-web'`.
+- OAuth Google : `redirect_to = <origine>/auth-callback` (URLs GitHub Pages + localhost + 8913
+  déclarées dans `ADDITIONAL_REDIRECT_URLS` du GoTrue du serveur Supabase).
 
 ## Écarts assumés (plateforme web)
 - Pas de widget d'accueil (exclusivité Android), pas de notification chronomètre de séance persistante.
