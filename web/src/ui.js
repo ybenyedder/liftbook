@@ -30,7 +30,8 @@ export function h(tag, attrs = {}, ...kids) {
     else if (k === 'dataset') Object.assign(el.dataset, v);
     else if (k === 'value') el.value = v;
     else if (k === 'checked') el.checked = !!v;
-    else if (k === 'html') el.innerHTML = v;
+    // ⚠️ pas de prop `html`/innerHTML ici : tout contenu doit passer par des nœuds texte
+    // (createTextNode ci-dessous) — c'est ce qui rend l'app XSS-safe par construction.
     else el.setAttribute(k, v);
   }
   for (const kid of kids.flat(9)) {
@@ -310,7 +311,8 @@ export function bodyMap(front, muscles, w = 34) {
 /** LineChart maison — courbe lissée + dégradé accent + animation 650 ms + labels Y à droite (Comps.kt port exact). */
 export function lineChart(points, fmtLabel = v => String(v)) {
   const el = h('div');
-  if (!points || points.length < 2) { el.style.height = '0px'; return el; }
+  points = (points || []).filter(p => p && Number.isFinite(p.value)); // NaN/Infinity → attribut SVG invalide, courbe morte
+  if (points.length < 2) { el.style.height = '0px'; return el; }
   const W = 340, Hh = 150, padL = 6, padR = 54, padT = 16, padB = 20;
   const iw = W - padL - padR, ih = Hh - padT - padB;
   let vals = points.map(p => p.value);
@@ -385,8 +387,12 @@ export function lineChart(points, fmtLabel = v => String(v)) {
 }
 
 /* ---------- images ---------- */
-/** Downscale + JPEG (port de l'import photo Android ≤1440 px q86 / avatar 640 q88). */
+/** Downscale + JPEG (port de l'import photo Android ≤1440 px q86 / avatar 640 q88).
+ *  Garde taille : décoder une photo géante (>25 Mo) coûte des centaines de Mo de RAM. */
 export function downscaleToJpeg(source, maxDim = 1440, quality = 0.86) {
+  if (source && source.size > 25 * 1024 * 1024) {
+    return Promise.reject(new Error('image trop volumineuse (25 Mo max)'));
+  }
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(source);
     const img = new Image();

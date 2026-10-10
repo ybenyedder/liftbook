@@ -94,7 +94,7 @@ function render(el) {
     const email = (body.querySelector('input[data-k=email]').value || '').trim().toLowerCase();
     const pwd = body.querySelector('input[data-k=pwd]').value || '';
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errMsg = L10n.s('Enter a valid email address', 'Entre une adresse email valide'); paint(); return; }
-    if (pwd.length < 6) { errMsg = L10n.s('Password must be at least 6 characters', 'Mot de passe de 6 caractères minimum'); paint(); return; }
+    if (pwd.length < 8) { errMsg = L10n.s('Password must be at least 8 characters', 'Mot de passe de 8 caractères minimum'); paint(); return; }
     errMsg = ''; busy = true; paint();
     try {
       const session = mode === 'signin' ? await Cloud.signIn(email, pwd) : await Cloud.signUp(email, pwd);

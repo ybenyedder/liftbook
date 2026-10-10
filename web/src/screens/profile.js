@@ -77,8 +77,8 @@ function render(el) {
 
     /* ---- en-tête : avatar + identité + stats + rouage ---- */
     const avatar = avatarEl(store.settings.profileName.trim().slice(0, 1), 52);
-    S.avatarBlob().then(b => {
-      if (b) avatar.replaceChildren(h('img', { src: URL.createObjectURL(b), alt: '', style: { width: '100%', height: '100%', objectFit: 'cover' } }));
+    S.avatarObjectUrl().then(u => {
+      if (u) avatar.replaceChildren(h('img', { src: u, alt: '', style: { width: '100%', height: '100%', objectFit: 'cover' } }));
     });
     wrap.append(h('div', { class: 'phead' },
       h('div', { class: 'pmain' },
@@ -263,7 +263,7 @@ function heatmapYear(dayVolumes, year) {
   const start = new Date(year, 0, 1), end = new Date(year, 11, 31);
   const lead = (start.getDay() + 6) % 7; // lundi-first
   const today = new Date();
-  const maxDay = Math.max(...Object.values(dayVolumes), 1) || 1;
+  const maxDay = Math.max(Calc.maxOf(Object.values(dayVolumes)), 1) || 1;
   for (let i = 0; i < lead; i++) grid.append(h('div'));
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate()); // clone local

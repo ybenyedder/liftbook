@@ -1,5 +1,7 @@
 // Service worker minimal : cache-first sur le shell statique, réseau pour l'API.
-const CACHE = 'liftbook-v1';
+// ⚠️ CACHE doit être bumpé À CHAQUE release : les clients servent sinon l'ancien code
+// à vie (le no-store HTTP ne s'applique pas au Cache Storage).
+const CACHE = 'liftbook-v1.53';
 const SHELL = [
   'index.html', 'styles.css', 'manifest.webmanifest',
   'assets/material-symbols.css', 'assets/material-symbols.woff2',
@@ -18,6 +20,12 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (url.origin !== location.origin) return; // API Supabase : jamais de cache
   if (e.request.method !== 'GET') return;
+  // jamais de cache pour une URL avec query (auth-callback.html?code=… ne doit pas finir
+  // en clé du Cache Storage) ni pour la page de callback OAuth
+  if (url.search !== '' || url.pathname.includes('auth-callback')) {
+    e.respondWith(fetch(e.request).catch(() => caches.match('index.html')));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then(hit => hit ||
       fetch(e.request).then(res => {

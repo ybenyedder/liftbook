@@ -28,6 +28,7 @@ export const store = {
   pendingUploadsBlobs: true, // les blobs vivent dans IndexedDB, pas ici
   syncing: false,
   syncStatus: '',
+  pendingLocalMerge: false, // premier login avec données locales → dialogue fusionner/cloud
   deletedUndo: null, // séance supprimée → undo bar 5 s
 };
 
@@ -40,6 +41,7 @@ let prevDisplayCache = {};
 function touch(topics = ['workouts']) {
   persistAll();
   prevDisplayCache = {};
+  prevCache = {};
   for (const t of new Set([...topics, 'change'])) emit(t);
 }
 
@@ -48,8 +50,15 @@ function lsGet(k, fallback) {
   try { const v = localStorage.getItem(LS[k]); return v == null ? fallback : JSON.parse(v); }
   catch { return fallback; }
 }
-function lsSet(k, v) { localStorage.setItem(LS[k], JSON.stringify(v)); }
-function lsDel(k) { localStorage.removeItem(LS[k]); }
+let storageFullWarned = false;
+function lsSet(k, v) {
+  try { localStorage.setItem(LS[k], JSON.stringify(v)); }
+  catch (e) {
+    // quota dépassé : sans ça, la séance en cours n'était jamais persistée — perte silencieuse
+    if (!storageFullWarned) { storageFullWarned = true; console.warn('localStorage plein', e); emit('storage-full'); }
+  }
+}
+function lsDel(k) { try { localStorage.removeItem(LS[k]); } catch {} }
 
 export function persistAll() {
   lsSet('workouts', store.workouts);
@@ -67,7 +76,15 @@ function persistMeta() {
     delC: store.delC, pendingDelObjs: store.pendingDelObjs,
   });
 }
-export const persistDraftNow = persistAll; // frappe dans le logger (port de persistDraftNow)
+/* Frappe du logger : écriture immédiate de la seule clé draft (petite et vitale),
+   persistance complète débondée — sérialiser tout l'historique à chaque caractère
+   gelait la saisie et multipliait les risques de quota. */
+let draftPersistTimer = null;
+export function persistDraftNow() {
+  try { store.draft ? lsSet('draft', store.draft) : lsDel('draft'); } catch {}
+  clearTimeout(draftPersistTimer);
+  draftPersistTimer = setTimeout(() => persistAll(), 400);
+}
 
 /* ============================== IndexedDB (pixels) ============================== */
 let idb = null;
@@ -121,8 +138,9 @@ export async function photoUrl(id) {
   return u;
 }
 async function lruTrim() {
-  // cache LRU 12 : les fichiers les plus vieux partent (métadonnées conservées)
-  const ids = [...store.photos].sort((a, b) => b.ts - a.ts).map(p => p.id);
+  // cache LRU 12 : les fichiers les plus vieux partent (métadonnées conservées).
+  // ⚠️ JAMAIS une photo sans remote : ses pixels seraient perdus à jamais (aucune copie cloud).
+  const ids = [...store.photos].sort((a, b) => b.ts - a.ts).filter(p => p.remote).map(p => p.id);
   for (const id of ids.slice(12)) {
     await idbDel('photos', id);
     const u = urlCache.get(id);
@@ -132,22 +150,35 @@ async function lruTrim() {
 export async function photoBlob(id) { return idbGet('photos', id); }
 export async function savePhotoBytes(id, blob) {
   await idbPut('photos', id, blob);
-  urlCache.delete(id) && URL.revokeObjectURL(urlCache.get(id));
+  const old = urlCache.get(id);
+  if (old) URL.revokeObjectURL(old);
   urlCache.delete(id);
   lruTrim();
 }
 export async function setAvatarBlob(blob) { await idbPut('misc', 'avatar', blob); emit('avatar'); }
 export async function avatarBlob() { return idbGet('misc', 'avatar'); }
+/* Object URL de l'avatar MIS EN CACHE : les écrans en créaient un neuf à chaque rendu
+   (fuite d'URLs) — un seul, révoqué quand le blob change. */
+let avatarUrlCache = null;
+export async function avatarObjectUrl() {
+  const b = await avatarBlob();
+  if (!b) return null;
+  if (avatarUrlCache && avatarUrlCache.blob === b) return avatarUrlCache.url;
+  if (avatarUrlCache) URL.revokeObjectURL(avatarUrlCache.url);
+  avatarUrlCache = { blob: b, url: URL.createObjectURL(b) };
+  return avatarUrlCache.url;
+}
 
 /* ============================== boot ============================== */
 const builtinNames = new Set(EXERCISES.map(e => e.name));
 
 export function init() {
-  store.workouts = lsGet('workouts', []);
-  store.routines = lsGet('routines', []);
-  store.photos = lsGet('photos', []);
-  store.customs = lsGet('customs', []);
-  store.settings = Object.assign({}, store.settings, lsGet('settings', {}));
+  store.workouts = arr(lsGet('workouts', []));
+  store.routines = arr(lsGet('routines', []));
+  store.photos = arr(lsGet('photos', []));
+  store.customs = arr(lsGet('customs', []));
+  const st = lsGet('settings', {});
+  store.settings = (st && typeof st === 'object' && !Array.isArray(st)) ? Object.assign({}, store.settings, st) : { ...store.settings };
   if (!store.settings.since) store.settings.since = Date.now();
   store.draft = lsGet('draft', null);
   store.skipped = lsGet('skipped', false);
@@ -155,13 +186,35 @@ export function init() {
   const meta = lsGet('meta', {});
   Object.assign(store, {
     dirtyAt: meta.dirtyAt || 0, pushedTs: meta.pushedTs || 0, lastSeenRemoteTs: meta.lastSeenRemoteTs || 0,
-    lastAccount: meta.lastAccount || '', delW: meta.delW || [], delR: meta.delR || [],
-    delP: meta.delP || [], delC: meta.delC || [], pendingDelObjs: meta.pendingDelObjs || [],
+    lastAccount: meta.lastAccount || '', delW: arr(meta.delW), delR: arr(meta.delR),
+    delP: arr(meta.delP), delC: arr(meta.delC), pendingDelObjs: arr(meta.pendingDelObjs),
   });
   applyCustoms(store.customs);
   store.prCache = Calc.rebuildPrs(store.workouts);
   persistAll();
 }
+
+/** Recharge les données depuis le disque (multi-onglets : l'autre onglet vient d'écrire). */
+export function reloadFromDisk() {
+  const hadDraft = store.draft != null;
+  store.workouts = arr(lsGet('workouts', store.workouts));
+  store.routines = arr(lsGet('routines', store.routines));
+  store.photos = arr(lsGet('photos', store.photos));
+  store.customs = arr(lsGet('customs', store.customs));
+  const st = lsGet('settings', {});
+  if (st && typeof st === 'object' && !Array.isArray(st)) store.settings = Object.assign({}, store.settings, st);
+  const meta = lsGet('meta', {});
+  Object.assign(store, {
+    dirtyAt: meta.dirtyAt || 0, pushedTs: meta.pushedTs || 0, lastSeenRemoteTs: meta.lastSeenRemoteTs || 0,
+    lastAccount: meta.lastAccount || '', delW: arr(meta.delW), delR: arr(meta.delR),
+    delP: arr(meta.delP), delC: arr(meta.delC), pendingDelObjs: arr(meta.pendingDelObjs),
+  });
+  applyCustoms(store.customs);
+  store.prCache = Calc.rebuildPrs(store.workouts);
+  prevDisplayCache = {}; prevCache = {};
+  emit('change');
+}
+const arr = (v) => Array.isArray(v) ? v : [];
 
 /** Les customs vivent dans le catalogue global : recherche, icône muscle, cardio, disques. */
 function applyCustoms(list) {
@@ -267,12 +320,12 @@ export function finishWorkout(name) {
   const now = Date.now();
   const prs = [];
   for (const ex of d.exercises) {
-    const done = ex.sets.filter(s => (s.kg || 0) > 0 && (s.reps || 0) > 0 && s.done);
+    const done = ex.sets.filter(s => (s.kg || 0) > 0 && (s.reps || 0) > 0 && s.done && Number.isFinite(s.kg) && Number.isFinite(s.reps));
     if (!done.length) continue;
     const prev = prFor(ex.name);
     const pw = prev ? prev.weight : 0, pe = prev ? prev.e1rm : 0;
-    const bw = Math.max(...done.map(s => s.kg));
-    const be = Math.max(...done.map(s => Calc.e1rm(s.kg, s.reps)));
+    const bw = Calc.maxOf(done.map(s => s.kg));
+    const be = Calc.maxOf(done.map(s => Calc.e1rm(s.kg, s.reps)));
     if (bw > pw) prs.push({ ex: ex.name, kind: 'Weight', value: bw });
     if (be > pe) prs.push({ ex: ex.name, kind: 'Est. 1RM', value: be });
   }
@@ -281,6 +334,7 @@ export function finishWorkout(name) {
     name: (name || '').trim() || 'Séance',
     startedAt: d.startedAt ?? (now - 3600000),
     endedAt: now,
+    uTs: now, // version de séance pour le merge sync (le LWW par startedAt écrasait les éditions concurrentes)
     exercises: d.exercises, notes: d.notes || '', prs,
   };
   store.workouts.push(w);
@@ -524,7 +578,7 @@ export function wipe(markDirtyFlag = true) {
 
 /* ============================== tombstones + sync (Cloud.kt) ============================== */
 
-function cap(list, item) { if (!list.includes(item)) { list.push(item); if (list.length > 400) list.shift(); } persistMeta(); }
+function cap(list, item) { if (!list.includes(item)) { list.push(item); if (list.length > 2000) list.shift(); } persistMeta(); }
 export function tombstoneWorkout(startedAt) { cap(store.delW, startedAt); }
 export function untombstoneWorkout(startedAt) { const i = store.delW.indexOf(startedAt); if (i >= 0) { store.delW.splice(i, 1); persistMeta(); } }
 export function tombstoneRoutine(name) { cap(store.delR, name); }
@@ -553,15 +607,18 @@ export function snapshot() {
 }
 
 const normW = w => normalizeWorkout(w);
+const MAX_SETS = 1000, MAX_EX = 200, MAX_STR = 500;
 function normalizeWorkout(w) {
   return {
-    id: +w.id, name: String(w.name || 'Séance'), startedAt: +w.startedAt, endedAt: +w.endedAt,
-    notes: w.notes || '',
-    prs: (w.prs || []).map(p => ({ ex: p.ex, kind: p.kind, value: +p.value })),
-    exercises: (w.exercises || []).map(e => ({
-      name: e.name, muscle: e.muscle || '', notes: e.notes || '', superset: !!e.superset, restSec: e.restSec ?? null,
-      sets: (e.sets || []).map(s => ({
-        kg: s.kg ?? null, reps: s.reps ?? null, mins: s.mins ?? null, km: s.km ?? null,
+    id: +w.id, name: String(w.name || 'Séance').slice(0, MAX_STR), startedAt: +w.startedAt, endedAt: +w.endedAt,
+    uTs: Number.isFinite(+w.uTs) ? +w.uTs : 0,
+    notes: String(w.notes || '').slice(0, MAX_STR * 20),
+    prs: (Array.isArray(w.prs) ? w.prs : []).slice(0, MAX_EX).map(p => ({ ex: p.ex, kind: p.kind, value: +p.value })),
+    exercises: (Array.isArray(w.exercises) ? w.exercises : []).slice(0, MAX_EX).map(e => ({
+      name: e.name, muscle: e.muscle || '', notes: String(e.notes || '').slice(0, MAX_STR * 20), superset: !!e.superset, restSec: e.restSec ?? null,
+      sets: (Array.isArray(e.sets) ? e.sets : []).slice(0, MAX_SETS).map(s => ({
+        kg: Number.isFinite(s.kg) ? s.kg : null, reps: Number.isFinite(s.reps) ? s.reps : null,
+        mins: Number.isFinite(s.mins) ? s.mins : null, km: Number.isFinite(s.km) ? s.km : null,
         done: s.done !== false, prW: !!s.prW, prE: !!s.prE,
       })),
     })),
@@ -569,25 +626,50 @@ function normalizeWorkout(w) {
 }
 function normalizeRoutine(r) {
   return {
-    id: +r.id, name: String(r.name || 'Routine'), pos: +(r.pos || 0),
-    exercises: (r.exercises || []).map(e => ({
-      name: e.name, muscle: e.muscle || '', notes: e.notes || '', superset: !!e.superset, restSec: e.restSec ?? null,
-      sets: (e.sets || []).map(s => ({
+    id: +r.id, name: String(r.name || 'Routine').slice(0, MAX_STR), pos: +(r.pos || 0),
+    exercises: (Array.isArray(r.exercises) ? r.exercises : []).slice(0, MAX_EX).map(e => ({
+      name: e.name, muscle: e.muscle || '', notes: String(e.notes || '').slice(0, MAX_STR * 20), superset: !!e.superset, restSec: e.restSec ?? null,
+      sets: (Array.isArray(e.sets) ? e.sets : []).slice(0, MAX_SETS).map(s => ({
         kg: s.kg ?? null, reps: s.reps ?? null, mins: s.mins ?? null, km: s.km ?? null,
         done: s.done !== false, prW: false, prE: false,
       })),
     })),
   };
 }
+/** Format attendu d'un chemin d'objet photo distante : « {uid}/ph_{id}.jpg ». */
+const REMOTE_RE = /^[A-Za-z0-9-]{1,64}\/ph_\d{1,10}\.jpg$/;
+/**
+ * Settings issus du cloud : primitives uniquement (les clés objets/tableaux sont jetées —
+ * jamais de deep-merge), clés __proto__/constructor/prototype exclues (Object.assign sur
+ * une cible fraîche convertirait un __proto__ JSON en remplacement de prototype), et
+ * avatarUrl restreint au bucket avatars de notre Supabase (sinon : <img src> arbitraire
+ * = beacon de tracking à chaque rendu).
+ */
+const AVATAR_URL_PREFIX = `${Cloud.SUPABASE_URL}/storage/v1/object/public/avatars/`;
+function normalizeSettings(s) {
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return null;
+  const out = {};
+  for (const k of Object.keys(s)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
+    const v = s[k];
+    if (k === 'avatarUrl') {
+      if (typeof v === 'string' && v.startsWith(AVATAR_URL_PREFIX) && v.length < 400) out.avatarUrl = v;
+    } else if (typeof v === 'string') out[k] = v.length > 200 ? v.slice(0, 200) : v;
+    else if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+    else if (typeof v === 'boolean') out[k] = v;
+  }
+  return Object.keys(out).length ? out : null;
+}
 function normalizePayload(p) {
   if (!p || typeof p !== 'object') return null;
   return {
-    workouts: (p.workouts || []).map(normW),
-    routines: (p.routines || []).map(normalizeRoutine),
-    settings: p.settings || null,
-    delW: p.delW || [], delR: p.delR || [], delP: p.delP || [], delC: p.delC || [],
-    photos: (p.photos || []).map(x => ({ id: +x.id, ts: +x.ts, wId: x.wId ?? null, note: x.note || '', kg: x.kg ?? null, remote: x.remote || '' })),
-    customs: (p.customs || []).map(c => ({ name: c.name, muscle: c.muscle, equip: c.equip || 'Other' })),
+    workouts: (Array.isArray(p.workouts) ? p.workouts : []).map(normW),
+    routines: (Array.isArray(p.routines) ? p.routines : []).map(normalizeRoutine),
+    settings: normalizeSettings(p.settings),
+    delW: Array.isArray(p.delW) ? p.delW : [], delR: Array.isArray(p.delR) ? p.delR : [],
+    delP: Array.isArray(p.delP) ? p.delP : [], delC: Array.isArray(p.delC) ? p.delC : [],
+    photos: (Array.isArray(p.photos) ? p.photos : []).map(x => ({ id: +x.id, ts: +x.ts, wId: x.wId ?? null, note: String(x.note || '').slice(0, MAX_STR), kg: Number.isFinite(x.kg) ? x.kg : null, remote: REMOTE_RE.test(x.remote || '') ? x.remote : '' })),
+    customs: (Array.isArray(p.customs) ? p.customs : []).map(c => ({ name: c.name, muscle: c.muscle, equip: c.equip || 'Other' })),
     v: p.v || 0,
   };
 }
@@ -603,7 +685,9 @@ export function replaceAll(rawP) {
   touch(['workouts', 'routines', 'photos', 'customs', 'settings']);
 }
 
-/** Fusion-union : les suppressions gagnent, doublons par startedAt / nom / id. */
+/** Fusion-union : les suppressions gagnent, doublons par startedAt / nom / id.
+ *  Séance présente des deux côtés : la version de plus grand uTs gagne (les snapshots
+ *  sans uTs — clients Android — restent en « local gagne », comportement d'avant). */
 export function mergeRemote(rawP) {
   const p = normalizePayload(rawP); if (!p) return false;
   const ldW = new Set(store.delW), ldR = new Set(store.delR), ldP = new Set(store.delP), ldC = new Set(store.delC);
@@ -613,20 +697,26 @@ export function mergeRemote(rawP) {
   const keepR = store.routines.filter(r => !rdR.has(r.name));
   const keepP = store.photos.filter(ph => !rdP.has(ph.id));
   const keepC = store.customs.filter(c => !rdC.has(c.name));
-  const kw = new Set(keepW.map(w => w.startedAt));
-  const kr = new Set(keepR.map(r => r.name));
-  const kp = new Set(keepP.map(ph => ph.id));
-  const addW = p.workouts.filter(w => !ldW.has(w.startedAt) && !kw.has(w.startedAt));
-  const addR = p.routines.filter(r => !ldR.has(r.name) && !kr.has(r.name));
-  const addP = p.photos.filter(ph => !ldP.has(ph.id) && !kp.has(ph.id));
-  const kc = new Set(keepC.map(c => c.name));
-  const addC = p.customs.filter(c => !ldC.has(c.name) && !kc.has(c.name));
+  const byStart = new Map(keepW.map(w => [w.startedAt, w]));
+  const addW = [], updW = new Map();
+  for (const w of p.workouts) {
+    if (ldW.has(w.startedAt)) continue;
+    const loc = byStart.get(w.startedAt);
+    if (!loc) addW.push(w);
+    else if ((w.uTs || 0) > (loc.uTs || 0)) updW.set(w.startedAt, w);
+  }
+  const addR = p.routines.filter(r => !ldR.has(r.name) && !keepR.some(k => k.name === r.name));
+  const addP = p.photos.filter(ph => !ldP.has(ph.id) && !keepP.some(k => k.id === ph.id));
+  const addC = p.customs.filter(c => !ldC.has(c.name) && !keepC.some(k => k.name === c.name));
 
   if (keepW.length === store.workouts.length && keepR.length === store.routines.length &&
       keepP.length === store.photos.length && keepC.length === store.customs.length &&
-      !addW.length && !addR.length && !addP.length && !addC.length) return false;
+      !addW.length && !updW.size && !addR.length && !addP.length && !addC.length) return false;
 
-  store.workouts = [...keepW, ...addW.map(w => ({ ...w, id: nextWorkoutId() }))].sort((a, b) => a.startedAt - b.startedAt);
+  store.workouts = [
+    ...keepW.map(w => { const r = updW.get(w.startedAt); return r ? { ...r, id: w.id } : w; }),
+    ...addW.map(w => ({ ...w, id: nextWorkoutId() })),
+  ].sort((a, b) => a.startedAt - b.startedAt);
   store.routines = [...keepR, ...addR.map(r => ({ ...r, id: nextRoutineId(), pos: nextPos() }))];
   store.photos = [...keepP, ...addP].sort((a, b) => a.ts - b.ts);
   applyCustoms([...keepC, ...addC]);
@@ -652,15 +742,33 @@ export async function applySession(session) {
   store.session = session;
   store.lastAccount = session.userId;
   persistSessionNow(); persistMeta();
-  if (hadLocalData && !store.dirtyAt) store.dirtyAt = Date.now(); // premier binding → push
   emit('session');
+  if (hadLocalData && !store.dirtyAt) {
+    // premier binding avec des données locales : on ne pousse PLUS automatiquement dans le
+    // compte (machine partagée → fuite des séances de A vers le compte de B). L'app demande.
+    store.pendingLocalMerge = true;
+    return;
+  }
   requestSync(400);
+}
+
+/** Réponse au dialogue « données locales trouvées » : true = fusionner (push), false = cloud prioritaire (pull). */
+export function resolvePendingLocalMerge(merge) {
+  store.pendingLocalMerge = false;
+  if (merge) markDirty();
+  else requestSync(400);
 }
 
 export async function signOutNow() {
   const s = store.session;
   store.session = null;
   persistSessionNow();
+  // reste PKCE de Google : parité Cloud.kt signOut (verifier à usage unique mais ne doit pas traîner)
+  try {
+    localStorage.removeItem('lb.pkce_verifier');
+    localStorage.removeItem('lb.pkce_ts');
+    sessionStorage.removeItem('lb.google_pending');
+  } catch {}
   if (s) { try { await Cloud.logout(s); } catch {} }
   emit('session');
 }
@@ -673,13 +781,20 @@ export async function syncNow() {
   try {
     let s = store.session;
     if (Cloud.isSessionExpired(s)) {
-      const refreshed = await Cloud.refreshSession(s.refresh).catch(() => null);
-      if (!refreshed) { await signOutNow(); return; }
+      let refreshed = null, netErr = false;
+      try { refreshed = await Cloud.refreshSession(s.refresh); }
+      catch (e) { netErr = e && e.status === 0; }
+      if (!refreshed) {
+        // erreur RÉSEAU (offline/DNS/timeout) : on garde la session et on retentera —
+        // comme Cloud.kt. Seul un refresh réellement rejeté (4xx) déconnecte.
+        if (netErr) { store.syncStatus = stamp('Hors ligne — sync reportée'); return; }
+        await signOutNow(); return;
+      }
       s = refreshed; store.session = refreshed; persistSessionNow();
     }
     // purge des suppressions distantes en attente (indépendante du dirty)
     for (const path of [...store.pendingDelObjs]) {
-      const ok = await Cloud.deleteStorageObject(store.session, `progress/${path}`).catch(() => false);
+      const ok = REMOTE_RE.test(path) && await Cloud.deleteStorageObject(store.session, `progress/${path}`).catch(() => false);
       if (ok) store.pendingDelObjs = store.pendingDelObjs.filter(x => x !== path);
     }
     const { payload: rawRemote, clientTs } = await Cloud.pullSnapshot(store.session);
@@ -710,13 +825,31 @@ export async function syncNow() {
       if (changed) persistAll();
       const ts = Math.max(Date.now(), store.lastSeenRemoteTs + 1);
       const stored = await Cloud.pushSnapshot(store.session, snapshot(), ts);
+      if (stored < ts) {
+        // garde LWW côté serveur : le serveur a gardé un ts plus récent (horloge locale en
+        // retard ou ts distant empoisonné) — on NE marque PAS le push comme réussi, sinon
+        // un pull effacerait les saisies locales. dirtyAt reste > pushedTs → retry auto.
+        store.lastSeenRemoteTs = stored;
+        persistMeta();
+        store.syncStatus = stamp('Conflit d\'horloge — nouvelle tentative au prochain cycle');
+        requestSync(30000);
+        return;
+      }
       store.pushedTs = ts; store.dirtyAt = ts; store.lastSeenRemoteTs = stored;
       persistMeta();
       fetchMissingPhotos();
       store.syncStatus = stamp('Synchronisé');
     }
   } catch (e) {
-    store.syncStatus = stamp(`Sync échouée (${String(e && e.message || e).slice(0, 60)})`);
+    const msg = String((e && e.message) || e);
+    if (/lww_stale/.test(msg)) {
+      // le serveur a refusé le push : un appareil concurrent a un ts plus récent.
+      // dirtyAt reste > pushedTs → re-pull + retry automatiques, rien n'est perdu.
+      store.syncStatus = stamp('Conflit de sync — nouvelle tentative');
+      requestSync(15000);
+    } else {
+      store.syncStatus = stamp(`Sync échouée (${msg.slice(0, 60)})`);
+    }
   } finally {
     store.syncing = false;
     emit('sync');
@@ -743,7 +876,9 @@ async function fetchMissingPhotos() {
     if (p.remote && !(await photoBlob(p.id))) missing.push(p);
   }
   for (const p of missing) {
-    const buf = await Cloud.downloadProgressPhoto(store.session, p.remote).catch(() => null);
+    // ⚠️ p.id (numérique) : passer p.remote double-encapsulait le chemin → 404 permanent,
+    // la sync photos n'était qu'upload-only.
+    const buf = await Cloud.downloadProgressPhoto(store.session, p.id).catch(() => null);
     if (buf) await savePhotoBytes(p.id, new Blob([buf], { type: 'image/jpeg' }));
   }
   if (missing.length) emit('photos');

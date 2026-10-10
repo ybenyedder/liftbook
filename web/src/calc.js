@@ -44,6 +44,13 @@ function mkRoutine(id, name, exercises = [], pos = 0) {
 // ---------- petits utilitaires numériques (sémantique Kotlin) ----------
 // Math.round de Java/Kotlin : half-up, identique à Math.round JS.
 function r1(x) { return Math.round(x * 10) / 10.0; }
+// Max borné — remplace tout Math.max(...spread) : un spread sur des milliers d'éléments
+// fait exploser la pile d'appels (RangeError au boot sur un historique/import massif).
+export function maxOf(arr) {
+  let m = -Infinity;
+  for (const v of arr) if (Number.isFinite(v) && v > m) m = v;
+  return m;
+}
 // trim : entier sans décimale, sinon 1 décimale max (format US, %.1f half-up ≈ toFixed(1)).
 function trim(x) { const r = Math.round(x); return r === x ? String(r) : x.toFixed(1); }
 // toDoubleOrNull : parse flottant strict (comme Double.parseDouble, espaces trimmed).
@@ -98,7 +105,7 @@ export function vol(w) {
   let s = 0;
   for (const ex of (w.exercises ?? []))
     for (const it of (ex.sets ?? []))
-      if ((it.done ?? true) && it.kg != null && it.reps != null) s += it.kg * it.reps;
+      if ((it.done ?? true) && it.kg != null && it.reps != null && Number.isFinite(it.kg) && Number.isFinite(it.reps)) s += it.kg * it.reps;
   return s;
 }
 
@@ -107,7 +114,7 @@ export function reps(w) {
   let s = 0;
   for (const ex of (w.exercises ?? []))
     for (const it of (ex.sets ?? []))
-      if ((it.done ?? true) && it.reps != null) s += it.reps;
+      if ((it.done ?? true) && it.reps != null && Number.isFinite(it.reps)) s += it.reps;
   return s;
 }
 
@@ -124,7 +131,7 @@ export function setsDone(w) {
 
 // Poids affiché : converti en lb si demandé, 1 décimale max, entier si rond.
 export function fmtKg(kg, unit) {
-  if (kg == null) return '';
+  if (kg == null || !Number.isFinite(kg)) return '';
   const v = unit === 'lb' ? kg * LB : kg;
   return trim(r1(v));
 }
@@ -165,14 +172,16 @@ export function platesForSide(targetKg, barKg, unit) {
 }
 
 // Parse un texte de saisie en kg (virgule acceptée, lb converti), null si invalide/nul.
+// Garde anti-NaN/Infinity : la comparaison v <= 0 laisse passer NaN (NaN <= 0 = false),
+// et "Infinity"/"1e308" sont acceptés par toDoubleOrNull (parité Double.parseDouble Kotlin).
 export function toKg(text, unit) {
   const v = toDoubleOrNull(String(text).replace(/,/g, '.'));
-  if (v == null || v <= 0) return null;
+  if (v == null || !Number.isFinite(v) || v <= 0 || v > 1e5) return null;
   return unit === 'lb' ? v / LB : v;
 }
 
 // Volume formaté avec séparateur de milliers français (U+202F).
-export function fmtVol(kg, unit) { return groupFr(Math.round(unit === 'lb' ? kg * LB : kg)); }
+export function fmtVol(kg, unit) { return Number.isFinite(kg) ? groupFr(Math.round(unit === 'lb' ? kg * LB : kg)) : '0'; }
 
 // Conversion brute kg → unité d'affichage.
 export function toDisplay(kg, unit) { return unit === 'lb' ? kg * LB : kg; }
@@ -291,9 +300,9 @@ export function e1rmSeries(name, workouts, maxPts = 12) {
   for (const w of [...(workouts ?? [])].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))) {
     const ex = (w.exercises ?? []).find((e) => e.name === name);
     if (!ex) continue;
-    const cands = (ex.sets ?? []).filter((it) => (it.kg ?? 0) > 0 && (it.reps ?? 0) > 0);
+    const cands = (ex.sets ?? []).filter((it) => (it.kg ?? 0) > 0 && (it.reps ?? 0) > 0 && Number.isFinite(it.kg) && Number.isFinite(it.reps));
     if (cands.length === 0) continue; // maxOfOrNull → null → pas de point
-    pts.push([fmtDateShort(w.startedAt), Math.max(...cands.map((it) => e1rm(it.kg, it.reps)))]);
+    pts.push([fmtDateShort(w.startedAt), maxOf(cands.map((it) => e1rm(it.kg, it.reps)))]);
   }
   return pts.slice(-maxPts);
 }
@@ -327,10 +336,10 @@ export function rebuildPrs(workouts) {
         if (kg > 0 && kg > pw) s.prW = true;
         if (kg > 0 && e1rm(kg, r) > pe) s.prE = true;
       }
-      const done = (ex.sets ?? []).filter((s) => s.kg != null && s.reps != null && (s.done ?? true) && s.kg > 0);
+      const done = (ex.sets ?? []).filter((s) => s.kg != null && s.reps != null && (s.done ?? true) && s.kg > 0 && Number.isFinite(s.kg) && Number.isFinite(s.reps));
       if (done.length > 0) {
-        const bw = Math.max(...done.map((s) => s.kg));
-        const be = Math.max(...done.map((s) => e1rm(s.kg, s.reps)));
+        const bw = maxOf(done.map((s) => s.kg));
+        const be = maxOf(done.map((s) => e1rm(s.kg, s.reps)));
         if (bw > pw) prs.push({ ex: ex.name, kind: 'Weight', value: bw });
         if (be > pe) prs.push({ ex: ex.name, kind: 'Est. 1RM', value: be });
         const oldW = prev ? prev.weight : 0.0;
@@ -360,13 +369,16 @@ export function parseCsv(content) {
     if (parts.length < 6) continue;
     const date = parts[0].trim(); const time = parts[1].trim(); const exName = parts[2].trim();
     const si = toIntOrNull(parts[3].trim()); if (si === null) continue;
-    const kg = toDoubleOrNull(parts[4].trim().replace(/,/g, '.'));
-    const reps = toIntOrNull(parts[5].trim());
+    // bornes anti-valeurs absurdes (négatif/NaN/Infinity) : null plutôt que corrompre les stats
+    const kgRaw = toDoubleOrNull(parts[4].trim().replace(/,/g, '.'));
+    const kg = kgRaw != null && kgRaw > 0 && Number.isFinite(kgRaw) ? kgRaw : null;
+    const repsRaw = toIntOrNull(parts[5].trim());
+    const reps = repsRaw != null && repsRaw > 0 ? repsRaw : null;
     const minsCell = parts[6] != null ? parts[6].trim() : null;
     const mins = minsCell && minsCell !== '' ? toDoubleOrNull(minsCell.replace(/,/g, '.')) : null;
-    const minsI = mins == null ? null : Math.trunc(mins); // .toInt() tronque
+    const minsI = mins == null || mins <= 0 ? null : Math.trunc(mins); // .toInt() tronque
     const kmCell = parts[7] != null ? parts[7].trim() : null;
-    const km = kmCell && kmCell !== '' ? toDoubleOrNull(kmCell.replace(/,/g, '.')) : null;
+    const km = kmCell && kmCell !== '' ? (() => { const v = toDoubleOrNull(kmCell.replace(/,/g, '.')); return v != null && v > 0 ? v : null; })() : null;
     const key = date + '\u0001' + time;
     if (!groups.has(key)) groups.set(key, new Map());
     const exMap = groups.get(key);
@@ -567,7 +579,7 @@ export function parseHevyCsv(content) {
     if (exRaw === '') continue;
     const unitLb = cols.unit !== null && (p[cols.unit] ?? '').toLowerCase().includes('lb');
     const kgRaw = cols.weight !== null ? toDoubleOrNull((p[cols.weight] ?? '').replace(/,/g, '.')) : null;
-    const kg = kgRaw !== null ? (unitLb ? kgRaw / LB : kgRaw) : null;
+    const kg = kgRaw !== null && kgRaw > 0 && Number.isFinite(kgRaw) ? (unitLb ? kgRaw / LB : kgRaw) : null;
     const date = parseExportDate(cols.date !== null ? (p[cols.date] ?? '') : '');
     const doneRaw = cols.done !== null ? (p[cols.done] ?? '').toLowerCase() : 'true';
     const supCell = cols.superset !== null ? p[cols.superset] : null;
@@ -577,7 +589,7 @@ export function parseHevyCsv(content) {
       endDate: (cols.endDate !== null && p[cols.endDate] != null ? parseExportDate(p[cols.endDate]) : null) ?? date,
       ex: exRaw,
       kg,
-      reps: cols.reps !== null ? (() => { const v = toDoubleOrNull(p[cols.reps] ?? ''); return v == null ? null : Math.trunc(v); })() : null,
+      reps: cols.reps !== null ? (() => { const v = toDoubleOrNull(p[cols.reps] ?? ''); return v == null || v <= 0 ? null : Math.trunc(v); })() : null,
       order: (cols.order !== null ? toIntOrNull(p[cols.order] ?? '') : null) ?? rows.length,
       done: !['false', '0', 'no', 'warmup'].includes(doneRaw),
       workoutName: (cols.name !== null ? (p[cols.name] || null) : null),
@@ -766,7 +778,9 @@ export function seed(nowMs) {
 // Contenu texte du CSV d'export : une ligne par série, colonnes Min/Km pour le cardio, noms FR (« ; »→« , »).
 export function exportCsvText(workouts, unit) {
   let out = `Date;Heure;Exercice;Serie;${unitLabel(unit)};Reps;Min;Km\n`;
-  const exName = (n) => NAME_FR[n] ?? n; // nom FR d'affichage (lang fr de l'app)
+  // cellule texte sûre : « ; »→« , » + neutralisation des formules tableur (préfixe ' devant = + - @)
+  const csvCell = (n) => { const s = String(NAME_FR[n] ?? n ?? '').replace(/;/g, ','); return /^[=+\-@]/.test(s) ? `'${s}` : s; };
+  const exName = csvCell;
   for (const w of [...(workouts ?? [])].sort((a, b) => (a.startedAt ?? 0) - (b.startedAt ?? 0))) {
     // date « d MMM yyyy » complète — parseCsv a besoin de l'année (fmtDateShort l'omettrait)
     const d = localDate(w.startedAt);

@@ -19,9 +19,9 @@ export const SUPABASE_URL = 'https://api.webtvmedia.net';
 export const ANON_KEY =
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzc2ODY2NDUyLCJleHAiOjIwOTIyMjY0NTJ9.jOfn90sK6YeY6LRRuwzdiZpiO-s8pN4Ozr418B8iRXE';
 
-/** User-Agent de Cloud.kt (`BuildConfig.VERSION_NAME` = 1.51). Les navigateurs refusent
+/** User-Agent de Cloud.kt (`BuildConfig.VERSION_NAME`). Les navigateurs refusent
  *  de le modifier (forbidden header) : il est posé dans un try/catch et ignoré sinon. */
-export const USER_AGENT = 'Mozilla/5.0 (Linux; Android 14) Liftbook/1.51';
+export const USER_AGENT = 'Mozilla/5.0 (Linux; Android 14) Liftbook/1.53';
 
 /** Timeouts Android (Cloud.kt : connectTimeout 12 s, readTimeout 25 s). Un AbortController
  *  ne sait découper que le total — on borne donc chaque requête au read timeout. */
@@ -279,19 +279,23 @@ export async function pullSnapshot(session) {
   return parsePullBody(res.text);
 }
 
-/** Parse la réponse du RPC push (fonction PURE) : nombre stocké côté serveur, sinon le ts émis. */
-export function parsePushBody(text, clientTs) {
+/**
+ * Parse la réponse du RPC push (fonction PURE) : nombre stocké côté serveur, sinon NULL.
+ * ⚠️ Plus de repli sur le ts émis : marquer un push « réussi » sans accusé réel du serveur
+ * effaçait dirtyAt alors que rien n'était stocké — les saisies disparaissaient au pull suivant.
+ */
+export function parsePushBody(text) {
   try {
     const v = JSON.parse(text);
     if (typeof v === 'number' && Number.isFinite(v)) return v;
     if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
-  } catch { /* corps vide/non JSON → ts émis */ }
-  return clientTs;
+  } catch { /* corps vide/non JSON → null */ }
+  return null;
 }
 
 /**
  * POST le snapshot complet avec garde LWW (RPC hevy_push_snapshot).
- * @returns {Promise<number>} le ts maintenant stocké côté serveur.
+ * @returns {Promise<number>} le ts maintenant stocké côté serveur (rejet si réponse inexploitable).
  * @throws {CloudError} (401 = unauthorized, comme Cloud.push)
  */
 export async function pushSnapshot(session, payload, clientTs) {
@@ -299,7 +303,9 @@ export async function pushSnapshot(session, payload, clientTs) {
   const res = await http('POST', '/rest/v1/rpc/hevy_push_snapshot', { body, bearer: session.access });
   if (res.status === 401) throw new CloudError(401, res.text, 'unauthorized');
   if (!ok(res.status)) throw new CloudError(res.status, res.text, `push ${res.status}`);
-  return parsePushBody(res.text, clientTs);
+  const stored = parsePushBody(res.text);
+  if (stored == null) throw new CloudError(res.status, res.text, 'push réponse invalide');
+  return stored;
 }
 
 // ================= storage =================
@@ -347,6 +353,8 @@ export async function uploadProgressPhoto(session, photoId, jpegBytes) {
 /**
  * Télécharge une photo de progression (bucket privé, bearer requis).
  * Comme Cloud.downloadProgressPhoto : échec réseau / non-2xx → null.
+ * ⚠️ Prend l'ID NUMÉRIQUE de la photo (le chemin est reconstruit) — passer p.remote
+ * (déjà « {uid}/ph_{id}.jpg ») provoquait une double encapsulation d'URL → 404 permanent.
  * @returns {Promise<ArrayBuffer|null>}
  */
 export async function downloadProgressPhoto(session, photoId) {
@@ -357,6 +365,21 @@ export async function downloadProgressPhoto(session, photoId) {
       binary: true,
     });
     return ok(res.status) ? res.bytes : null;
+  } catch { return null; }
+}
+
+/**
+ * Télécharge le blob d'une URL publique d'avatar (port de Cloud.downloadAvatar).
+ * L'URL est VALIDÉE : elle doit pointer vers notre bucket avatars — settings.avatarUrl venant
+ * du snapshot cloud, une URL arbitraire y ferait de chaque rendu un beacon de tracking.
+ * @returns {Promise<Blob|null>}
+ */
+export async function downloadUrlBlob(url) {
+  const prefix = `${SUPABASE_URL}/storage/v1/object/public/avatars/`;
+  if (typeof url !== 'string' || !url.startsWith(prefix) || url.length > 400 || !/^[\w.-]+\.jpg$/.test(url.slice(prefix.length))) return null;
+  try {
+    const res = await http('GET', url.slice(SUPABASE_URL.length), { binary: true });
+    return ok(res.status) ? new Blob([res.bytes], { type: 'image/jpeg' }) : null;
   } catch { return null; }
 }
 

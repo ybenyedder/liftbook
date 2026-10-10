@@ -92,11 +92,11 @@ function feedPost(w) {
     ),
   );
 
-  // avatar photo si dispo
-  S.avatarBlob().then(b => {
-    if (b) {
+  // avatar photo si dispo (object URL mis en cache côté store — plus de fuite par rendu)
+  S.avatarObjectUrl().then(u => {
+    if (u) {
       const av = card.querySelector('.avatar');
-      if (av) av.replaceChildren(h('img', { src: URL.createObjectURL(b), alt: '', style: { width: '100%', height: '100%', objectFit: 'cover' } }));
+      if (av) av.replaceChildren(h('img', { src: u, alt: '', style: { width: '100%', height: '100%', objectFit: 'cover' } }));
     }
   });
   return card;

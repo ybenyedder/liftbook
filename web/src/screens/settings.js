@@ -10,7 +10,7 @@ import * as nav from '../router.js';
 import * as Calc from '../calc.js';
 import { L10n } from '../search.js';
 
-const VERSION = '1.52'; // BuildConfig.VERSION_NAME (android/app/build.gradle.kts)
+const VERSION = '1.53'; // version web (bump Android à part dans build.gradle.kts)
 
 nav.registerScreen('settings', { render });
 
@@ -92,18 +92,28 @@ export async function inflateRaw(cbytes) {
  * Texte UTF-8 de tous les .csv d'une archive (équivalent ZipInputStream : entrées non
  * répertoires dont le nom finit par .csv, insensible à la casse). Les entrées STORED sont
  * lues sans DecompressionStream ; seules les DEFLATE en dépendent.
+ * Bornes anti-zip-bomb : DecompressionStream n'a AUCUN plafond natif — quelques Ko
+ * compressés pouvaient décompresser en plusieurs Go et tuer l'onglet.
  */
+const ZIP_MAX_ENTRY = 32 * 1024 * 1024;   // 32 Mo décompressés par entrée
+const ZIP_MAX_TOTAL = 64 * 1024 * 1024;   // 64 Mo cumulés
+const ZIP_MAX_ENTRIES = 512;
 export async function unzipCsvTexts(bytes) {
   const eocd = parseZipEocd(bytes);
   if (!eocd) throw new Error('zip: End of Central Directory introuvable');
+  if (eocd.count > ZIP_MAX_ENTRIES) throw new Error('zip: trop d\'entrées');
   const td = new TextDecoder();
   const out = [];
+  let total = 0;
   for (const entry of parseZipCentralDirectory(bytes, eocd)) {
     if (entry.name.endsWith('/') || !entry.name.toLowerCase().endsWith('.csv')) continue;
+    if (entry.usize > ZIP_MAX_ENTRY) throw new Error('zip: entrée trop volumineuse');
     const raw = zipEntryRaw(bytes, entry);
     if (raw == null) continue;
     if (entry.method === 0) out.push(td.decode(raw));
     else if (entry.method === 8) out.push(td.decode(await inflateRaw(raw)));
+    total += entry.usize;
+    if (total > ZIP_MAX_TOTAL) throw new Error('zip: archive trop volumineuse après décompression');
   }
   return out;
 }
@@ -237,8 +247,8 @@ function render(el) {
     const letter = store.settings.profileName.trim().slice(0, 1).toUpperCase();
     const holder = h('div', {}, avatarEl(letter, 56, store.settings.avatarUrl || null));
     // la photo locale (IndexedDB) prime sur l'URL distante — AvatarImg/AvatarCache Android
-    S.avatarBlob().then(blob => {
-      if (blob) holder.replaceChildren(avatarEl(letter, 56, URL.createObjectURL(blob)));
+    S.avatarObjectUrl().then(u => {
+      if (u) holder.replaceChildren(avatarEl(letter, 56, u));
     }).catch(() => {});
     return h('button', { class: 'avatar-row', onclick: () => photoInput.click() },
       holder,
@@ -322,6 +332,7 @@ function render(el) {
     const file = hevyInput.files && hevyInput.files[0];
     hevyInput.value = '';
     if (!file) return;
+    if (file.size > 100 * 1024 * 1024) { toast(L10n.s('File too large (100 MB max)', 'Fichier trop volumineux (100 Mo max)')); return; }
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const csvs = isZipBytes(bytes) ? await unzipCsvTexts(bytes) : [new TextDecoder().decode(bytes)];

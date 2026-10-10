@@ -357,10 +357,10 @@ function renderExerciseDetail(el, { name }) {
 
       // carte Records 🏆
       const pr = S.prFor(name);
-      const best1rm = Math.max(...uniq.flatMap(([, e]) =>
-        e.sets.filter(s => (s.kg ?? 0) > 0 && (s.reps ?? 0) > 0).map(s => Calc.e1rm(s.kg, s.reps))), 0);
-      const bestSet = uniq.flatMap(([, e]) => e.sets.map(s => s.kg).filter(kg => kg != null));
-      const bestTop = bestSet.length ? Math.max(...bestSet) : 0;
+      const best1rm = Math.max(Calc.maxOf(uniq.flatMap(([, e]) =>
+        e.sets.filter(s => (s.kg ?? 0) > 0 && (s.reps ?? 0) > 0 && Number.isFinite(s.kg) && Number.isFinite(s.reps)).map(s => Calc.e1rm(s.kg, s.reps)))), 0);
+      const bestSet = uniq.flatMap(([, e]) => e.sets.map(s => s.kg).filter(kg => kg != null && Number.isFinite(kg)));
+      const bestTop = bestSet.length ? Calc.maxOf(bestSet) : 0;
       const rec = h('div', { class: 'card' },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: '7px' } },
           icon('emoji_events', { size: 16, cls: 't-acc' }),

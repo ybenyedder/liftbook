@@ -131,12 +131,12 @@ export function testParseSessionReponseGotrue() {
     token_type: 'bearer',
     expires_in: 3600,
     refresh_token: 'jwt-refresh',
-    user: { id: '9587ea84-48fb-440a-be18-a41189a26548', email: 'Me@Example.com' },
+    user: { id: '00000000-0000-4000-8000-000000000001', email: 'Me@Example.com' },
   };
   const s = parseSession(reponse, { nowMs: 1_000 });
   assertEq(s.access, 'jwt-access', 'access');
   assertEq(s.refresh, 'jwt-refresh', 'refresh');
-  assertEq(s.userId, '9587ea84-48fb-440a-be18-a41189a26548', 'userId');
+  assertEq(s.userId, '00000000-0000-4000-8000-000000000001', 'userId');
   assertEq(s.email, 'Me@Example.com', 'email depuis user.email');
   assertEq(s.expiresAt, 1_000 + 3600 * 1000, 'expires_in secondes → +3 600 000 ms');
   // expiresIn non entier / absent → défaut 3600 s (fallback Kotlin)
@@ -178,13 +178,15 @@ export function testParsePushBody() {
   assertEq(parsePushBody('123', 7), 123, 'nombre nu');
   assertEq(parsePushBody('123.5', 7), 123.5, 'nombre décimal');
   assertEq(parsePushBody('"456"', 7), 456, 'nombre en chaîne (jsonPrimitive.long Kotlin)');
-  assertEq(parsePushBody('', 99), 99, 'corps vide → ts émis');
-  assertEq(parsePushBody('null', 99), 99, 'null JSON → ts émis');
-  assertEq(parsePushBody('"abc"', 99), 99, 'non numérique → ts émis');
+  // v1.53 : plus de repli sur le ts émis — un push sans accusé réel du serveur était
+  // marqué « synchronisé » alors que rien n'était stocké (perte silencieuse au pull).
+  assertEq(parsePushBody('', 99), null, 'corps vide → null (rejet)');
+  assertEq(parsePushBody('null', 99), null, 'null JSON → null (rejet)');
+  assertEq(parsePushBody('"abc"', 99), null, 'non numérique → null (rejet)');
   let threw = false;
   try { parsePushBody('{', 5); } catch { threw = true; }
   assert(!threw, 'JSON invalide ne doit pas jeter');
-  assertEq(parsePushBody('{', 5), 5, 'JSON invalide → ts émis (getOrDefault Kotlin)');
+  assertEq(parsePushBody('{', 5), null, 'JSON invalide → null (rejet)');
 }
 
 // ---- CloudError : forme et messages par défaut ----

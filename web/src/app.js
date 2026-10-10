@@ -35,10 +35,36 @@ const boot = async () => {
   const app = document.getElementById('app');
   navMod.setRoot(app.querySelector('#screen-root'));
   storeMod.on('session', renderAll);
+  storeMod.on('session', maybeAskLocalMerge);
+  storeMod.on('storage-full', () => import('./ui.js').then(ui => ui.toast(L10n.s(
+    'Local storage full — export a backup and free space',
+    'Stockage local plein — exporte une sauvegarde et libère de l\'espace'))));
   renderAll();
 
+  // multi-onglets : chaque onglet réécrivait TOUT le store → l'onglet périmé effaçait la
+  // séance terminée dans l'autre. On recharge depuis le disque à chaque écriture externe
+  // (sauf brouillon actif → avertissement), et on suit les refresh de session de l'autre onglet.
+  window.addEventListener('storage', (e) => {
+    if (!e.key || !e.key.startsWith('lb.') || e.key === 'lb.nav' || e.key === 'lb.rest') return;
+    if (e.key === 'lb.session') {
+      try { store.session = e.newValue ? JSON.parse(e.newValue) : null; } catch { /* ignore */ }
+      return; // pas de re-rendu : le contenu n'a pas changé, seule la session a été rafraîchie
+    }
+    if (store.draft && store.draft.mode === 'workout') {
+      if (!multiTabWarned) {
+        multiTabWarned = true;
+        import('./ui.js').then(ui => ui.toast(L10n.s(
+          'Another tab modified the data — finish your workout here, then reload',
+          'Un autre onglet a modifié les données — termine ta séance ici puis recharge')));
+      }
+      return;
+    }
+    storeMod.reloadFromDisk();
+    renderAll();
+  });
+
   // sync : au boot (400 ms) et au retour de visibilité (onStart Android)
-  if (store.session) storeMod.requestSync(400);
+  if (store.session && !store.pendingLocalMerge) storeMod.requestSync(400);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && store.session) storeMod.requestSync(400);
   });
@@ -48,6 +74,24 @@ const boot = async () => {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 };
+let multiTabWarned = false;
+
+/** Premier login avec données locales : fusionner dans le compte, ou laisser le cloud écraser. */
+function maybeAskLocalMerge() {
+  if (!store.session || !store.pendingLocalMerge) return;
+  import('./ui.js').then(ui => {
+    ui.confirmDialog({
+      title: L10n.s('Local data found', 'Données locales trouvées'),
+      message: L10n.s(
+        'This browser already has workouts. Merge them into your account, or replace them with your account data?',
+        'Ce navigateur contient déjà des séances. Les fusionner dans ton compte, ou les remplacer par celles du compte ?'),
+      confirmLabel: L10n.s('Merge', 'Fusionner'),
+      cancelLabel: L10n.s('Use account data', 'Garder le cloud'),
+      onConfirm: () => storeMod.resolvePendingLocalMerge(true),
+      onCancel: () => storeMod.resolvePendingLocalMerge(false),
+    });
+  });
+}
 
 function applyAccent() { document.getElementById('app').dataset.accent = store.settings.accent || 'blue'; }
 
@@ -146,4 +190,30 @@ export async function startGoogleAuth() {
   location.href = Cloud.googleAuthorizeUrl(verifier, challenge, redirectTo);
 }
 
-boot();
+boot().catch((e) => {
+  // Un crash au boot (données corrompues, etc.) ne doit plus laisser une page blanche à vie :
+  // message + possibilité de repartir de zéro, les exports manuels restent possibles via les Réglages.
+  console.error(e);
+  const app = document.getElementById('app');
+  if (!app) return;
+  app.replaceChildren();
+  const box = h('div', { style: { padding: '40px 24px', textAlign: 'center', color: 'var(--mut)', fontSize: '14px', lineHeight: '1.6' } },
+    h('div', { style: { fontSize: '18px', fontWeight: '800', color: 'var(--text)', marginBottom: '10px' } }, 'Liftbook'),
+    L10n.s('The app failed to start (corrupted local data?).', 'L\'app n\'a pas pu démarrer (données locales corrompues ?).'),
+    h('div', { style: { height: '16px' } }),
+    h('button', {
+      class: 'btn-primary',
+      onclick: () => {
+        import('./ui.js').then(ui => ui.confirmDialog({
+          title: L10n.s('Reset local data?', 'Réinitialiser les données locales ?'),
+          message: L10n.s('All local workouts on this browser will be erased (cloud data is untouched).',
+            'Toutes les séances locales de ce navigateur seront effacées (le cloud n\'est pas touché).'),
+          destructive: true,
+          confirmLabel: L10n.s('Reset', 'Réinitialiser'),
+          onConfirm: () => { try { localStorage.clear(); } catch {} location.reload(); },
+        }));
+      },
+    }, L10n.s('Reset local data', 'Réinitialiser les données locales')),
+  );
+  app.append(box);
+});

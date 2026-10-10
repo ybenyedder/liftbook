@@ -12,12 +12,14 @@ export function onRest(cb) { listeners.add(cb); }
 function notify() { for (const cb of listeners) cb(); }
 
 function persist() {
-  localStorage.setItem(KEY, JSON.stringify({ endAt: rest.endAt, totalMs: rest.totalMs, exName: rest.exName, exMuscle: rest.exMuscle }));
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ endAt: rest.endAt, totalMs: rest.totalMs, exName: rest.exName, exMuscle: rest.exMuscle }));
+  } catch { /* quota : le timer vit en mémoire */ }
 }
 export function restore() {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) || 'null');
-    if (v && v.endAt > Date.now()) { Object.assign(rest, v); startTick(); }
+    if (v && v.endAt > Date.now()) { Object.assign(rest, v); startTick(); scheduleEnd(); }
     else if (v) localStorage.removeItem(KEY);
   } catch {}
 }
@@ -48,7 +50,7 @@ export function start(sec, exName = '', exMuscle = '') {
   notify();
 }
 
-export function plus15() { rest.endAt += 15000; rest.totalMs = Math.max(rest.totalMs + 15000, 1); persist(); notify(); }
+export function plus15() { rest.endAt += 15000; rest.totalMs = Math.max(rest.totalMs + 15000, 1); persist(); scheduleEnd(); notify(); }
 /** −15 impossible sur un repos fini ; jamais moins de 0,5 s restant (v1.50). */
 export function minus15() {
   if (rest.endAt <= 0) return;
@@ -56,7 +58,7 @@ export function minus15() {
   if (remaining <= 0) return;
   if (remaining <= 500) return;
   rest.endAt = Math.max(Date.now() + 500, rest.endAt - 15000);
-  persist(); notify();
+  persist(); scheduleEnd(); notify();
 }
 export function clear() {
   rest.endAt = 0; rest.totalMs = 0;

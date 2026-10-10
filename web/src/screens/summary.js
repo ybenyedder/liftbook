@@ -47,12 +47,12 @@ function render(el) {
   // records vs historique strictement antérieur
   const prs = [];
   for (const ex of d.exercises) {
-    const done = ex.sets.filter(s => (s.kg || 0) > 0 && (s.reps || 0) > 0 && s.done);
+    const done = ex.sets.filter(s => (s.kg || 0) > 0 && (s.reps || 0) > 0 && s.done && Number.isFinite(s.kg) && Number.isFinite(s.reps));
     if (!done.length) continue;
     const prev = S.prFor(ex.name);
     const pw = prev ? prev.weight : 0, pe = prev ? prev.e1rm : 0;
-    const bw = Math.max(...done.map(s => s.kg));
-    const be = Math.max(...done.map(s => Calc.e1rm(s.kg, s.reps)));
+    const bw = Calc.maxOf(done.map(s => s.kg));
+    const be = Calc.maxOf(done.map(s => Calc.e1rm(s.kg, s.reps)));
     if (bw > pw) prs.push({ ex: ex.name, kind: 'Weight', value: bw });
     if (be > pe) prs.push({ ex: ex.name, kind: 'Est. 1RM', value: be });
   }

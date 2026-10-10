@@ -22,16 +22,19 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Préparer le site (web/ à la racine, sans les tests/outils)
+      # actions épinglées par SHA (supply chain) — maj manuelle au bump de version
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Préparer le site (ALLOWLIST — uniquement les fichiers servis)
         run: |
-          mkdir -p site
-          cp -r web/* site/
-          rm -rf site/tests site/CONTRAT.md web/extract_web.py 2>/dev/null || true
-          rm -f site/CONTRAT.md site/extract_web.py
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+          mkdir -p site/src site/assets
+          cp web/index.html web/auth-callback.html web/sw.js web/styles.css web/manifest.webmanifest site/
+          cp -r web/src/. site/src/
+          cp -r web/assets/. site/assets/
+          # jamais deploy-volthost.sh / README.md / dev/ / tests / CONTRAT / extract_web.py :
+          # ils exposent la topologie interne et dev/seed.html écrase le localStorage du visiteur.
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: site
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
