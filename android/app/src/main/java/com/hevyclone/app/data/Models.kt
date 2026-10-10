@@ -55,6 +55,18 @@ data class Settings(
     var avatarUrl: String = "",
 )
 
+/** One progress photo of the athlete. Pixels live in filesDir/progress/<id>.jpg;
+ *  `remote` is the Supabase Storage path once uploaded (empty until then). */
+@Serializable
+data class ProgressPhoto(
+    val id: Long,
+    val ts: Long,
+    var wId: Long? = null,      // linked workout (added from the workout summary)
+    var note: String = "",
+    var kg: Double? = null,     // body weight at photo time
+    var remote: String = "",
+)
+
 data class PrBest(
     val weight: Double,
     val weightDate: Long,
@@ -79,6 +91,7 @@ data class WeekStats(val count: Int, val vol: Double, val reps: Int, val prs: In
 data class BackupData(
     val workouts: List<Workout>,
     val routines: List<Routine>,
+    val photos: List<ProgressPhoto> = emptyList(),
 )
 
 /** Full cloud snapshot pushed/pulled per account (deletions ride along as tombstones). */
@@ -89,5 +102,7 @@ data class SyncPayload(
     val settings: Settings? = null,
     val delW: List<Long> = emptyList(),
     val delR: List<String> = emptyList(),
-    val v: Int = 1,
+    val photos: List<ProgressPhoto> = emptyList(),
+    val delP: List<Long> = emptyList(),
+    val v: Int = 2,
 )

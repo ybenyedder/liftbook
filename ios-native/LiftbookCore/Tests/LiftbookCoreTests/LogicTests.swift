@@ -160,10 +160,28 @@ final class CloudHelpersTests: XCTestCase {
             settings: Settings(),
             delW: [42],
             delR: ["A"],
-            v: 1
+            photos: [ProgressPhoto(id: 3, ts: 1791591638113, wId: 1, note: "après séance", kg: 78.2, remote: "uid/ph_3.jpg")],
+            delP: [7, 9],
+            v: 2
         )
         let data = try JSONEncoder().encode(p)
         let back = try JSONDecoder().decode(SyncPayload.self, from: data)
         XCTAssertEqual(back, p)
+    }
+
+    func testSyncPayloadDecodesAndroidPhotosJson() throws {
+        // real payload shape pushed by the Android app (Long ids as numbers, optional fields)
+        let json = """
+        {"workouts":[],"routines":[],"settings":null,"delW":[],"delR":[],
+         "photos":[{"id":1,"ts":1791591157289,"kg":78.2,"note":"","remote":"uid/ph_1.jpg"},
+                   {"id":3,"ts":1791591638113,"wId":1,"remote":"uid/ph_3.jpg"}],
+         "delP":[3],"v":2}
+        """
+        let p = try JSONDecoder().decode(SyncPayload.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(p.photos.count, 2)
+        XCTAssertEqual(p.photos[0].kg, 78.2)
+        XCTAssertEqual(p.photos[1].wId, 1)
+        XCTAssertEqual(p.photos[1].note, "")
+        XCTAssertEqual(p.delP, [3])
     }
 }

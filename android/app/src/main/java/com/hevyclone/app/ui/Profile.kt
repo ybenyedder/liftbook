@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.CloudDone
@@ -202,6 +204,45 @@ fun ProfileScreen() {
                     Spacer(Modifier.width(12.dp))
                     Text(L10n.s("Workout history", "Historique des séances"), fontWeight = FontWeight.Medium, fontSize = 15.sp, modifier = Modifier.weight(1f))
                     Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+        item(key = "progress-photos") {
+            Spacer(Modifier.height(8.dp))
+            AppCard {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { Nav.push(Screen.Progress) }
+                        .padding(horizontal = 14.dp, vertical = 13.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.AddAPhoto, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text(L10n.s("Progress photos", "Photos de progression"), fontWeight = FontWeight.Medium, fontSize = 15.sp, modifier = Modifier.weight(1f))
+                        Text(
+                            if (Repo.photos.isEmpty()) "" else "${Repo.photos.size}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+                    }
+                    val recent = remember(rev) { Repo.photosDesc().take(5) }
+                    if (recent.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            recent.forEach { p ->
+                                PhotoImg(
+                                    p,
+                                    Modifier
+                                        .weight(1f)
+                                        .aspectRatio(1f),
+                                    targetPx = 240,
+                                )
+                            }
+                            repeat(5 - recent.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                    }
                 }
             }
         }

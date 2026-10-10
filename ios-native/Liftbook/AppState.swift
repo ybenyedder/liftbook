@@ -34,6 +34,8 @@ final class Repo: ObservableObject {
     var lastAccount: String?
     var delW: [Double] = []
     var delR: [String] = []
+    var delP: [Double] = []
+    var photos: [ProgressPhoto] = []   // round-trip only (no photo UI on iOS yet)
     private var syncing = false
     private var syncTask: Task<Void, Never>?
 
@@ -58,8 +60,9 @@ final class Repo: ObservableObject {
         if let meta = d.data(forKey: "cloud_meta"),
            let m = try? JSONDecoder().decode(CloudMeta.self, from: meta) {
             dirtyAt = m.dirtyAt; pushedTs = m.pushedTs; lastSeenRemoteTs = m.lastSeenRemoteTs
-            lastAccount = m.lastAccount; skipped = m.skipped; delW = m.delW; delR = m.delR
+            lastAccount = m.lastAccount; skipped = m.skipped; delW = m.delW; delR = m.delR; delP = m.delP
         }
+        if let ph = d.data(forKey: "photos"), let dec = try? JSONDecoder().decode([ProgressPhoto].self, from: ph) { photos = dec }
         session = Keychain.loadSession()
     }
 
@@ -71,6 +74,7 @@ final class Repo: ObservableObject {
         var skipped = false
         var delW: [Double] = []
         var delR: [String] = []
+        var delP: [Double] = []
     }
 
     private func persist() {
@@ -79,6 +83,7 @@ final class Repo: ObservableObject {
         d.set(try? enc.encode(workouts), forKey: "workouts")
         d.set(try? enc.encode(routines), forKey: "routines")
         d.set(try? enc.encode(settings), forKey: "settings")
+        d.set(try? enc.encode(photos), forKey: "photos")
     }
 
     func persistDraft() {
@@ -88,7 +93,7 @@ final class Repo: ObservableObject {
     }
 
     func persistMeta() {
-        let m = CloudMeta(dirtyAt: dirtyAt, pushedTs: pushedTs, lastSeenRemoteTs: lastSeenRemoteTs, lastAccount: lastAccount, skipped: skipped, delW: delW, delR: delR)
+        let m = CloudMeta(dirtyAt: dirtyAt, pushedTs: pushedTs, lastSeenRemoteTs: lastSeenRemoteTs, lastAccount: lastAccount, skipped: skipped, delW: delW, delR: delR, delP: delP)
         UserDefaults.standard.set(try? JSONEncoder().encode(m), forKey: "cloud_meta")
     }
 
@@ -360,6 +365,7 @@ final class Repo: ObservableObject {
         workouts = []
         routines = []
         draft = nil
+        photos = []
         prCache = [:]
         queueSave()
         if markDirtyFlag { markDirty() }
@@ -460,14 +466,18 @@ final class Repo: ObservableObject {
     }
 
     func snapshot() -> SyncPayload {
-        SyncPayload(workouts: workouts, routines: routines, settings: settings, delW: delW, delR: delR, v: 1)
+        SyncPayload(workouts: workouts, routines: routines, settings: settings, delW: delW, delR: delR, photos: photos, delP: delP, v: 1)
     }
+
+    func currentTombP() -> [Double] { delP }
 
     func replaceAll(_ p: SyncPayload) {
         workouts = p.workouts
         routines = p.routines
         for i in routines.indices { routines[i].pos = i }
         if let ps = p.settings { settings = ps }
+        photos = p.photos.sorted { $0.ts < $1.ts }
+        delP = p.delP
         prCache = Calc.rebuildPrs(&workouts)
         queueSave()
     }
@@ -480,11 +490,15 @@ final class Repo: ObservableObject {
         let remoteDelR = Set(p.delR)
         let keepW = workouts.filter { !remoteDelW.contains($0.startedAt) }
         let keepR = routines.filter { !remoteDelR.contains($0.name) }
+        let remoteDelP = Set(p.delP)
+        let keepP = photos.filter { !remoteDelP.contains($0.id) }
         let knownW = Set(keepW.map { $0.startedAt })
         let knownR = Set(keepR.map { $0.name })
+        let knownP = Set(keepP.map { $0.id })
         let addW = p.workouts.filter { !localDelW.contains($0.startedAt) && !knownW.contains($0.startedAt) }
         let addR = p.routines.filter { !localDelR.contains($0.name) && !knownR.contains($0.name) }
-        if keepW.count == workouts.count, keepR.count == routines.count, addW.isEmpty, addR.isEmpty { return false }
+        let addP = p.photos.filter { !knownP.contains($0.id) }
+        if keepW.count == workouts.count, keepR.count == routines.count, keepP.count == photos.count, addW.isEmpty, addR.isEmpty, addP.isEmpty { return false }
         workouts = keepW
         for w in addW {
             var f = w
@@ -499,6 +513,8 @@ final class Repo: ObservableObject {
             f.pos = nextPos()
             routines.append(f)
         }
+        photos = (keepP + addP).sorted { $0.ts < $1.ts }
+        for d in p.delP where !delP.contains(d) { delP.append(d) }
         prCache = Calc.rebuildPrs(&workouts)
         queueSave()
         return true
@@ -536,6 +552,8 @@ final class Repo: ObservableObject {
             wipe(false)
             delW = []
             delR = []
+            delP = []
+            photos = []
             dirtyAt = 0
             pushedTs = 0
             lastSeenRemoteTs = 0

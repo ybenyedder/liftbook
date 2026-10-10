@@ -73,6 +73,9 @@ object Cloud {
     // ---- tombstones: deletions that must propagate to other devices ----
     private var delW = mutableListOf<Long>()
     private var delR = mutableListOf<String>()
+    private var delP = mutableListOf<Long>()
+    // storage objects of deleted photos still to remove server-side (survives restarts)
+    private var pendingDelObjs = mutableListOf<String>()
 
     fun init(ctx: Context) {
         if (this::prefs.isInitialized) return
@@ -86,6 +89,8 @@ object Cloud {
         skipped = prefs.getBoolean("skipped", false)
         delW = prefs.getString("delW", null)?.let { runCatching { json.decodeFromString<List<Long>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
         delR = prefs.getString("delR", null)?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
+        delP = prefs.getString("delP", null)?.let { runCatching { json.decodeFromString<List<Long>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
+        pendingDelObjs = prefs.getString("pendingDelObjs", null)?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
         loadSession()
     }
 
@@ -424,6 +429,61 @@ object Cloud {
         } catch (e: Exception) { null } finally { conn.disconnect() }
     }
 
+    // ================= progress photo storage (private bucket, bearer-auth) =================
+
+    /** Storage object path of a progress photo inside the account's folder. */
+    fun photoObjectPath(id: Long): String {
+        val s = session ?: return ""
+        return "${s.userId}/ph_$id.jpg"
+    }
+
+    /** Uploads a progress photo into the private `progress` bucket. Returns the object path. */
+    fun uploadProgressPhoto(id: Long, bytes: ByteArray): String? {
+        val s = session ?: return null
+        val path = photoObjectPath(id)
+        val (code, _) = http("POST", "/storage/v1/object/progress/$path", null, s.access, bytes,
+            extraHeaders = mapOf("Content-Type" to "image/jpeg", "x-upsert" to "true"))
+        return if (code in 200..299) path else null
+    }
+
+    /** Downloads a progress photo from the private bucket (bearer required). */
+    fun downloadProgressPhoto(path: String): ByteArray? {
+        val s = session ?: return null
+        val conn = runCatching { URL("$BASE/storage/v1/object/progress/$path").openConnection() as HttpURLConnection }.getOrNull() ?: return null
+        return try {
+            conn.connectTimeout = 12000
+            conn.readTimeout = 25000
+            conn.setRequestProperty("apikey", ANON)
+            conn.setRequestProperty("Authorization", "Bearer ${s.access}")
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) Liftbook/" + BuildConfig.VERSION_NAME)
+            if (conn.responseCode !in 200..299) null else conn.inputStream.use { it.readBytes() }
+        } catch (e: Exception) { null } finally { conn.disconnect() }
+    }
+
+    /** Best-effort remote removal of a deleted photo; retried at each sync until it succeeds. */
+    fun deletePhotoObject(path: String) {
+        if (path.isBlank()) return
+        if (!pendingDelObjs.contains(path)) pendingDelObjs.add(path)
+        persistMeta()
+    }
+
+    /** Flushes pending remote photo deletions; runs on IO inside sync. */
+    private fun flushPendingPhotoDeletes(): Boolean {
+        if (pendingDelObjs.isEmpty()) return false
+        val s = session ?: return false
+        val done = mutableListOf<String>()
+        for (path in pendingDelObjs.toList()) {
+            val (code, body) = http("DELETE", "/storage/v1/object/progress/$path", null, s.access)
+            if (code in 200..299 || code == 404) done.add(path) // 404 = already gone
+            else android.util.Log.w("LiftbookCloud", "photo delete $code: ${body.take(120)}")
+        }
+        if (done.isNotEmpty()) {
+            pendingDelObjs.removeAll(done)
+            persistMeta()
+        }
+        return done.isNotEmpty()
+    }
+
     private suspend fun refreshIfNeeded() {
         val s = session ?: return
         if (s.expiresAt - System.currentTimeMillis() > 60_000L) return
@@ -463,6 +523,7 @@ object Cloud {
 
     fun currentTombW(): List<Long> = delW.toList()
     fun currentTombR(): List<String> = delR.toList()
+    fun currentTombP(): List<Long> = delP.toList()
 
     fun tombstoneWorkout(startedAt: Long) {
         if (this::prefs.isInitialized) {
@@ -480,13 +541,22 @@ object Cloud {
         }
     }
 
-    private fun clearTombstones() { delW.clear(); delR.clear(); persistMeta() }
+    fun tombstonePhoto(id: Long) {
+        if (this::prefs.isInitialized) {
+            if (!delP.contains(id)) delP.add(id)
+            if (delP.size > 400) delP.removeAt(0)
+            persistMeta()
+        }
+    }
+
+    private fun clearTombstones() { delW.clear(); delR.clear(); delP.clear(); pendingDelObjs.clear(); persistMeta() }
     private fun adoptTombstones(p: SyncPayload) {
-        delW = p.delW.toMutableList(); delR = p.delR.toMutableList(); persistMeta()
+        delW = p.delW.toMutableList(); delR = p.delR.toMutableList(); delP = p.delP.toMutableList(); persistMeta()
     }
     private fun mergeTombstones(p: SyncPayload) {
         p.delW.forEach { if (!delW.contains(it)) delW.add(it) }
         p.delR.forEach { if (!delR.contains(it)) delR.add(it) }
+        p.delP.forEach { if (!delP.contains(it)) delP.add(it) }
         persistMeta()
     }
 
@@ -505,6 +575,8 @@ object Cloud {
         scope.launch {
             try {
                 refreshIfNeeded()
+                // pending remote photo deletions flush in every cycle (independent of dirty state)
+                withContext(Dispatchers.IO) { flushPendingPhotoDeletes() }
                 val (remote, remoteTs) = withContext(Dispatchers.IO) { pull() }
                 val dirty = dirtyAt > pushedTs
                 if (!dirty) {
@@ -517,6 +589,7 @@ object Cloud {
                         dirtyAt = remoteTs
                         persistMeta()
                         maybeFetchAvatar(oldAvatar)
+                        fetchMissingPhotos()
                         syncStatus = stamp("Synchronisé")
                     }
                 } else {
@@ -526,6 +599,9 @@ object Cloud {
                         mergeTombstones(remote)
                         lastSeenRemoteTs = remoteTs
                     }
+                    // Upload pixels first so the pushed metadata already carries remote paths.
+                    val remotesChanged = withContext(Dispatchers.IO) { uploadPendingPhotos() }
+                    if (remotesChanged) withContext(Dispatchers.Main) { Repo.touchPublic() }
                     val ts = maxOf(System.currentTimeMillis(), lastSeenRemoteTs + 1)
                     val payload = withContext(Dispatchers.Main) { Repo.snapshot() }
                     val stored = withContext(Dispatchers.IO) { push(payload, ts) }
@@ -533,6 +609,7 @@ object Cloud {
                     dirtyAt = ts
                     lastSeenRemoteTs = stored
                     persistMeta()
+                    fetchMissingPhotos()
                     syncStatus = stamp("Synchronisé")
                 }
             } catch (e: Exception) {
@@ -541,6 +618,40 @@ object Cloud {
                 syncing = false
                 syncTick++
             }
+        }
+    }
+
+    /** Push local JPEGs of photos that have no remote path yet (max 8 per sync).
+     *  Returns true when at least one photo gained its remote path. Runs on IO. */
+    private suspend fun uploadPendingPhotos(): Boolean {
+        if (session == null) return false
+        var changed = false
+        val pending = Repo.photos.filter { it.remote.isEmpty() }.take(8)
+        for (p in pending) {
+            val f = Repo.photoFile(p.id) ?: continue
+            val bytes = runCatching { f.readBytes() }.getOrNull() ?: continue
+            val path = uploadProgressPhoto(p.id, bytes)
+            if (path != null) {
+                withContext(Dispatchers.Main) { Repo.setPhotoRemote(p.id, path) }
+                changed = true
+            }
+        }
+        return changed
+    }
+
+    /** New device / merged photos: fetch pixels for entries with a remote path but no local file. */
+    private fun fetchMissingPhotos() {
+        val ctx = appCtx ?: return
+        val missing = Repo.photos.filter { it.remote.isNotEmpty() && (Repo.photoFile(it.id)?.exists() != true) }
+        if (missing.isEmpty()) return
+        scope.launch(Dispatchers.IO) {
+            var got = false
+            for (p in missing) {
+                val bytes = downloadProgressPhoto(p.remote) ?: continue
+                Repo.savePhotoBytes(p.id, bytes)
+                got = true
+            }
+            if (got) withContext(Dispatchers.Main) { Repo.touchPublic() }
         }
     }
 
@@ -624,6 +735,8 @@ object Cloud {
             .putBoolean("skipped", skipped)
             .putString("delW", json.encodeToString(delW.toList()))
             .putString("delR", json.encodeToString(delR.toList()))
+            .putString("delP", json.encodeToString(delP.toList()))
+            .putString("pendingDelObjs", json.encodeToString(pendingDelObjs.toList()))
             .apply()
     }
 
@@ -637,7 +750,9 @@ object Cloud {
             connectTimeout = 12000
             readTimeout = 25000
             setRequestProperty("apikey", ANON)
-            if (!extraHeaders.containsKey("Content-Type")) setRequestProperty("Content-Type", "application/json")
+            // never send a content-type without a body: storage-api's Fastify rejects
+            // empty-bodied DELETEs declared as application/json (400).
+            if (!extraHeaders.containsKey("Content-Type") && (body != null || raw != null)) setRequestProperty("Content-Type", "application/json")
             setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) Liftbook/" + BuildConfig.VERSION_NAME)
             bearer?.let { setRequestProperty("Authorization", "Bearer $it") }
             extraHeaders.forEach { (k, v) -> setRequestProperty(k, v) }

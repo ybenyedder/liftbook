@@ -57,6 +57,9 @@ sealed interface Screen {
     data object Exercises : Screen
     data object Logger : Screen
     data object WorkoutSummary : Screen
+    data object Progress : Screen
+    data class PhotoViewer(val id: Long) : Screen
+    data class ComparePhotos(val aId: Long, val bId: Long) : Screen
 }
 
 object Nav {
@@ -138,6 +141,9 @@ fun App(refreshKey: Int = 0) {
                     Screen.Exercises -> ExercisesScreen()
                     Screen.Logger -> LoggerScreen()
                     Screen.WorkoutSummary -> WorkoutSummaryScreen()
+                    Screen.Progress -> ProgressScreen()
+                    is Screen.PhotoViewer -> PhotoViewerScreen(s.id)
+                    is Screen.ComparePhotos -> ComparePhotosScreen(s.aId, s.bId)
                 }
             }
             // Global undo bar for a deleted workout — hosted in App so it survives navigation.

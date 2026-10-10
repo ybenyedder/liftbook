@@ -140,14 +140,64 @@ public struct SyncPayload: Codable, Equatable, Sendable {
     public var settings: Settings?
     public var delW: [Double]
     public var delR: [String]
+    public var photos: [ProgressPhoto]
+    public var delP: [Double]
     public var v: Int
 
-    public init(workouts: [Workout] = [], routines: [Routine] = [], settings: Settings? = nil, delW: [Double] = [], delR: [String] = [], v: Int = 1) {
+    public init(workouts: [Workout] = [], routines: [Routine] = [], settings: Settings? = nil, delW: [Double] = [], delR: [String] = [], photos: [ProgressPhoto] = [], delP: [Double] = [], v: Int = 1) {
         self.workouts = workouts
         self.routines = routines
         self.settings = settings
         self.delW = delW
         self.delR = delR
+        self.photos = photos
+        self.delP = delP
         self.v = v
+    }
+}
+
+/// Progress photo metadata (pixels live per-platform; `remote` is the Storage path).
+/// The iOS app has no photo UI yet — this exists so snapshots round-trip photos
+/// without dropping them when this device pushes.
+public struct ProgressPhoto: Codable, Equatable, Sendable, Identifiable {
+    public var id: Double
+    public var ts: Double
+    public var wId: Double?
+    public var note: String
+    public var kg: Double?
+    public var remote: String
+
+    public init(id: Double, ts: Double, wId: Double? = nil, note: String = "", kg: Double? = nil, remote: String = "") {
+        self.id = id
+        self.ts = ts
+        self.wId = wId
+        self.note = note
+        self.kg = kg
+        self.remote = remote
+    }
+
+    /// Android (kotlinx) omits fields at their default value (empty note, null kg...)
+    /// and cannot decode JSON nulls into its non-null String fields — so decoding is
+    /// lenient (missing → default) and encoding omits nils, never writing null.
+    private enum CodingKeys: String, CodingKey { case id, ts, wId, note, kg, remote }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Double.self, forKey: .id)
+        ts = try c.decode(Double.self, forKey: .ts)
+        wId = try c.decodeIfPresent(Double.self, forKey: .wId)
+        note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
+        kg = try c.decodeIfPresent(Double.self, forKey: .kg)
+        remote = try c.decodeIfPresent(String.self, forKey: .remote) ?? ""
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(ts, forKey: .ts)
+        if let w = wId { try c.encode(w, forKey: .wId) }
+        try c.encode(note, forKey: .note)
+        if let k = kg { try c.encode(k, forKey: .kg) }
+        try c.encode(remote, forKey: .remote)
     }
 }

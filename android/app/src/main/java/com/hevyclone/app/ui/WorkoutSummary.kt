@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,7 +22,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material3.AlertDialog
@@ -91,8 +94,19 @@ fun WorkoutSummaryScreen() {
     val duration = Calc.fmtDur(System.currentTimeMillis() - draft.startedAt!!)
 
     var showSaveRoutine by remember { mutableStateOf(false) }
+    var addedPhotoId by remember { mutableStateOf<Long?>(null) }
+    val photoPicker = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val p = Repo.addPhotoFromUri(ctx, uri)
+            if (p == null) toast(ctx, L10n.s("Could not read this image", "Impossible de lire cette image"))
+            else addedPhotoId = p.id
+        }
+    }
     fun doFinish() {
         val w = Repo.finishWorkout(name)
+        addedPhotoId?.let { pid -> w?.let { Repo.linkPhotoToWorkout(pid, it.id) } }
         RestTimer.clear()
         Nav.toTab(Screen.HomeTab)
         if (w != null && w.prs.isNotEmpty()) toast(ctx, L10n.s("Workout saved", "Séance enregistrée") + " · ${w.prs.size} ${L10n.s("PRs", "records")}!")
@@ -224,6 +238,78 @@ fun WorkoutSummaryScreen() {
                         }
                         Spacer(Modifier.height(6.dp))
                         Text(draft.notes, fontSize = 13.5.sp, lineHeight = 19.sp)
+                    }
+                }
+            }
+            item(key = "progress-photo") {
+                val added = addedPhotoId?.let { Repo.photoById(it) }
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.AddAPhoto, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            L10n.s("PROGRESS PHOTO", "PHOTO DE PROGRESSION"),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    if (added != null) {
+                        Row {
+                            Box(
+                                Modifier
+                                    .size(120.dp)
+                                    .aspectRatio(1f)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickableNoRipple { Nav.push(Screen.PhotoViewer(added.id)) },
+                            ) {
+                                PhotoImg(added, Modifier.fillMaxSize(), targetPx = 420)
+                                Box(
+                                    Modifier
+                                        .align(androidx.compose.ui.Alignment.TopEnd)
+                                        .padding(5.dp)
+                                        .size(22.dp)
+                                        .clip(androidx.compose.foundation.shape.CircleShape)
+                                        .background(Color(0xCC000000)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Close, null, tint = Color.White,
+                                        modifier = Modifier.size(14.dp).clickableNoRipple {
+                                            Repo.deletePhoto(added.id)
+                                            addedPhotoId = null
+                                        },
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                L10n.s(
+                                    "Saved to your progress gallery — compare it later with your previous photos.",
+                                    "Ajoutée à ta galerie progression — compare-la plus tard avec tes anciennes photos.",
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    } else {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                                .clickableNoRipple { photoPicker.launch("image/*") }
+                                .padding(vertical = 18.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Rounded.AddAPhoto, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                L10n.s("Add a photo of your physique", "Ajouter une photo de ton physique"),
+                                color = MaterialTheme.colorScheme.primary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+                            )
+                        }
                     }
                 }
             }

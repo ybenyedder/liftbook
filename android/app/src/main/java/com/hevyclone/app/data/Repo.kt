@@ -9,18 +9,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.serialization.json.Json
 
-/** SQLite persistence. Workouts/routines are stored as JSON blobs (single source of truth = in-memory lists). */
-class Db(ctx: Context) : SQLiteOpenHelper(ctx, "hevy.db", null, 2) {
+/** SQLite persistence. Workouts/routines/photos are stored as JSON blobs (single source of truth = in-memory lists). */
+class Db(ctx: Context) : SQLiteOpenHelper(ctx, "hevy.db", null, 3) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE TABLE workouts(id INTEGER PRIMARY KEY AUTOINCREMENT, startedAt INTEGER NOT NULL, endedAt INTEGER NOT NULL, name TEXT NOT NULL, json TEXT NOT NULL)")
         db.execSQL("CREATE TABLE routines(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, pos INTEGER NOT NULL DEFAULT 0, json TEXT NOT NULL)")
         db.execSQL("CREATE TABLE settings(k TEXT PRIMARY KEY, v TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE photos(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, json TEXT NOT NULL)")
     }
     override fun onUpgrade(db: SQLiteDatabase, oldV: Int, newV: Int) {
         if (oldV < 2) {
             db.execSQL("ALTER TABLE routines ADD COLUMN pos INTEGER NOT NULL DEFAULT 0")
             db.execSQL("UPDATE routines SET pos = id")
         }
+        if (oldV < 3) db.execSQL("CREATE TABLE photos(id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, json TEXT NOT NULL)")
     }
 }
 
@@ -31,6 +33,7 @@ object Repo {
 
     val workouts = mutableListOf<Workout>()     // sorted by startedAt ASC
     val routines = mutableListOf<Routine>()
+    val photos = mutableListOf<ProgressPhoto>() // sorted by ts ASC
     var settings = Settings()
     var draft: Draft? = null
     var prCache: Map<String, PrBest> = emptyMap()
@@ -62,6 +65,7 @@ object Repo {
 
     fun init(ctx: Context) {
         if (this::db.isInitialized) return
+        appCtx = ctx.applicationContext
         draftPrefs = ctx.getSharedPreferences("draft", Context.MODE_PRIVATE)
         draft = draftPrefs?.getString("draft", null)?.let {
             runCatching { json.decodeFromString<Draft>(it) }.getOrNull()
@@ -76,6 +80,9 @@ object Repo {
         }
         db.readableDatabase.rawQuery("SELECT json FROM routines ORDER BY pos ASC, id ASC", null).use { c ->
             while (c.moveToNext()) runCatching { json.decodeFromString<Routine>(c.getString(0)) }.getOrNull()?.let { routines.add(it) }
+        }
+        db.readableDatabase.rawQuery("SELECT json FROM photos ORDER BY ts ASC", null).use { c ->
+            while (c.moveToNext()) runCatching { json.decodeFromString<ProgressPhoto>(c.getString(0)) }.getOrNull()?.let { photos.add(it) }
         }
         prCache = Calc.rebuildPrs(workouts)
         persistSettings()
@@ -96,6 +103,14 @@ object Repo {
             put("json", json.encodeToString(Routine.serializer(), r))
         }
         db.writableDatabase.insertWithOnConflict("routines", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    private fun persistPhoto(p: ProgressPhoto) {
+        val cv = ContentValues().apply {
+            put("id", p.id); put("ts", p.ts)
+            put("json", json.encodeToString(ProgressPhoto.serializer(), p))
+        }
+        db.writableDatabase.insertWithOnConflict("photos", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
     private fun persistSettings() {
@@ -308,10 +323,97 @@ object Repo {
         Cloud.markDirty()
     }
 
+    // ---------- progress photos ----------
+
+    fun nextPhotoId(): Long = (photos.maxOfOrNull { it.id } ?: 0L) + 1
+
+    /** Local pixel store: filesDir/progress/<id>.jpg */
+    fun photoFile(id: Long): java.io.File? {
+        val ctx = appCtx ?: return null
+        return java.io.File(java.io.File(ctx.filesDir, "progress"), "$id.jpg")
+    }
+
+    private var appCtx: Context? = null
+
+    /**
+     * Import a picked image as a new progress photo: downscale to ≤1440px long side,
+     * keep aspect ratio (no crop), JPEG 86. Returns the photo or null on decode failure.
+     */
+    fun addPhotoFromUri(ctx: Context, uri: android.net.Uri, ts: Long = System.currentTimeMillis(), wId: Long? = null): ProgressPhoto? {
+        val bytes = runCatching { ctx.contentResolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull() ?: return null
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+        if (bounds.outWidth <= 0) return null
+        var sample = 1
+        while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 1440) sample *= 2
+        val src = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) ?: return null
+        val id = nextPhotoId()
+        val dir = java.io.File(ctx.filesDir, "progress").apply { mkdirs() }
+        val f = java.io.File(dir, "$id.jpg")
+        val ok = runCatching { f.outputStream().use { src.compress(android.graphics.Bitmap.CompressFormat.JPEG, 86, it) } }.getOrDefault(false)
+        if (!ok) return null
+        val p = ProgressPhoto(id, ts, wId)
+        photos.add(p)
+        photos.sortBy { it.ts }
+        persistPhoto(p)
+        touch()
+        Cloud.markDirty()
+        return p
+    }
+
+    /** Adopt raw bytes (cloud download) as the local file of an already-known photo. */
+    fun savePhotoBytes(id: Long, bytes: ByteArray) {
+        val f = photoFile(id) ?: return
+        f.parentFile?.mkdirs()
+        runCatching { f.writeBytes(bytes) }
+    }
+
+    fun updatePhoto(id: Long, note: String? = null, kg: Double? = null, kgSet: Boolean = false) {
+        val p = photos.firstOrNull { it.id == id } ?: return
+        if (note != null) p.note = note.trim()
+        if (kgSet) p.kg = kg
+        persistPhoto(p)
+        touch()
+        Cloud.markDirty()
+    }
+
+    fun linkPhotoToWorkout(photoId: Long, wId: Long) {
+        val p = photos.firstOrNull { it.id == photoId } ?: return
+        p.wId = wId
+        persistPhoto(p)
+        touch()
+        Cloud.markDirty()
+    }
+
+    /** Remote path confirmed by the uploader → recorded so other devices can fetch it. */
+    fun setPhotoRemote(id: Long, remote: String) {
+        val p = photos.firstOrNull { it.id == id } ?: return
+        if (p.remote == remote) return
+        p.remote = remote
+        persistPhoto(p)
+        Cloud.markDirty()
+    }
+
+    fun deletePhoto(id: Long) {
+        val p = photos.firstOrNull { it.id == id } ?: return
+        Cloud.tombstonePhoto(id)
+        if (p.remote.isNotEmpty()) Cloud.deletePhotoObject(p.remote)
+        photos.removeAll { it.id == id }
+        db.writableDatabase.delete("photos", "id=?", arrayOf(id.toString()))
+        photoFile(id)?.delete()
+        touch()
+        Cloud.markDirty()
+    }
+
+    fun photosDesc(): List<ProgressPhoto> = photos.sortedByDescending { it.ts }
+
+    fun photoById(id: Long): ProgressPhoto? = photos.firstOrNull { it.id == id }
+
+    fun photoForWorkout(wId: Long): ProgressPhoto? = photos.lastOrNull { it.wId == wId }
+
     // ---------- settings ----------
 
-    fun setUnit(u: String) { settings.unit = u; persistSettings(); touch(); Cloud.markDirty() }
-    fun setRest(sec: Int) { settings.restSec = sec; persistSettings(); touch(); Cloud.markDirty() }
+    fun setUnit(u: String) { settings.unit = u; persistSettings(); touch(); Cloud.markDirty() }    fun setRest(sec: Int) { settings.restSec = sec; persistSettings(); touch(); Cloud.markDirty() }
     fun setAccent(a: String) { settings.accent = a; persistSettings(); touch(); Cloud.markDirty() }
     fun setTheme(t: String) { settings.theme = t; persistSettings(); touch(); Cloud.markDirty() }
     fun setProfile(name: String, handle: String) {
@@ -325,16 +427,19 @@ object Repo {
     }
 
     fun backupJson(): String = json.encodeToString(
-        BackupData.serializer(), BackupData(workouts.toList(), routines.toList())
+        BackupData.serializer(), BackupData(workouts.toList(), routines.toList(), photos.toList())
     )
 
     fun restoreBackup(content: String): Boolean {
         val data = runCatching { json.decodeFromString<BackupData>(content) }.getOrNull() ?: return false
         db.writableDatabase.delete("workouts", null, null)
         db.writableDatabase.delete("routines", null, null)
-        workouts.clear(); routines.clear()
+        db.writableDatabase.delete("photos", null, null)
+        workouts.clear(); routines.clear(); photos.clear()
         data.workouts.forEach { workouts.add(it); persistWorkout(it) }
         data.routines.forEachIndexed { i, r -> r.pos = i; routines.add(r); persistRoutine(r) }
+        data.photos.forEach { photos.add(it); persistPhoto(it) }
+        photos.sortBy { it.ts }
         prCache = Calc.rebuildPrs(workouts)
         touch()
         Cloud.markDirty()
@@ -384,9 +489,11 @@ object Repo {
     }
 
     fun wipe(markDirty: Boolean = true) {
-        workouts.clear(); routines.clear(); draft = null
+        workouts.clear(); routines.clear(); photos.clear(); draft = null
         db.writableDatabase.delete("workouts", null, null)
         db.writableDatabase.delete("routines", null, null)
+        db.writableDatabase.delete("photos", null, null)
+        appCtx?.let { java.io.File(it.filesDir, "progress").deleteRecursively() }
         prCache = emptyMap()
         touch()
         if (markDirty) Cloud.markDirty()
@@ -401,15 +508,20 @@ object Repo {
         settings = settings,
         delW = Cloud.currentTombW(),
         delR = Cloud.currentTombR(),
+        photos = photos.toList(),
+        delP = Cloud.currentTombP(),
     )
 
     /** Replace local state wholesale with a remote snapshot (clean pull). No dirty marking. */
     fun replaceAll(p: SyncPayload) {
         db.writableDatabase.delete("workouts", null, null)
         db.writableDatabase.delete("routines", null, null)
-        workouts.clear(); routines.clear()
+        db.writableDatabase.delete("photos", null, null)
+        workouts.clear(); routines.clear(); photos.clear()
         p.workouts.forEach { workouts.add(it); persistWorkout(it) }
         p.routines.forEachIndexed { i, r -> r.pos = i; routines.add(r); persistRoutine(r) }
+        p.photos.forEach { photos.add(it); persistPhoto(it) }
+        photos.sortBy { it.ts }
         p.settings?.let {
             settings = it
             persistSettings()
@@ -419,30 +531,42 @@ object Repo {
     }
 
     /** Union-merge a remote snapshot into local (conflict / first login). Local deletions win;
-     *  remote deletions are applied; duplicates skipped by startedAt (workouts) and name (routines). */
+     *  remote deletions are applied; duplicates skipped by startedAt (workouts), name (routines),
+     *  id (photos). Returns true when anything changed. */
     fun mergeRemote(p: SyncPayload): Boolean {
         val localDelW = Cloud.currentTombW().toSet()
         val localDelR = Cloud.currentTombR().toSet()
+        val localDelP = Cloud.currentTombP().toSet()
         val remoteDelW = p.delW.toSet()
         val remoteDelR = p.delR.toSet()
+        val remoteDelP = p.delP.toSet()
 
         val keepW = workouts.filter { it.startedAt !in remoteDelW }
         val keepR = routines.filter { it.name !in remoteDelR }
+        val keepP = photos.filter { it.id !in remoteDelP }
         val knownW = keepW.map { it.startedAt }.toSet()
         val knownR = keepR.map { it.name }.toSet()
+        val knownP = keepP.map { it.id }.toSet()
         val addW = p.workouts.filter { it.startedAt !in localDelW && it.startedAt !in knownW }
         val addR = p.routines.filter { it.name !in localDelR && it.name !in knownR }
+        val addP = p.photos.filter { it.id !in localDelP && it.id !in knownP }
 
-        if (keepW.size == workouts.size && keepR.size == routines.size && addW.isEmpty() && addR.isEmpty()) return false
+        if (keepW.size == workouts.size && keepR.size == routines.size && keepP.size == photos.size &&
+            addW.isEmpty() && addR.isEmpty() && addP.isEmpty()
+        ) return false
 
         db.writableDatabase.delete("workouts", null, null)
         db.writableDatabase.delete("routines", null, null)
-        workouts.clear(); routines.clear()
+        db.writableDatabase.delete("photos", null, null)
+        workouts.clear(); routines.clear(); photos.clear()
         keepW.forEach { workouts.add(it); persistWorkout(it) }
         addW.forEach { val f = it.copy(id = nextWorkoutId()); workouts.add(f); persistWorkout(f) }
         workouts.sortBy { it.startedAt }
         keepR.forEach { routines.add(it); persistRoutine(it) }
         addR.forEach { val f = it.copy(id = nextRoutineId(), pos = nextPos()); routines.add(f); persistRoutine(f) }
+        keepP.forEach { photos.add(it); persistPhoto(it) }
+        addP.forEach { photos.add(it); persistPhoto(it) }
+        photos.sortBy { it.ts }
         prCache = Calc.rebuildPrs(workouts)
         touch()
         return true
