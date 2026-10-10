@@ -387,6 +387,22 @@ object Repo {
         return cx
     }
 
+    /** Remove a user-created exercise (catalog + persisted list). History/routines keep the
+     *  name — they still display — but the exercise leaves search, picker and stats catalog.
+     *  The deletion propagates to other devices via the delC tombstone. */
+    fun deleteCustom(name: String) {
+        if (customs.none { it.name == name }) return
+        Cloud.tombstoneCustom(name)
+        customs.removeAll { it.name == name }
+        if (name !in builtinNames) {
+            EXERCISES.removeAll { it.name == name }
+            EX.remove(name)
+        }
+        persistCustoms()
+        touch()
+        Cloud.markDirty()
+    }
+
     // ---------- progress photos ----------
 
     fun nextPhotoId(): Long = (photos.maxOfOrNull { it.id } ?: 0L) + 1
@@ -566,6 +582,7 @@ object Repo {
                 Cloud.tombstonePhoto(p.id)
                 if (p.remote.isNotEmpty()) Cloud.deletePhotoObject(p.remote)
             }
+            customs.forEach { Cloud.tombstoneCustom(it.name) }
         }
         // Drop customs from the persisted settings row AND the global catalog — otherwise
         // they resurrect on next launch ("Tout effacer" ghost exercises). Built-in catalog
@@ -596,6 +613,7 @@ object Repo {
         photos = photos.toList(),
         delP = Cloud.currentTombP(),
         customs = customs.toList(),
+        delC = Cloud.currentTombC(),
     )
 
     /** Replace local state wholesale with a remote snapshot (clean pull). No dirty marking. */
@@ -619,27 +637,31 @@ object Repo {
 
     /** Union-merge a remote snapshot into local (conflict / first login). Local deletions win;
      *  remote deletions are applied; duplicates skipped by startedAt (workouts), name (routines),
-     *  id (photos). Returns true when anything changed. */
+     *  id (photos), name (customs). Returns true when anything changed. */
     fun mergeRemote(p: SyncPayload): Boolean {
         val localDelW = Cloud.currentTombW().toSet()
         val localDelR = Cloud.currentTombR().toSet()
         val localDelP = Cloud.currentTombP().toSet()
+        val localDelC = Cloud.currentTombC().toSet()
         val remoteDelW = p.delW.toSet()
         val remoteDelR = p.delR.toSet()
         val remoteDelP = p.delP.toSet()
+        val remoteDelC = p.delC.toSet()
 
         val keepW = workouts.filter { it.startedAt !in remoteDelW }
         val keepR = routines.filter { it.name !in remoteDelR }
         val keepP = photos.filter { it.id !in remoteDelP }
+        val keepC = customs.filter { it.name !in remoteDelC }
         val knownW = keepW.map { it.startedAt }.toSet()
         val knownR = keepR.map { it.name }.toSet()
         val knownP = keepP.map { it.id }.toSet()
         val addW = p.workouts.filter { it.startedAt !in localDelW && it.startedAt !in knownW }
         val addR = p.routines.filter { it.name !in localDelR && it.name !in knownR }
         val addP = p.photos.filter { it.id !in localDelP && it.id !in knownP }
-        val addC = p.customs.filter { c -> customs.none { it.name == c.name } }
+        val knownC = keepC.map { it.name }.toSet()
+        val addC = p.customs.filter { it.name !in localDelC && it.name !in knownC }
 
-        if (keepW.size == workouts.size && keepR.size == routines.size && keepP.size == photos.size &&
+        if (keepW.size == workouts.size && keepR.size == routines.size && keepP.size == photos.size && keepC.size == customs.size &&
             addW.isEmpty() && addR.isEmpty() && addP.isEmpty() && addC.isEmpty()
         ) return false
 
@@ -655,7 +677,14 @@ object Repo {
         keepP.forEach { photos.add(it); persistPhoto(it) }
         addP.forEach { photos.add(it); persistPhoto(it) }
         photos.sortBy { it.ts }
-        if (addC.isNotEmpty()) applyCustoms(customs + addC)
+        applyCustoms(keepC + addC)
+        // customs dropped by a remote deletion must leave the global catalog too
+        remoteDelC.forEach { gone ->
+            if (gone !in builtinNames) {
+                EXERCISES.removeAll { it.name == gone }
+                EX.remove(gone)
+            }
+        }
         prCache = Calc.rebuildPrs(workouts)
         touch()
         return true

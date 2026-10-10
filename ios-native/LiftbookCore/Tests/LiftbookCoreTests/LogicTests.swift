@@ -179,8 +179,22 @@ final class CloudHelpersTests: XCTestCase {
         XCTAssertEqual(p.customs.count, 2)
         XCTAssertEqual(p.customs[0].equip, "Other")
         XCTAssertEqual(p.customs[1].equip, "Machine")
+        // v3 snapshot without delC decodes with an empty default
+        XCTAssertEqual(p.delC, [])
         let back = try JSONDecoder().decode(SyncPayload.self, from: JSONEncoder().encode(p))
         XCTAssertEqual(back.customs, p.customs)
+    }
+
+    func testSyncPayloadRoundTripsDelC() throws {
+        // v4: custom-exercise deletions pushed by Android must survive the iOS round-trip
+        let json = """
+        {"workouts":[],"routines":[],"delW":[],"delR":[],"photos":[],"delP":[],
+         "customs":[],"delC":["Tirage Majorette","Zedtest"],"v":4}
+        """
+        let p = try JSONDecoder().decode(SyncPayload.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(p.delC, ["Tirage Majorette", "Zedtest"])
+        let back = try JSONDecoder().decode(SyncPayload.self, from: JSONEncoder().encode(p))
+        XCTAssertEqual(back.delC, p.delC)
     }
 
     func testSyncPayloadDecodesAndroidPhotosJson() throws {

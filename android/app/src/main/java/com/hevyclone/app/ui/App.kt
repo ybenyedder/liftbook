@@ -71,6 +71,57 @@ object Nav {
     fun pop() { if (stack.size > 1) stack.removeAt(stack.size - 1) }
     fun toTab(s: Screen) { stack.clear(); stack.add(s) }
     val atTab: Boolean get() = stack.size == 1
+
+    // ---- process-death survival: encode/decode the stack as plain strings ----
+
+    fun encode(): List<String> = stack.map { s ->
+        when (s) {
+            Screen.HomeTab -> "home"
+            Screen.TrainingTab -> "train"
+            Screen.ProfileTab -> "profile"
+            Screen.Settings -> "settings"
+            is Screen.WorkoutDetail -> "wd:${s.id}"
+            is Screen.ExerciseDetail -> "ed:${s.name}"
+            is Screen.RoutineDetail -> "rd:${s.id}"
+            Screen.History -> "history"
+            Screen.Exercises -> "ex"
+            Screen.Logger -> "logger"
+            Screen.WorkoutSummary -> "summary"
+            Screen.Progress -> "progress"
+            is Screen.PhotoViewer -> "pv:${s.id}"
+            is Screen.ComparePhotos -> "cp:${s.aId}:${s.bId}"
+        }
+    }
+
+    fun decode(list: List<String>) {
+        val restored = mutableListOf<Screen>()
+        for (tag in list) {
+            val screen = when {
+                tag == "home" -> Screen.HomeTab
+                tag == "train" -> Screen.TrainingTab
+                tag == "profile" -> Screen.ProfileTab
+                tag == "settings" -> Screen.Settings
+                tag == "history" -> Screen.History
+                tag == "ex" -> Screen.Exercises
+                // a Logger/Summary without a live draft would pop instantly — skip them
+                tag == "logger" && Repo.draft != null -> Screen.Logger
+                tag == "summary" && Repo.draft?.mode == "workout" -> Screen.WorkoutSummary
+                tag == "progress" -> Screen.Progress
+                tag.startsWith("wd:") -> tag.removePrefix("wd:").toLongOrNull()?.let { Screen.WorkoutDetail(it) }
+                tag.startsWith("ed:") -> Screen.ExerciseDetail(tag.removePrefix("ed:"))
+                tag.startsWith("rd:") -> tag.removePrefix("rd:").toLongOrNull()?.let { Screen.RoutineDetail(it) }
+                tag.startsWith("pv:") -> tag.removePrefix("pv:").toLongOrNull()?.let { Screen.PhotoViewer(it) }
+                tag.startsWith("cp:") -> tag.removePrefix("cp:").split(':').mapNotNull { it.toLongOrNull() }
+                    .takeIf { it.size == 2 }?.let { Screen.ComparePhotos(it[0], it[1]) }
+                else -> null
+            } ?: continue
+            restored.add(screen)
+        }
+        if (restored.isNotEmpty()) {
+            stack.clear()
+            stack.addAll(restored)
+        }
+    }
 }
 
 /** Global 5-second undo for a deleted workout — survives navigation. */

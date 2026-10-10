@@ -115,5 +115,6 @@ data class SyncPayload(
     val photos: List<ProgressPhoto> = emptyList(),
     val delP: List<Long> = emptyList(),
     val customs: List<CustomExDef> = emptyList(),
-    val v: Int = 3,
+    val delC: List<String> = emptyList(),   // v4: deleted custom-exercise names
+    val v: Int = 4,
 )

@@ -28,13 +28,13 @@ fun shareWorkout(ctx: android.content.Context, w: com.hevyclone.app.data.Workout
     sb.appendLine(w.name)
     sb.appendLine(com.hevyclone.app.data.Calc.fmtDateFull(w.startedAt))
     sb.appendLine(
-        "Temps " + com.hevyclone.app.data.Calc.fmtDur(w.endedAt - w.startedAt) +
-        " · Volume " + com.hevyclone.app.data.Calc.fmtVol(com.hevyclone.app.data.Calc.vol(w), unit) + " $uLabel" +
-        " · Records " + w.prs.size
+        L10n.s("Time", "Temps") + " " + com.hevyclone.app.data.Calc.fmtDur(w.endedAt - w.startedAt) +
+        " · " + L10n.s("Volume", "Volume") + " " + com.hevyclone.app.data.Calc.fmtVol(com.hevyclone.app.data.Calc.vol(w), unit) + " $uLabel" +
+        " · " + L10n.s("Records", "Records") + " " + w.prs.size
     )
     sb.appendLine()
     for (ex in w.exercises) {
-        sb.appendLine(exName(ex.name) + " (" + ex.sets.size + " séries)")
+        sb.appendLine(exName(ex.name) + " (" + ex.sets.size + " " + L10n.s("series", "séries") + ")")
         for (st in ex.sets) {
             val line = if (ex.muscle == "Cardio") com.hevyclone.app.data.Calc.fmtCardioSet(st.mins, st.km)
                 else (if (st.kg != null) "${com.hevyclone.app.data.Calc.fmtKg(st.kg, unit)} $uLabel × " else "× ") + (st.reps ?: "—")
@@ -45,7 +45,7 @@ fun shareWorkout(ctx: android.content.Context, w: com.hevyclone.app.data.Workout
         type = "text/plain"
         putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
     }
-    ctx.startActivity(android.content.Intent.createChooser(intent, "Partager la séance"))
+    ctx.startActivity(android.content.Intent.createChooser(intent, L10n.s("Share workout", "Partager la séance")))
 }
 
 /** Export all workouts as CSV to cache dir, then share the file.
@@ -79,7 +79,7 @@ fun exportCsv(ctx: android.content.Context) {
         putExtra(android.content.Intent.EXTRA_STREAM, uri)
         addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    ctx.startActivity(android.content.Intent.createChooser(intent, "Exporter les séances"))
+    ctx.startActivity(android.content.Intent.createChooser(intent, L10n.s("Export workouts", "Exporter les séances")))
 }
 
 /** Export the full database as a JSON backup file, shared as attachment. */
@@ -93,5 +93,5 @@ fun shareBackup(ctx: android.content.Context) {
         putExtra(android.content.Intent.EXTRA_STREAM, uri)
         addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
-    ctx.startActivity(android.content.Intent.createChooser(intent, "Sauvegarde"))
+    ctx.startActivity(android.content.Intent.createChooser(intent, L10n.s("Backup", "Sauvegarde")))
 }

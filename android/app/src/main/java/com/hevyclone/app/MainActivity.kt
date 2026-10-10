@@ -41,6 +41,9 @@ class MainActivity : ComponentActivity() {
             // Google OAuth deep link on cold start — session applied, fall through to UI
         } else if (intent?.getBooleanExtra("start_empty_workout", false) == true && savedInstanceState == null) {
             com.hevyclone.app.ui.Nav.pendingStartEmpty = true
+        } else if (savedInstanceState != null) {
+            // process death: bring the user back where they were (draft restores first)
+            savedInstanceState.getStringArrayList("nav")?.let { com.hevyclone.app.ui.Nav.decode(it) }
         }
         setContent {
             HevyTheme(accent = Repo.settings.accent) {
@@ -65,5 +68,10 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         super.onStop()
         com.hevyclone.app.data.Repo.persistDraftNow()
+    }
+
+    override fun onSaveInstanceState(outState: android.os.Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putStringArrayList("nav", ArrayList(com.hevyclone.app.ui.Nav.encode()))
     }
 }

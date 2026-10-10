@@ -751,7 +751,7 @@ private fun shareRoutine(ctx: android.content.Context, r: Routine) {
     sb.appendLine(r.name)
     sb.appendLine()
     for (ex in r.exercises) {
-        sb.appendLine(exName(ex.name) + " (" + ex.sets.size + " séries)")
+        sb.appendLine(exName(ex.name) + " (" + ex.sets.size + " " + L10n.s("series", "séries") + ")")
         for ((i, st) in ex.sets.withIndex()) {
             val kgLabel = st.kg?.let { "${com.hevyclone.app.data.Calc.fmtKg(it, Repo.settings.unit)} $uLabel" } ?: ""
             sb.appendLine("  " + (i + 1) + ". " + kgLabel + " × " + (st.reps ?: "—"))
@@ -761,7 +761,7 @@ private fun shareRoutine(ctx: android.content.Context, r: Routine) {
         type = "text/plain"
         putExtra(android.content.Intent.EXTRA_TEXT, sb.toString())
     }
-    ctx.startActivity(android.content.Intent.createChooser(intent, "Partager la routine"))
+    ctx.startActivity(android.content.Intent.createChooser(intent, L10n.s("Share routine", "Partager la routine")))
 }
 
 /** Sessions matching this routine's exercises, within the last 3 months (the chart label says so). */

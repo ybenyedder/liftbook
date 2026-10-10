@@ -39,10 +39,14 @@ import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -169,6 +173,9 @@ fun ExerciseDetailScreen(name: String) {
     val def = com.hevyclone.app.data.EX[name]
     var tab by remember { mutableStateOf(0) }   // 0=Charts 1=History 2=About
     var period by remember { mutableStateOf(3) } // 0=3m 1=6m 2=1y 3=all
+    val isCustom = Repo.customs.any { it.name == name }
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmDeleteCustom by remember { mutableStateOf(false) }
     val historySessions = remember(rev, name) {
         Repo.workoutsDesc().mapNotNull { w -> w.exercises.firstOrNull { it.name == name }?.let { w to it } }
     }
@@ -181,6 +188,18 @@ fun ExerciseDetailScreen(name: String) {
                 fontWeight = FontWeight.Bold, fontSize = 17.sp,
                 modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
+            if (isCustom) {
+                Box {
+                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(34.dp)) { Icon(Icons.Rounded.MoreVert, null, modifier = Modifier.size(19.dp)) }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        DropdownMenuItem(
+                            text = { Text(L10n.s("Delete exercise", "Supprimer l'exercice"), color = MaterialTheme.colorScheme.error) },
+                            leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) },
+                            onClick = { menuOpen = false; confirmDeleteCustom = true },
+                        )
+                    }
+                }
+            }
         }
         if (def?.equip == "Barbell") {
             var showPlateCalc by remember { mutableStateOf(false) }
@@ -513,6 +532,28 @@ fun ExerciseDetailScreen(name: String) {
                 leading = { Icon(Icons.Rounded.Add, null, modifier = Modifier.size(17.dp)) },
             )
         }
+    }
+    if (confirmDeleteCustom) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteCustom = false },
+            title = { Text(L10n.s("Delete exercise?", "Supprimer l'exercice ?"), fontWeight = FontWeight.ExtraBold) },
+            text = {
+                Text(
+                    L10n.s(
+                        "It will be removed from your lists on all your devices. Past workouts keep their history.",
+                        "Il sera retiré de tes listes sur tous tes appareils. Les séances passées conservent leur historique.",
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteCustom = false
+                    Repo.deleteCustom(name)
+                    Nav.pop()
+                }) { Text(L10n.s("Delete", "Supprimer"), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmDeleteCustom = false }) { Text(L10n.s("Cancel", "Annuler")) } },
+        )
     }
 }
 

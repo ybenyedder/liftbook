@@ -74,6 +74,7 @@ object Cloud {
     private var delW = mutableListOf<Long>()
     private var delR = mutableListOf<String>()
     private var delP = mutableListOf<Long>()
+    private var delC = mutableListOf<String>()   // deleted custom-exercise names
     // storage objects of deleted photos still to remove server-side (survives restarts)
     private var pendingDelObjs = mutableListOf<String>()
 
@@ -90,6 +91,7 @@ object Cloud {
         delW = prefs.getString("delW", null)?.let { runCatching { json.decodeFromString<List<Long>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
         delR = prefs.getString("delR", null)?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
         delP = prefs.getString("delP", null)?.let { runCatching { json.decodeFromString<List<Long>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
+        delC = prefs.getString("delC", null)?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
         pendingDelObjs = prefs.getString("pendingDelObjs", null)?.let { runCatching { json.decodeFromString<List<String>>(it) }.getOrNull() }?.toMutableList() ?: mutableListOf()
         loadSession()
     }
@@ -529,6 +531,7 @@ object Cloud {
     fun currentTombW(): List<Long> = delW.toList()
     fun currentTombR(): List<String> = delR.toList()
     fun currentTombP(): List<Long> = delP.toList()
+    fun currentTombC(): List<String> = delC.toList()
 
     fun tombstoneWorkout(startedAt: Long) {
         if (this::prefs.isInitialized) {
@@ -560,14 +563,23 @@ object Cloud {
         }
     }
 
-    private fun clearTombstones() { delW.clear(); delR.clear(); delP.clear(); pendingDelObjs.clear(); persistMeta() }
+    fun tombstoneCustom(name: String) {
+        if (this::prefs.isInitialized && name.isNotBlank()) {
+            if (!delC.contains(name)) delC.add(name)
+            if (delC.size > 400) delC.removeAt(0)
+            persistMeta()
+        }
+    }
+
+    private fun clearTombstones() { delW.clear(); delR.clear(); delP.clear(); delC.clear(); pendingDelObjs.clear(); persistMeta() }
     private fun adoptTombstones(p: SyncPayload) {
-        delW = p.delW.toMutableList(); delR = p.delR.toMutableList(); delP = p.delP.toMutableList(); persistMeta()
+        delW = p.delW.toMutableList(); delR = p.delR.toMutableList(); delP = p.delP.toMutableList(); delC = p.delC.toMutableList(); persistMeta()
     }
     private fun mergeTombstones(p: SyncPayload) {
         p.delW.forEach { if (!delW.contains(it)) delW.add(it) }
         p.delR.forEach { if (!delR.contains(it)) delR.add(it) }
         p.delP.forEach { if (!delP.contains(it)) delP.add(it) }
+        p.delC.forEach { if (!delC.contains(it)) delC.add(it) }
         persistMeta()
     }
 
@@ -747,6 +759,7 @@ object Cloud {
             .putString("delW", json.encodeToString(delW.toList()))
             .putString("delR", json.encodeToString(delR.toList()))
             .putString("delP", json.encodeToString(delP.toList()))
+            .putString("delC", json.encodeToString(delC.toList()))
             .putString("pendingDelObjs", json.encodeToString(pendingDelObjs.toList()))
             .apply()
     }

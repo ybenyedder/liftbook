@@ -143,9 +143,10 @@ public struct SyncPayload: Codable, Equatable, Sendable {
     public var photos: [ProgressPhoto]
     public var delP: [Double]
     public var customs: [CustomExercise]
+    public var delC: [String]   // v4: deleted custom-exercise names (Android deletes, iOS round-trips)
     public var v: Int
 
-    public init(workouts: [Workout] = [], routines: [Routine] = [], settings: Settings? = nil, delW: [Double] = [], delR: [String] = [], photos: [ProgressPhoto] = [], delP: [Double] = [], customs: [CustomExercise] = [], v: Int = 1) {
+    public init(workouts: [Workout] = [], routines: [Routine] = [], settings: Settings? = nil, delW: [Double] = [], delR: [String] = [], photos: [ProgressPhoto] = [], delP: [Double] = [], customs: [CustomExercise] = [], delC: [String] = [], v: Int = 1) {
         self.workouts = workouts
         self.routines = routines
         self.settings = settings
@@ -154,12 +155,13 @@ public struct SyncPayload: Codable, Equatable, Sendable {
         self.photos = photos
         self.delP = delP
         self.customs = customs
+        self.delC = delC
         self.v = v
     }
 
     /// Older clients (v1/v2 payloads) push snapshots without the newer fields —
     /// decode them with defaults instead of failing.
-    private enum CodingKeys: String, CodingKey { case workouts, routines, settings, delW, delR, photos, delP, customs, v }
+    private enum CodingKeys: String, CodingKey { case workouts, routines, settings, delW, delR, photos, delP, customs, delC, v }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -171,6 +173,7 @@ public struct SyncPayload: Codable, Equatable, Sendable {
         photos = try c.decodeIfPresent([ProgressPhoto].self, forKey: .photos) ?? []
         delP = try c.decodeIfPresent([Double].self, forKey: .delP) ?? []
         customs = try c.decodeIfPresent([CustomExercise].self, forKey: .customs) ?? []
+        delC = try c.decodeIfPresent([String].self, forKey: .delC) ?? []
         v = try c.decodeIfPresent(Int.self, forKey: .v) ?? 1
     }
 }

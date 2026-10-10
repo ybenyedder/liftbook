@@ -35,6 +35,7 @@ final class Repo: ObservableObject {
     var delW: [Double] = []
     var delR: [String] = []
     var delP: [Double] = []
+    var delC: [String] = []            // deleted custom-exercise names (round-trip; Android deletes)
     var photos: [ProgressPhoto] = []   // round-trip only (no photo UI on iOS yet)
     var customs: [CustomExercise] = [] // round-trip only
     private var syncing = false
@@ -61,7 +62,7 @@ final class Repo: ObservableObject {
         if let meta = d.data(forKey: "cloud_meta"),
            let m = try? JSONDecoder().decode(CloudMeta.self, from: meta) {
             dirtyAt = m.dirtyAt; pushedTs = m.pushedTs; lastSeenRemoteTs = m.lastSeenRemoteTs
-            lastAccount = m.lastAccount; skipped = m.skipped; delW = m.delW; delR = m.delR; delP = m.delP
+            lastAccount = m.lastAccount; skipped = m.skipped; delW = m.delW; delR = m.delR; delP = m.delP; delC = m.delC
         }
         if let ph = d.data(forKey: "photos"), let dec = try? JSONDecoder().decode([ProgressPhoto].self, from: ph) { photos = dec }
         if let cs = d.data(forKey: "customs"), let dec = try? JSONDecoder().decode([CustomExercise].self, from: cs) { customs = dec }
@@ -77,6 +78,7 @@ final class Repo: ObservableObject {
         var delW: [Double] = []
         var delR: [String] = []
         var delP: [Double] = []
+        var delC: [String] = []
     }
 
     private func persist() {
@@ -470,7 +472,7 @@ final class Repo: ObservableObject {
     }
 
     func snapshot() -> SyncPayload {
-        SyncPayload(workouts: workouts, routines: routines, settings: settings, delW: delW, delR: delR, photos: photos, delP: delP, customs: customs, v: 1)
+        SyncPayload(workouts: workouts, routines: routines, settings: settings, delW: delW, delR: delR, photos: photos, delP: delP, customs: customs, delC: delC, v: 1)
     }
 
     func currentTombP() -> [Double] { delP }
@@ -482,6 +484,7 @@ final class Repo: ObservableObject {
         if let ps = p.settings { settings = ps }
         photos = p.photos.sorted { $0.ts < $1.ts }
         delP = p.delP
+        delC = p.delC
         customs = p.customs
         prCache = Calc.rebuildPrs(&workouts)
         queueSave()
@@ -497,13 +500,18 @@ final class Repo: ObservableObject {
         let keepR = routines.filter { !remoteDelR.contains($0.name) }
         let remoteDelP = Set(p.delP)
         let keepP = photos.filter { !remoteDelP.contains($0.id) }
+        let remoteDelC = Set(p.delC)
+        let localDelC = Set(delC)
+        let keepC = customs.filter { !remoteDelC.contains($0.name) }
         let knownW = Set(keepW.map { $0.startedAt })
         let knownR = Set(keepR.map { $0.name })
         let knownP = Set(keepP.map { $0.id })
         let addW = p.workouts.filter { !localDelW.contains($0.startedAt) && !knownW.contains($0.startedAt) }
         let addR = p.routines.filter { !localDelR.contains($0.name) && !knownR.contains($0.name) }
         let addP = p.photos.filter { !knownP.contains($0.id) }
-        if keepW.count == workouts.count, keepR.count == routines.count, keepP.count == photos.count, addW.isEmpty, addR.isEmpty, addP.isEmpty { return false }
+        let knownC = Set(keepC.map { $0.name })
+        let addC = p.customs.filter { !localDelC.contains($0.name) && !knownC.contains($0.name) }
+        if keepW.count == workouts.count, keepR.count == routines.count, keepP.count == photos.count, keepC.count == customs.count, addW.isEmpty, addR.isEmpty, addP.isEmpty, addC.isEmpty { return false }
         workouts = keepW
         for w in addW {
             var f = w
@@ -520,8 +528,8 @@ final class Repo: ObservableObject {
         }
         photos = (keepP + addP).sorted { $0.ts < $1.ts }
         for d in p.delP where !delP.contains(d) { delP.append(d) }
-        let knownC = Set(customs.map { $0.name })
-        customs += p.customs.filter { !knownC.contains($0.name) }
+        for d in p.delC where !delC.contains(d) { delC.append(d) }
+        customs = keepC + addC
         prCache = Calc.rebuildPrs(&workouts)
         queueSave()
         return true
@@ -560,6 +568,7 @@ final class Repo: ObservableObject {
             delW = []
             delR = []
             delP = []
+            delC = []
             photos = []
             customs = []
             dirtyAt = 0

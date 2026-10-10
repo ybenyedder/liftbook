@@ -393,4 +393,25 @@ class LogicTest {
             repo.routines.addAll(saved)
         }
     }
+
+    @Test
+    fun `sync payload v4 round-trips delC and still decodes v3 snapshots`() {
+        val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+        // v3 (snapshots déjà présents sur le serveur) : pas de champ delC → décode avec défaut vide
+        val v3 = """{"workouts":[],"routines":[],"delW":[],"delR":[],"photos":[],"delP":[],
+                    "customs":[{"name":"Tirage Majorette","muscle":"Back"}],"v":3}"""
+        val old = json.decodeFromString(com.hevyclone.app.data.SyncPayload.serializer(), v3)
+        assertEquals(listOf("Tirage Majorette"), old.customs.map { it.name })
+        assertEquals(emptyList<String>(), old.delC)
+        // v4 : delC voyage et revient ; delC vide n'est pas sérialisé (défault omis par kotlinx)
+        val p = com.hevyclone.app.data.SyncPayload(
+            customs = listOf(com.hevyclone.app.data.CustomExDef("Zed", "Chest")),
+            delC = listOf("Tirage Majorette"),
+        )
+        val text = json.encodeToString(com.hevyclone.app.data.SyncPayload.serializer(), p)
+        assertTrue(text.contains("\"delC\":[\"Tirage Majorette\"]"))
+        val back = json.decodeFromString(com.hevyclone.app.data.SyncPayload.serializer(), text)
+        assertEquals(listOf("Tirage Majorette"), back.delC)
+        assertEquals(4, back.v)
+    }
 }
