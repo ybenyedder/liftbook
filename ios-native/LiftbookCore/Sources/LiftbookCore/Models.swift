@@ -3,16 +3,35 @@
 public struct SetEntry: Codable, Equatable, Sendable {
     public var kg: Double?
     public var reps: Int?
+    public var mins: Int?    // cardio: duration in minutes (nil = strength set)
+    public var km: Double?   // cardio: distance in kilometers
     public var done: Bool
     public var prW: Bool
     public var prE: Bool
 
-    public init(kg: Double? = nil, reps: Int? = nil, done: Bool = true, prW: Bool = false, prE: Bool = false) {
+    public init(kg: Double? = nil, reps: Int? = nil, mins: Int? = nil, km: Double? = nil, done: Bool = true, prW: Bool = false, prE: Bool = false) {
         self.kg = kg
         self.reps = reps
+        self.mins = mins
+        self.km = km
         self.done = done
         self.prW = prW
         self.prE = prE
+    }
+
+    private enum CodingKeys: String, CodingKey { case kg, reps, mins, km, done, prW, prE }
+
+    /// Lenient: kotlinx omits fields at their default (done=true, prW/prE=false, nulls) —
+    /// encoding stays synthesized (optionals omitted when nil, never null).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kg = try c.decodeIfPresent(Double.self, forKey: .kg)
+        reps = try c.decodeIfPresent(Int.self, forKey: .reps)
+        mins = try c.decodeIfPresent(Int.self, forKey: .mins)
+        km = try c.decodeIfPresent(Double.self, forKey: .km)
+        done = try c.decodeIfPresent(Bool.self, forKey: .done) ?? true
+        prW = try c.decodeIfPresent(Bool.self, forKey: .prW) ?? false
+        prE = try c.decodeIfPresent(Bool.self, forKey: .prE) ?? false
     }
 }
 
@@ -31,6 +50,19 @@ public struct ExEntry: Codable, Equatable, Sendable {
         self.superset = superset
         self.restSec = restSec
         self.sets = sets
+    }
+
+    private enum CodingKeys: String, CodingKey { case name, muscle, notes, superset, restSec, sets }
+
+    /// Lenient decode (kotlinx omits notes=""/superset=false/restSec=null/sets=[] at defaults).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        muscle = try c.decode(String.self, forKey: .muscle)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+        superset = try c.decodeIfPresent(Bool.self, forKey: .superset) ?? false
+        restSec = try c.decodeIfPresent(Int.self, forKey: .restSec)
+        sets = try c.decodeIfPresent([SetEntry].self, forKey: .sets) ?? []
     }
 }
 
@@ -59,6 +91,20 @@ public struct Workout: Codable, Equatable, Sendable, Identifiable {
         self.prs = prs
         self.notes = notes
     }
+
+    private enum CodingKeys: String, CodingKey { case id, name, startedAt, endedAt, exercises, prs, notes }
+
+    /// Lenient decode (kotlinx omits notes=""/prs=[]/exercises=[] at defaults).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        startedAt = try c.decode(Double.self, forKey: .startedAt)
+        endedAt = try c.decode(Double.self, forKey: .endedAt)
+        exercises = try c.decodeIfPresent([ExEntry].self, forKey: .exercises) ?? []
+        prs = try c.decodeIfPresent([PrRec].self, forKey: .prs) ?? []
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
+    }
 }
 
 public struct Routine: Codable, Equatable, Sendable, Identifiable {
@@ -73,6 +119,17 @@ public struct Routine: Codable, Equatable, Sendable, Identifiable {
         self.exercises = exercises
         self.pos = pos
     }
+
+    private enum CodingKeys: String, CodingKey { case id, name, exercises, pos }
+
+    /// Lenient decode (kotlinx omits exercises=[]/pos=0 at defaults).
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        exercises = try c.decodeIfPresent([ExEntry].self, forKey: .exercises) ?? []
+        pos = try c.decodeIfPresent(Int.self, forKey: .pos) ?? 0
+    }
 }
 
 public struct Settings: Codable, Equatable, Sendable {
@@ -86,6 +143,22 @@ public struct Settings: Codable, Equatable, Sendable {
     public var avatarUrl: String = ""
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey { case unit, restSec, theme, accent, profileName, handle, since, avatarUrl }
+
+    /// Lenient decode: kotlinx omits every field sitting at its default (avatarUrl="",
+    /// since=0…) — a strict decoder would reject real Android snapshots wholesale.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        unit = try c.decodeIfPresent(String.self, forKey: .unit) ?? "kg"
+        restSec = try c.decodeIfPresent(Int.self, forKey: .restSec) ?? 90
+        theme = try c.decodeIfPresent(String.self, forKey: .theme) ?? "dark"
+        accent = try c.decodeIfPresent(String.self, forKey: .accent) ?? "blue"
+        profileName = try c.decodeIfPresent(String.self, forKey: .profileName) ?? "Athlète"
+        handle = try c.decodeIfPresent(String.self, forKey: .handle) ?? "athlete"
+        since = try c.decodeIfPresent(Double.self, forKey: .since) ?? 0
+        avatarUrl = try c.decodeIfPresent(String.self, forKey: .avatarUrl) ?? ""
+    }
 }
 
 public struct PrBest: Equatable, Sendable {
@@ -130,7 +203,23 @@ public struct WeekStats: Sendable {
 public struct BackupData: Codable, Sendable {
     public var workouts: [Workout]
     public var routines: [Routine]
-    public init(workouts: [Workout], routines: [Routine]) { self.workouts = workouts; self.routines = routines }
+    /// v1.47+: progress-photo metadata rides along (Android omits the field at its empty default → lenient decode).
+    public var photos: [ProgressPhoto]
+
+    public init(workouts: [Workout], routines: [Routine], photos: [ProgressPhoto] = []) {
+        self.workouts = workouts
+        self.routines = routines
+        self.photos = photos
+    }
+
+    private enum CodingKeys: String, CodingKey { case workouts, routines, photos }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        workouts = try c.decodeIfPresent([Workout].self, forKey: .workouts) ?? []
+        routines = try c.decodeIfPresent([Routine].self, forKey: .routines) ?? []
+        photos = try c.decodeIfPresent([ProgressPhoto].self, forKey: .photos) ?? []
+    }
 }
 
 /// Full cloud snapshot pushed/pulled per account (deletions ride along as tombstones).

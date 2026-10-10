@@ -1,0 +1,37 @@
+name: webapp-pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Préparer le site (web/ à la racine, sans les tests/outils)
+        run: |
+          mkdir -p site
+          cp -r web/* site/
+          rm -rf site/tests site/CONTRAT.md web/extract_web.py 2>/dev/null || true
+          rm -f site/CONTRAT.md site/extract_web.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

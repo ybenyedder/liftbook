@@ -27,7 +27,28 @@ public enum Calc {
     }
 
     public static func setsDone(_ w: Workout) -> Int {
-        w.exercises.reduce(0) { $0 + $1.sets.filter { $0.done && ($0.kg != nil || $0.reps != nil) }.count }
+        w.exercises.reduce(0) { $0 + $1.sets.filter { $0.done && ($0.kg != nil || $0.reps != nil || $0.mins != nil || $0.km != nil) }.count }
+    }
+
+    /// Cardio exercises (muscle == "Cardio") log minutes/km instead of weight × reps.
+    /// Resolves built-ins AND registered customs (Android reads its mutable EX map).
+    public static func isCardioName(_ name: String) -> Bool {
+        ExDataPlus.lookup(name)?.muscle == "Cardio"
+    }
+
+    /// "22min · 5.2km" for a cardio set; "1h05" past the hour; "—" when empty. Exact port of Calc.kt.
+    public static func fmtCardioSet(_ mins: Int?, _ km: Double?) -> String {
+        var parts: [String] = []
+        if let mins, mins > 0 {
+            if mins >= 60 {
+                let rem = mins % 60
+                parts.append("\(mins / 60)h" + (rem > 0 ? String(format: "%02d", Int32(rem)) : ""))
+            } else {
+                parts.append("\(mins)min")
+            }
+        }
+        if let km, km > 0 { parts.append(trim(km) + "km") }
+        return parts.isEmpty ? "—" : parts.joined(separator: " · ")
     }
 
     static func r1(_ x: Double) -> Double { (x * 10).rounded() / 10 }
@@ -44,6 +65,30 @@ public enum Calc {
 
     /// Display label for the weight unit, Hevy style.
     public static func unitLabel(_ unit: String) -> String { unit == "lb" ? "lbs" : "kg" }
+
+    /// Plain number (1 decimal max) for input fields / CSV export.
+    public static func trimNum(_ x: Double) -> String { trim(x) }
+
+    /// Plate breakdown for a target total — exact port of Calc.kt `platesForSide`.
+    /// Greedy per side (largest plate first); `targetKg`/`barKg` are in DISPLAY units
+    /// (kg when unit == "kg", lb otherwise — bars 45/35/25 and lb plates in that mode).
+    /// `barKg == 0` means "no bar": everything goes on plates. When the target is not
+    /// exactly reachable, `totalKg` is the closest reachable load (bar + 2 × per side).
+    public static func platesForSide(targetKg: Double, barKg: Double, unit: String) -> PlateBreakdown {
+        let avail: [Double] = unit == "lb" ? [45, 35, 25, 10, 5, 2.5] : [25, 20, 15, 10, 5, 2.5, 1.25]
+        var perSide = ((targetKg - barKg) / 2 * 100).rounded(.down) / 100
+        if perSide < 0 { perSide = 0 }
+        var out: [(weight: Double, count: Int)] = []
+        for p in avail {
+            let n = Int((perSide / p + 1e-9).rounded(.down))
+            if n > 0 {
+                out.append((weight: p, count: n))
+                perSide -= Double(n) * p
+            }
+        }
+        let perSideTotal = out.reduce(0.0) { $0 + $1.weight * Double($1.count) }
+        return PlateBreakdown(perSide: out, totalKg: barKg + 2 * perSideTotal)
+    }
 
     public static func toKg(_ text: String, _ unit: String) -> Double? {
         let cleaned = text.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
@@ -239,11 +284,11 @@ public enum Calc {
         return cache
     }
 
-    // ---------------- legacy CSV import (Date;Heure;Exercice;Serie;KG;Reps) ----------------
+    // ---------------- legacy CSV import (Date;Heure;Exercice;Serie;KG;Reps[;Min;Km]) ----------------
 
     public static func parseCsv(_ content: String) -> [Workout] {
         struct Key: Hashable { let date: String; let time: String }
-        var groups: [Key: [String: [(Int, Double?, Int?)]]] = [:]
+        var groups: [Key: [String: [(Int, Double?, Int?, Int?, Double?)]]] = [:]
         var exOrder: [Key: [String]] = [:]
         var order: [Key] = []
         let allLines: [Substring] = content.split(separator: "\n")
@@ -257,10 +302,15 @@ public enum Calc {
             let kgTxt = parts[4].replacingOccurrences(of: ",", with: ".")
             let kg = kgTxt.isEmpty ? nil : Double(kgTxt)
             let reps = Int(parts[5])
+            // cardio columns (v1.48 export): Min;Km — missing/blank on strength rows and legacy files
+            let minsTxt = parts.count > 6 ? parts[6].replacingOccurrences(of: ",", with: ".") : ""
+            let mins = minsTxt.isEmpty ? nil : Double(minsTxt).map { Int($0) }
+            let kmTxt = parts.count > 7 ? parts[7].replacingOccurrences(of: ",", with: ".") : ""
+            let km = kmTxt.isEmpty ? nil : Double(kmTxt)
             let key = Key(date: date, time: time)
             if groups[key] == nil { order.append(key); exOrder[key] = [] }
             if groups[key, default: [:]][exName] == nil { exOrder[key]!.append(exName) }
-            groups[key, default: [:]][exName, default: []].append((si, kg, reps))
+            groups[key, default: [:]][exName, default: []].append((si, kg, reps, mins, km))
         }
         order.sort { $0.date < $1.date }
         var workouts: [Workout] = []
@@ -269,12 +319,37 @@ public enum Calc {
             let exercises = (exOrder[key] ?? []).map { frName in
                 let sets = groups[key]![frName, default: []]
                 let canonical = ExData.nameFr.first { $0.value == frName }?.key ?? frName
-                let muscle = ExData.byName[canonical]?.muscle ?? ""
-                return ExEntry(name: canonical, muscle: muscle, sets: sets.sorted { $0.0 < $1.0 }.map { SetEntry(kg: $0.1, reps: $0.2, done: true) })
+                let muscle = ExDataPlus.lookup(canonical)?.muscle ?? ""
+                return ExEntry(name: canonical, muscle: muscle, sets: sets.sorted { $0.0 < $1.0 }.map { SetEntry(kg: $0.1, reps: $0.2, mins: $0.3, km: $0.4, done: true) })
             }
             workouts.append(Workout(id: 10_000_000 + i, name: "Séance", startedAt: ms, endedAt: ms + 3_600_000, exercises: exercises))
         }
         return workouts
+    }
+
+    /// Full CSV export — exact port of Util.kt `exportCsv` (l. 53-83):
+    /// `Date;Heure;Exercice;<kg|lbs>;Reps;Min;Km` (';' separator), one line per set,
+    /// "d MMM yyyy" French date WITH the year (parseCsv needs it), HH:mm time,
+    /// exercise = FR display name (';' → ','), Min/Km columns carry the cardio values.
+    public static func exportCsvText(workouts: [Workout], unit: String) -> String {
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "fr_FR")
+        df.dateFormat = "d MMM yyyy"
+        var lines = ["Date;Heure;Exercice;Serie;\(unitLabel(unit));Reps;Min;Km"]
+        for w in workouts.sorted(by: { $0.startedAt < $1.startedAt }) {
+            let date = df.string(from: Date(timeIntervalSince1970: w.startedAt / 1000))
+            let time = fmtTime(w.startedAt)
+            for ex in w.exercises {
+                for (i, st) in ex.sets.enumerated() {
+                    lines.append(
+                        "\(date);\(time);\(exName(ex.name).replacingOccurrences(of: ";", with: ","));\(i + 1);"
+                            + "\(st.kg.map { fmtKg($0, unit) } ?? "");\(st.reps.map(String.init) ?? "");"
+                            + "\(st.mins.map(String.init) ?? "");\(st.km.map { trimNum($0) } ?? "")"
+                    )
+                }
+            }
+        }
+        return lines.joined(separator: "\n") + "\n"
     }
 
         /// "d MMM yyyy" with French month names ("5 sept. 2026").
@@ -538,7 +613,7 @@ public enum Calc {
                 name: rows.first?.workoutName ?? "Routine Hevy",
                 exercises: exOrder.map { label in
                     let canon = canonicalExercise(label)
-                    return ExEntry(name: canon, muscle: ExData.byName[canon]?.muscle ?? "", superset: sups.contains(label), sets: exs[label]!)
+                    return ExEntry(name: canon, muscle: ExDataPlus.lookup(canon)?.muscle ?? "", superset: sups.contains(label), sets: exs[label]!)
                 }
             )
             return ([], [routine])
@@ -571,7 +646,7 @@ public enum Calc {
                 endedAt: max(end, key + 60_000),
                 exercises: exOrder.map { label in
                     let canon = canonicalExercise(label)
-                    return ExEntry(name: canon, muscle: ExData.byName[canon]?.muscle ?? "", superset: sups.contains(label), sets: exs[label]!)
+                    return ExEntry(name: canon, muscle: ExDataPlus.lookup(canon)?.muscle ?? "", superset: sups.contains(label), sets: exs[label]!)
                 }
             ))
             id += 1
@@ -597,7 +672,7 @@ public enum Calc {
                 id: id,
                 name: name,
                 exercises: latest.exercises.map { ex in
-                    ExEntry(name: ex.name, muscle: ex.muscle, superset: ex.superset, restSec: ex.restSec, sets: ex.sets.map { SetEntry(kg: $0.kg, reps: $0.reps, done: $0.done) })
+                    ExEntry(name: ex.name, muscle: ex.muscle, superset: ex.superset, restSec: ex.restSec, sets: ex.sets.map { SetEntry(kg: $0.kg, reps: $0.reps, mins: $0.mins, km: $0.km, done: $0.done) })
                 }
             ))
             id += 1
@@ -708,6 +783,17 @@ public enum Calc {
             ]),
         ]
         return (workouts, routines)
+    }
+}
+
+/// Result of `Calc.platesForSide`: per-side (plate weight, count) pairs largest-first
+/// (empty when the bar alone reaches the target) plus the closest reachable total.
+public struct PlateBreakdown: Sendable {
+    public let perSide: [(weight: Double, count: Int)]
+    public let totalKg: Double
+    public init(perSide: [(weight: Double, count: Int)] = [], totalKg: Double = 0) {
+        self.perSide = perSide
+        self.totalKg = totalKg
     }
 }
 

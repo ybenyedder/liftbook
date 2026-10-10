@@ -13,6 +13,9 @@ enum Screen: Hashable {
     case exercises
     case logger
     case workoutSummary
+    case progress
+    case photoViewer(Double)
+    case comparePhotos(Double, Double)
 }
 
 @MainActor
@@ -105,6 +108,9 @@ struct RootView: View {
             case .exercises: ExercisesView()
             case .logger: LoggerView()
             case .workoutSummary: WorkoutSummaryView()
+            case .progress: ProgressScreen()
+            case .photoViewer(let id): PhotoViewerScreen(id: id)
+            case .comparePhotos(let aId, let bId): ComparePhotosScreen(aId: aId, bId: bId)
             }
         } else {
             switch nav.tab {

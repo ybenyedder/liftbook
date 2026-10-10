@@ -15,7 +15,21 @@ public class UIWindowScene: UIScene {
 public class UIImage {
     public init?(named: String) { nil }
     public init?(data: Data) { nil }
+    public var size: CGSize { CGSize(width: 100, height: 100) }
+    public func draw(in rect: CGRect) {}
+    public func jpegData(compressionQuality: Double) -> Data? { nil }
+    public func pngData() -> Data? { nil }
 }
+public class UIGraphicsImageRendererFormat {
+    public init() {}
+    public var scale: Double = 1
+    public var opaque = false
+}
+public class UIGraphicsImageRenderer {
+    public init(size: CGSize, format: UIGraphicsImageRendererFormat = UIGraphicsImageRendererFormat()) {}
+    public func image(_ actions: (UIGraphicsImageRendererContext) -> Void) -> UIImage { UIImage(named: "x")! }
+}
+public class UIGraphicsImageRendererContext {}
 public class UIWindow {
     public init() {}
 }

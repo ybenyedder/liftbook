@@ -259,6 +259,25 @@ struct WorkoutDetailView: View {
                     size: 13, color: C.mut)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 2)
+                // photo de progression liée (History.kt:379-396)
+                if let linked = repo.photoForWorkout(Double(w.id)) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Txt(LS("Progress photo", "Photo de progression"), weight: 800, size: 12, color: C.mut)
+                        Button { nav.push(.photoViewer(linked.id)) } label: {
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12).fill(C.card2)
+                                if let img = repo.photoImage(linked.id) {
+                                    Image(uiImage: img).resizable().scaledToFill()
+                                }
+                            }
+                            .aspectRatio(1, contentMode: .fit)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                }
                 HStack(alignment: .top, spacing: 16) {
                     statCol(LS("Time", "Temps"), Calc.fmtDur(w.endedAt - w.startedAt), flex: 1)
                     statCol(LS("Volume", "Volume"), "\(Calc.fmtVol(Calc.vol(w), unit)) kg", flex: 1.4)
@@ -343,6 +362,7 @@ struct WorkoutDetailView: View {
 
     func exerciseCard(w: Workout, ei: Int, ex: ExEntry, unit: String) -> some View {
         let prevSets = repo.prevSetsBefore(w.startedAt, ex.name)
+        let cardio = ex.muscle == "Cardio" || Calc.isCardioName(ex.name)
         return AppCard {
             VStack(alignment: .leading, spacing: 6) {
                 Button { nav.push(.exerciseDetail(ex.name)) } label: {
@@ -359,8 +379,13 @@ struct WorkoutDetailView: View {
                 HStack(spacing: 0) {
                     Txt("SÉRIE", size: 11, color: C.mut).frame(width: 34, alignment: .leading)
                     Txt(LS("PREVIOUS", "PRÉCÉDENTE"), size: 11, color: C.mut).frame(maxWidth: 1.1, alignment: .leading)
-                    Txt("KG", size: 11, color: C.mut).frame(maxWidth: .infinity)
-                    Txt("RÉPS", size: 11, color: C.mut).frame(maxWidth: .infinity, alignment: .trailing)
+                    if cardio {
+                        Txt("MIN", size: 11, color: C.mut).frame(maxWidth: .infinity)
+                        Txt("KM", size: 11, color: C.mut).frame(maxWidth: .infinity, alignment: .trailing)
+                    } else {
+                        Txt("KG", size: 11, color: C.mut).frame(maxWidth: .infinity)
+                        Txt("RÉPS", size: 11, color: C.mut).frame(maxWidth: .infinity, alignment: .trailing)
+                    }
                     Color.clear.frame(width: 56)
                 }
                 ForEach(Array(ex.sets.enumerated()), id: \.offset) { i, s in
@@ -369,8 +394,13 @@ struct WorkoutDetailView: View {
                         Txt(prevSets != nil && i < prevSets!.count ? prevSets![i] : "—", size: 13, color: C.mut)
                             .frame(maxWidth: 1.1, alignment: .leading)
                             .lineLimit(1)
-                        Txt(s.kg != nil ? Calc.fmtKg(s.kg, unit) : "—", weight: 600, size: 13).frame(maxWidth: .infinity)
-                        Txt(s.reps.map(String.init) ?? "—", weight: 600, size: 13).frame(maxWidth: .infinity, alignment: .trailing)
+                        if cardio {
+                            Txt(s.mins.map(String.init) ?? "—", weight: 600, size: 13).frame(maxWidth: .infinity)
+                            Txt(s.km != nil ? Calc.trimNum(s.km!) : "—", weight: 600, size: 13).frame(maxWidth: .infinity, alignment: .trailing)
+                        } else {
+                            Txt(s.kg != nil ? Calc.fmtKg(s.kg, unit) : "—", weight: 600, size: 13).frame(maxWidth: .infinity)
+                            Txt(s.reps.map(String.init) ?? "—", weight: 600, size: 13).frame(maxWidth: .infinity, alignment: .trailing)
+                        }
                         HStack {
                             if s.prW || s.prE {
                                 Txt(s.prW ? "WEIGHT PR" : "1RM PR", weight: 800, size: 9, color: C.accText)

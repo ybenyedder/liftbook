@@ -24,7 +24,8 @@ struct ProfileView: View {
         let delta = v2 > 0 ? Int((v1 - v2) / v2 * 100) : nil
         return ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                HStack(alignment: .top, spacing: 8) {
+                Group {
+                    HStack(alignment: .top, spacing: 8) {
                     VStack(alignment: .leading, spacing: 0) {
                         HStack(spacing: 14) {
                             AvatarView(letter: String(repo.settings.profileName.trimmingCharacters(in: .whitespaces).prefix(1)).uppercased(), size: 52)
@@ -66,26 +67,40 @@ struct ProfileView: View {
                 .padding(.top, 16)
                 .padding(.bottom, 8)
                 HeatmapYear(dayVolumes: dayVolumes, year: heatYear, accent: accentCol(repo.settings.accent))
-                Txt("\(Calc.fmtVol(Calc.totalVol(repo.workouts), unit)) kg · \(repo.workouts.reduce(0) { $0 + Calc.setsDone($1) }) \(LS("series", "séries")) · \(repo.workouts.reduce(0) { $0 + Calc.reps($1) }) \(LS("reps", "réps"))",
+                // streak (Profile.kt : pilule dès 2 jours consécutifs)
+                let streak = Calc.streak(repo.workouts, nowMs: Date.now.timeIntervalSince1970 * 1000)
+                if streak >= 2 {
+                    HStack(spacing: 6) {
+                        Txt("🔥", size: 14)
+                        Txt(LS("%1$d-day streak", "Série de %1$d jours").replacingOccurrences(of: "%1$d", with: String(streak)), weight: 600, size: 13)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 7)
+                    .background(C.card2, in: RoundedRectangle(cornerRadius: 10))
+                    .padding(.leading, 16)
+                    .padding(.top, 12)
+                }
+                Txt("\(Calc.fmtVol(Calc.totalVol(repo.workouts), unit)) \(Calc.unitLabel(unit)) · \(repo.workouts.reduce(0) { $0 + Calc.setsDone($1) }) \(LS("series", "séries")) · \(repo.workouts.reduce(0) { $0 + Calc.reps($1) }) \(LS("reps", "réps"))",
                     size: 13, color: C.mut)
                     .padding(.horizontal, 16)
                     .padding(.top, 6)
                 if !month.isEmpty {
-                    Txt("\(LS("This month", "Ce mois-ci")) : \(month.count) \(LS("workouts", "séances")) · \(Calc.fmtVol(month.reduce(0) { $0 + Calc.vol($1) }, unit)) kg · \(month.reduce(0) { $0 + $1.prs.count }) \(LS("PRs", "records"))",
+                    Txt("\(LS("This month", "Ce mois-ci")) : \(month.count) \(LS("workouts", "séances")) · \(Calc.fmtVol(month.reduce(0) { $0 + Calc.vol($1) }, unit)) \(Calc.unitLabel(unit)) · \(month.reduce(0) { $0 + $1.prs.count }) \(LS("PRs", "records"))",
                         size: 13, color: C.mut)
                         .padding(.horizontal, 16)
                         .padding(.top, 10)
                 }
                 if !last7.isEmpty || !prev7.isEmpty {
-                    Txt("\(LS("Last 7 days", "7 derniers jours")) : \(Calc.fmtVol(v1, unit)) kg · \(last7.count) \(LS("workouts", "séances"))"
+                    Txt("\(LS("Last 7 days", "7 derniers jours")) : \(Calc.fmtVol(v1, unit)) \(Calc.unitLabel(unit)) · \(last7.count) \(LS("workouts", "séances"))"
                         + (delta != nil ? "  (\(delta! >= 0 ? "+" : "")\(delta!)% \(LS("vs previous week", "vs semaine précédente")))" : "")
-                        + "\n\(LS("Previous 7 days", "7 jours précédents")) : \(Calc.fmtVol(v2, unit)) kg · \(prev7.count) \(LS("workouts", "séances"))",
+                        + "\n\(LS("Previous 7 days", "7 jours précédents")) : \(Calc.fmtVol(v2, unit)) \(Calc.unitLabel(unit)) · \(prev7.count) \(LS("workouts", "séances"))",
                         size: 13, color: C.mut)
                         .lineSpacing(6)
                         .padding(.horizontal, 16)
                         .padding(.top, 10)
                 }
                 monthlyBars
+                }
                 Spacer().frame(height: 14)
                 AppCard {
                     Button { nav.push(.history) } label: {
@@ -95,6 +110,36 @@ struct ProfileView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                             Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(C.mut)
                         }
+                        .padding(.vertical, 13)
+                    }
+                    .buttonStyle(.plain)
+                }
+                // carte Photos de progression (Profile.kt : compteur + 5 vignettes récentes)
+                Spacer().frame(height: 8)
+                AppCard {
+                    Button { nav.push(.progress) } label: {
+                        VStack(spacing: 0) {
+                            HStack(spacing: 12) {
+                                Image(systemName: "camera").font(.system(size: 17)).foregroundColor(accentCol(repo.settings.accent))
+                                Txt(LS("Progress photos", "Photos de progression"), weight: 500, size: 15)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Txt(repo.photos.isEmpty ? "" : String(repo.photos.count), size: 13, color: C.mut)
+                                Image(systemName: "chevron.right").font(.system(size: 13)).foregroundColor(C.mut)
+                            }
+                            let recent = repo.photosDesc().prefix(5)
+                            if !recent.isEmpty {
+                                Spacer().frame(height: 10)
+                                HStack(spacing: 6) {
+                                    ForEach(Array(recent), id: \.id) { p in
+                                        PhotoThumb(id: p.id)
+                                            .frame(maxWidth: .infinity)
+                                            .aspectRatio(1, contentMode: .fit)
+                                            .clipShape(RoundedRectangle(cornerRadius: 6))
+                                    }
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 14)
                         .padding(.vertical, 13)
                     }
                     .buttonStyle(.plain)
@@ -114,7 +159,7 @@ struct ProfileView: View {
                                 HStack {
                                     Txt(muscleName(m), weight: 500, size: 13)
                                         .frame(maxWidth: .infinity, alignment: .leading)
-                                    Txt("\(Calc.fmtVol(v, unit)) kg", size: 12, color: C.mut)
+                                    Txt("\(Calc.fmtVol(v, unit)) \(Calc.unitLabel(unit))", size: 12, color: C.mut)
                                 }
                                 GeometryReader { g in
                                     ZStack(alignment: .leading) {
@@ -179,6 +224,21 @@ struct ProfileView: View {
         .frame(height: 90)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+}
+
+/** Vignette photo locale (pietons de la carte Photos de progression). */
+private struct PhotoThumb: View {
+    @EnvironmentObject var repo: Repo
+    let id: Double
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6).fill(C.card2)
+            if let img = repo.photoImage(id) {
+                Image(uiImage: img).resizable().scaledToFill()
+            }
+        }
     }
 }
 

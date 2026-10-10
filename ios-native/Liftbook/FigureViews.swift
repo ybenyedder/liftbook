@@ -124,7 +124,7 @@ struct BodyMap: View {
 }
 
 extension Color {
-    init(hexString: String) {
+    nonisolated init(hexString: String) {
         var s = hexString.trimmingCharacters(in: .whitespaces)
         if s.hasPrefix("#") { s.removeFirst() }
         var v: UInt64 = 0

@@ -9,6 +9,10 @@ let package = Package(
     ],
     targets: [
         .target(name: "LiftbookCore"),
-        .testTarget(name: "LiftbookCoreTests", dependencies: ["LiftbookCore"]),
+        .testTarget(
+            name: "LiftbookCoreTests",
+            dependencies: ["LiftbookCore"],
+            resources: [.copy("fixtures")]
+        ),
     ]
 )

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Liftbook — seed démo</title></head>
+<body style="background:#000;color:#F4F8F8;font-family:sans-serif;padding:24px">
+<p>Remplissage des données de démo…</p>
+<script type="module">
+import { seed } from '../src/calc.js';
+import { EXERCISES } from '../src/data.js';
+
+const now = Date.now();
+const [workouts, routines] = seed(now);
+// sanité : chaque exo du seed doit exister au catalogue
+for (const w of workouts) for (const ex of w.exercises) {
+  if (!EXERCISES.some(e => e.name === ex.name)) console.warn('inconnu :', ex.name);
+}
+localStorage.setItem('lb.workouts', JSON.stringify(workouts));
+localStorage.setItem('lb.routines', JSON.stringify(routines));
+localStorage.setItem('lb.settings', JSON.stringify({
+  unit: 'kg', restSec: 90, theme: 'dark', accent: 'blue',
+  profileName: 'Athlète', handle: 'athlete', since: now - 8388800000, avatarUrl: '',
+}));
+localStorage.setItem('lb.customs', '[]');
+localStorage.setItem('lb.photos', '[]');
+localStorage.removeItem('lb.session');
+localStorage.removeItem('lb.skipped');
+localStorage.removeItem('lb.nav');
+localStorage.removeItem('lb.draft');
+document.querySelector('p').textContent = `${workouts.length} séances, ${routines.length} routines seedées — retour à l'app…`;
+setTimeout(() => location.href = '../index.html', 900);
+</script>
+</body>
+</html>

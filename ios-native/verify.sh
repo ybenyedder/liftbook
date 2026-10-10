@@ -19,7 +19,7 @@ CORE=LiftbookCore/.build/out/Products/Debug-linux-x86_64
 set +e
 OUT=$("$SWIFT"c -typecheck -I Stubs/build -I $CORE Liftbook/*.swift 2>&1)
 set -e
-ERRS=$(echo "$OUT" | grep -cE '^Liftbook/[^:]*: error:' || true)
+ERRS=$(echo "$OUT" | grep -cE "^Liftbook/.*error:" || true)
 if [ "$ERRS" = "0" ]; then echo "   0 erreur, 0 warning ✓"; else
-  echo "$OUT" | grep -E '^Liftbook/[^:]*: error:' | head -20; exit 1
+  echo "$OUT" | grep -E "^Liftbook/.*error:" | head -20; exit 1
 fi

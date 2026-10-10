@@ -174,6 +174,65 @@ public final class GoTrueClient: @unchecked Sendable {
         return "\(GoTrueClient.base)/storage/v1/object/public/avatars/\(s.userId).jpg"
     }
 
+    // ---------------- progress photo storage (private `progress` bucket, bearer-auth) ----------------
+
+    /// Storage object path of a progress photo inside the account's folder: "{uid}/ph_<id>.jpg".
+    /// Double ids render like Android's Longs ("ph_3.jpg"); stored in `ProgressPhoto.remote`.
+    public static func progressObjectPath(_ s: CloudSession, photoId: Double) -> String {
+        let id = photoId == photoId.rounded() && abs(photoId) < 1e15 ? String(Int(photoId)) : String(photoId)
+        return "\(s.userId)/ph_\(id).jpg"
+    }
+
+    /// Upload a progress photo JPEG into the private `progress` bucket (x-upsert).
+    /// Returns false on any transport/HTTP failure (no throw — upload is best-effort in the sync cycle).
+    public func uploadProgressPhoto(_ s: CloudSession, photoId: Double, jpeg: Data) async -> Bool {
+        let path = GoTrueClient.progressObjectPath(s, photoId: photoId)
+        guard let url = URL(string: "\(GoTrueClient.base)/storage/v1/object/progress/\(path)") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("image/jpeg", forHTTPHeaderField: "Content-Type")
+        req.setValue("true", forHTTPHeaderField: "x-upsert")
+        req.setValue(GoTrueClient.anonKey, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer " + s.access, forHTTPHeaderField: "Authorization")
+        req.httpBody = jpeg
+        guard let (_, resp) = try? await session.data(for: req) else { return false }
+        let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        return (200...299).contains(code)
+    }
+
+    /// Download a progress photo from the private bucket by object path (bearer required).
+    /// `path` is the `ProgressPhoto.remote` value ("{uid}/ph_<id>.jpg"); a "progress/" prefix is tolerated.
+    public func downloadProgressPhoto(_ s: CloudSession, path: String) async -> Data? {
+        let p = path.hasPrefix("progress/") ? String(path.dropFirst("progress/".count)) : path
+        guard !p.isEmpty, let url = URL(string: "\(GoTrueClient.base)/storage/v1/object/progress/\(p)") else { return nil }
+        var req = URLRequest(url: url)
+        req.httpMethod = "GET"
+        req.setValue(GoTrueClient.anonKey, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer " + s.access, forHTTPHeaderField: "Authorization")
+        guard let (data, resp) = try? await session.data(for: req) else { return nil }
+        guard let code = (resp as? HTTPURLResponse)?.statusCode, (200...299).contains(code) else { return nil }
+        return data
+    }
+
+    /// Download a progress photo by id (path derived from the session's user id).
+    public func downloadProgressPhoto(_ s: CloudSession, photoId: Double) async -> Data? {
+        await downloadProgressPhoto(s, path: GoTrueClient.progressObjectPath(s, photoId: photoId))
+    }
+
+    /// DELETE a storage object; 404 counts as success (already gone).
+    /// ⚠️ Never send a Content-Type on this bodiless DELETE: the storage-api's Fastify
+    /// answers 400 to empty-bodied DELETEs declared as application/json.
+    public func deleteStorageObject(_ s: CloudSession, path: String) async -> Bool {
+        guard !path.isEmpty, let url = URL(string: "\(GoTrueClient.base)/storage/v1/object/\(path)") else { return false }
+        var req = URLRequest(url: url)
+        req.httpMethod = "DELETE"
+        req.setValue(GoTrueClient.anonKey, forHTTPHeaderField: "apikey")
+        req.setValue("Bearer " + s.access, forHTTPHeaderField: "Authorization")
+        guard let (_, resp) = try? await session.data(for: req) else { return false }
+        let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        return (200...299).contains(code) || code == 404
+    }
+
     // ---------------- PKCE helpers ----------------
 
     public static func randomPkceVerifier() -> String {

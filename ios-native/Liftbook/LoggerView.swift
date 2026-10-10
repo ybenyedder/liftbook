@@ -65,7 +65,7 @@ struct LoggerView: View {
             ExercisePicker { name in
                 repo.addExToDraft(name)
                 showPicker = false
-                repo.toast("\(exName(name)) ajouté")
+                repo.toast("\(name) ajouté")
             }
             .environmentObject(repo)
             .presentationDetents([.large])
@@ -165,11 +165,11 @@ struct LoggerView: View {
     }
 
     func hasData() -> Bool {
-        repo.draft?.exercises.contains { ex in ex.sets.contains { $0.kg != nil || $0.reps != nil } } ?? false
+        repo.draft?.exercises.contains { ex in ex.sets.contains { $0.kg != nil || $0.reps != nil || $0.mins != nil || $0.km != nil } } ?? false
     }
 
     func anyDone() -> Bool {
-        repo.draft?.exercises.contains { ex in ex.sets.contains { $0.done && ($0.kg != nil || $0.reps != nil) } } ?? false
+        repo.draft?.exercises.contains { ex in ex.sets.contains { $0.done && ($0.kg != nil || $0.reps != nil || $0.mins != nil || $0.km != nil) } } ?? false
     }
 
     // ---- workout top bar: ∨ Entraînement | ⏱ | Terminer ----
@@ -181,7 +181,6 @@ struct LoggerView: View {
                         notesText = d.notes
                         showNotes = true
                     }
-                    Button(LS("Resume later", "Reprendre plus tard")) { nav.pop() }
                     Button(LS("Discard workout", "Supprimer la séance"), role: .destructive) {
                         if hasData() { showDiscard = true } else { discardDraftSilent(); repo.toast("Supprimée") }
                     }
@@ -217,8 +216,8 @@ struct LoggerView: View {
             var liveVol = 0.0
             var liveSets = 0
             for ex in d.exercises {
-                for s in ex.sets where s.done && s.kg != nil && s.reps != nil {
-                    liveVol += s.kg! * Double(s.reps!)
+                for s in ex.sets where s.done && (s.kg != nil || s.reps != nil || s.mins != nil || s.km != nil) {
+                    if let kg = s.kg, let reps = s.reps { liveVol += kg * Double(reps) }
                     liveSets += 1
                 }
             }
@@ -441,25 +440,33 @@ struct ExSection: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 2)
             Spacer().frame(height: 8)
-            // column headers
+            // column headers — cardio logs MIN / KM instead of weight × reps
             HStack(spacing: 0) {
                 Txt(LS("SET", "SÉRIE"), size: 12, color: C.mut).frame(width: 38)
                 if isWorkout {
                     Txt(LS("PREVIOUS", "PRÉCÉDENT"), size: 12, color: C.mut).frame(maxWidth: .infinity)
                 }
-                HStack(spacing: 3) {
-                    Image(systemName: "dumbbell.fill").font(.system(size: 9)).foregroundColor(C.mut)
-                    Txt(repo.settings.unit.uppercased(), size: 12, color: C.mut)
+                if isCardio {
+                    Txt(LS("MIN", "MIN"), size: 12, color: C.mut).frame(maxWidth: .infinity)
+                    Txt(LS("KM", "KM"), size: 12, color: C.mut).frame(maxWidth: .infinity)
+                } else {
+                    HStack(spacing: 3) {
+                        Image(systemName: "dumbbell.fill").font(.system(size: 9)).foregroundColor(C.mut)
+                        Txt(repo.settings.unit.uppercased(), size: 12, color: C.mut)
+                    }
+                    .frame(maxWidth: .infinity)
+                    Txt(LS("REPS", "RÉPS"), size: 12, color: C.mut).frame(maxWidth: .infinity)
                 }
-                .frame(maxWidth: .infinity)
-                Txt(LS("REPS", "RÉPS"), size: 12, color: C.mut).frame(maxWidth: .infinity)
                 Color.clear.frame(width: 44)
             }
             .padding(.horizontal, 12)
             Spacer().frame(height: 4)
             let prev = isWorkout ? repo.prevDisplay(ex.name) : nil
+            // Binding(get:set:) instead of $prBadge: the Linux stub's Binding has no projectedValue.
+            let prBadgeBinding = Binding<(ex: String, muscle: String, kind: String, value: String)?>(
+                get: { prBadge }, set: { prBadge = $0 })
             ForEach(Array(ex.sets.enumerated()), id: \.offset) { si, _ in
-                SetRow(ei: ei, si: si, ex: $ex, isWorkout: isWorkout, prevText: prev != nil && si < prev!.count ? prev![si] : nil, prBadge: $prBadge)
+                SetRow(ei: ei, si: si, ex: $ex, isWorkout: isWorkout, prevText: prev != nil && si < prev!.count ? prev![si] : nil, prBadge: prBadgeBinding, isCardio: isCardio)
             }
             // add set
             Button { addSet() } label: {
@@ -520,6 +527,11 @@ struct ExSection: View {
         return ei >= d.exercises.count - 1
     }
 
+    /// Cardio exercises (muscle "Cardio" or a registered custom cardio) log MIN / KM.
+    var isCardio: Bool {
+        ex.muscle == "Cardio" || Calc.isCardioName(ex.name)
+    }
+
     func writeBack() {
         guard var d = repo.draft, ei < d.exercises.count else { return }
         d.exercises[ei] = ex
@@ -548,12 +560,12 @@ struct ExSection: View {
 
     func addSet() {
         let last = ex.sets.last
-        ex.sets.append(SetEntry(kg: last?.kg, reps: last?.reps, done: false))
+        ex.sets.append(SetEntry(kg: last?.kg, reps: last?.reps, mins: last?.mins, km: last?.km, done: false))
         writeBack()
     }
 }
 
-/** One set row: chip / previous / kg / reps / check. */
+/** One set row: chip / previous / kg / reps / check — or MIN / KM for cardio. */
 struct SetRow: View {
     @EnvironmentObject var repo: Repo
     let ei: Int
@@ -562,6 +574,7 @@ struct SetRow: View {
     let isWorkout: Bool
     let prevText: String?
     @Binding var prBadge: (ex: String, muscle: String, kind: String, value: String)?
+    var isCardio = false
 
     var body: some View {
         let s = ex.sets[si]
@@ -569,7 +582,7 @@ struct SetRow: View {
         return HStack(spacing: 6) {
             Menu {
                 Button(LS("Copy set", "Copier la série")) {
-                    ex.sets.insert(SetEntry(kg: s.kg, reps: s.reps, done: false), at: si + 1)
+                    ex.sets.insert(SetEntry(kg: s.kg, reps: s.reps, mins: s.mins, km: s.km, done: false), at: si + 1)
                     writeBack()
                 }
                 Button(LS("Delete set", "Supprimer la série"), role: .destructive) { deleteSet() }
@@ -591,16 +604,31 @@ struct SetRow: View {
                     .frame(maxWidth: .infinity)
                     .minimumScaleFactor(0.6)
             }
-            SetField(text: kgText(s), keyboardType: .decimalPad) { v in
-                setKg(v)
+            if isCardio {
+                SetField(text: s.mins.map(String.init) ?? "", keyboardType: .numberPad) { v in
+                    let digits = v.filter { $0.isNumber }.prefix(3)
+                    ex.sets[si].mins = digits.isEmpty ? nil : Int(digits)
+                    writeBackLight()
+                }
+                .frame(maxWidth: .infinity)
+                SetField(text: s.km.map { Calc.trimNum($0) } ?? "", keyboardType: .decimalPad) { v in
+                    let cleaned = String(v.filter { $0.isNumber || $0 == "." }.prefix(6))
+                    ex.sets[si].km = Double(cleaned)
+                    writeBackLight()
+                }
+                .frame(maxWidth: .infinity)
+            } else {
+                SetField(text: kgText(s), keyboardType: .decimalPad) { v in
+                    setKg(v)
+                }
+                .frame(maxWidth: .infinity)
+                SetField(text: s.reps.map(String.init) ?? "", keyboardType: .numberPad) { v in
+                    let digits = v.filter { $0.isNumber }.prefix(4)
+                    ex.sets[si].reps = digits.isEmpty ? nil : Int(digits)
+                    writeBackLight()
+                }
+                .frame(maxWidth: .infinity)
             }
-            .frame(maxWidth: .infinity)
-            SetField(text: s.reps.map(String.init) ?? "", keyboardType: .numberPad) { v in
-                let digits = v.filter { $0.isNumber }.prefix(4)
-                ex.sets[si].reps = digits.isEmpty ? nil : Int(digits)
-                writeBackLight()
-            }
-            .frame(maxWidth: .infinity)
             Spacer().frame(width: 4)
             if isWorkout {
                 Button { toggleDone() } label: {
@@ -767,10 +795,11 @@ struct ExercisePicker: View {
     let onPick: (String) -> Void
     @State private var q = ""
     @State private var mus = "All"
+    @State private var showCreate = false
     @Environment(\.dismiss) private var dismiss
 
     var filtered: [ExerciseDef] {
-        ExData.all
+        ExDataPlus.all
             .filter { (mus == "All" || $0.muscle == mus) && matches(q, $0.name) }
             .sorted { exName($0.name) < exName($1.name) }
     }
@@ -809,6 +838,17 @@ struct ExercisePicker: View {
             }
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    Button { showCreate = true } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "plus").font(.system(size: 14)).foregroundColor(accentCol(repo.settings.accent))
+                            Txt(LS("Create exercise", "Créer un exercice"), weight: 600, size: 14, color: accentCol(repo.settings.accent))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 10)
+                        .background(C.card2, in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
                     if filtered.isEmpty {
                         EmptyState(text: LS("No exercises found.", "Aucun exercice trouvé."), slim: true)
                     }
@@ -834,5 +874,142 @@ struct ExercisePicker: View {
             }
         }
         .background(C.card)
+        .overlay {
+            if showCreate {
+                PickerCreateExerciseDialog(
+                    initialName: q,
+                    onCreated: { created in
+                        showCreate = false
+                        onPick(created)
+                    },
+                    onClose: { showCreate = false }
+                )
+            }
+        }
+    }
+}
+
+// ---------------- create custom exercise (local copy of ExercisesView's dialog) ----------------
+
+/** Creates a user-defined exercise from the picker: name + muscle group + equipment,
+ *  pre-filled with the current search text. On success the new exercise is picked. */
+struct PickerCreateExerciseDialog: View {
+    @EnvironmentObject var repo: Repo
+    let onCreated: (String) -> Void
+    let onClose: () -> Void
+    @State private var name: String
+    @State private var muscle = "Chest"
+    @State private var equip = "Barbell"
+    @State private var pickMuscle = false
+    @State private var pickEquip = false
+
+    static let equips = ["Barbell", "Dumbbell", "Machine", "Cable", "Bodyweight", "Other"]
+
+    init(initialName: String, onCreated: @escaping (String) -> Void, onClose: @escaping () -> Void) {
+        _name = State(initialValue: initialName)
+        self.onCreated = onCreated
+        self.onClose = onClose
+    }
+
+    var body: some View {
+        AlertView(
+            title: LS("New exercise", "Nouvel exercice"),
+            confirmLabel: LS("Create", "Créer"),
+            dismissLabel: LS("Cancel", "Annuler"),
+            customBody: AnyView(
+                VStack(spacing: 10) {
+                    TextField("", text: $name, prompt: Text(LS("Name", "Nom")).foregroundColor(C.mut))
+                        .font(.inter(400, 15))
+                        .foregroundColor(C.text)
+                        .tint(C.accent)
+                        .padding(12)
+                        .background(C.bg, in: RoundedRectangle(cornerRadius: 10))
+                        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(C.line2, lineWidth: 1))
+                        .onChange(of: name) { v in name = String(v.prefix(48)) }
+                    pickRow(label: LS("Muscle group", "Groupe musculaire"), value: muscleName(muscle)) { pickMuscle = true }
+                    pickRow(label: LS("Equipment", "Équipement"), value: equipName(equip)) { pickEquip = true }
+                }
+            ),
+            onConfirm: submit,
+            onDismiss: onClose
+        )
+        .background(Color.black.opacity(0.6).ignoresSafeArea().onTapGesture { onClose() })
+        .overlay {
+            if pickMuscle {
+                PickerListPickDialog(title: LS("Muscle group", "Groupe musculaire"),
+                                     options: ExData.muscles.map { ($0, muscleName($0)) }) {
+                    muscle = $0
+                    pickMuscle = false
+                }
+            }
+            if pickEquip {
+                PickerListPickDialog(title: LS("Equipment", "Équipement"),
+                                     options: PickerCreateExerciseDialog.equips.map { ($0, equipName($0)) }) {
+                    equip = $0
+                    pickEquip = false
+                }
+            }
+        }
+    }
+
+    func pickRow(label: String, value: String, onTap: @escaping () -> Void) -> some View {
+        Button(action: onTap) {
+            HStack {
+                Txt(label, size: 13.5)
+                Spacer()
+                Txt(value, weight: 600, size: 13.5, color: accentCol(repo.settings.accent))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .background(C.card, in: RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+    }
+
+    func submit() {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        if trimmed.isEmpty {
+            repo.toast(LS("Give this exercise a name", "Donne un nom à cet exercice"))
+            return
+        }
+        if repo.addCustom(name: trimmed, muscle: muscle, equip: equip) {
+            repo.toast(LS("Exercise created", "Exercice créé"))
+            onCreated(trimmed)
+        } else {
+            repo.toast(LS("This exercise already exists", "Cet exercice existe déjà"))
+        }
+    }
+}
+
+/** Scrollable single-choice list (muscle group / equipment) shown over the create dialog. */
+struct PickerListPickDialog: View {
+    let title: String
+    let options: [(String, String)]
+    let onPick: (String) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Txt(title, weight: 800, size: 20)
+                .padding(.bottom, 14)
+            ScrollView {
+                LazyVStack(spacing: 4) {
+                    ForEach(Array(options.enumerated()), id: \.offset) { _, opt in
+                        Button { onPick(opt.0) } label: {
+                            Txt(opt.1, weight: 500, size: 14.5)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 11)
+                                .background(C.bg, in: RoundedRectangle(cornerRadius: 8))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .frame(maxHeight: 380)
+        }
+        .padding(22)
+        .frame(maxWidth: 360)
+        .background(C.card2, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Color.black.opacity(0.75).ignoresSafeArea())
     }
 }

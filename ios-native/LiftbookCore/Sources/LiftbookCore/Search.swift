@@ -50,6 +50,60 @@ public func exName(_ name: String) -> String { L10n.lang == "fr" ? (ExData.nameF
 public func muscleName(_ m: String) -> String { L10n.lang == "fr" ? (ExData.muscleFr[m] ?? m) : m }
 public func equipName(_ e: String) -> String { L10n.lang == "fr" ? (ExData.equipFr[e] ?? e) : e }
 
+// ---------- user-created exercises (Android registers them into EX/EXERCISES) ----------
+
+/// Runtime registry of the user's custom exercises. `ExData` stays generated/static;
+/// this registry is injected by the app (Repo) at load / replaceAll / mergeRemote time so
+/// lookups, fuzzy search and cardio detection see customs exactly like Android's mutable EX map.
+public enum CustomRegistry {
+    /// Current customs (name → def). Mirror of `Repo.customs`; single writer: the main actor.
+    nonisolated(unsafe) public private(set) static var customs: [CustomExercise] = []
+
+    /// Replace the whole registry (called whenever the customs list changes anywhere).
+    public static func set(_ defs: [CustomExercise]) {
+        customs = defs
+        nameWordsCache.removeAll()
+        attrWordsCache.removeAll()
+    }
+
+    public static func lookup(_ name: String) -> ExerciseDef? {
+        customs.first(where: { $0.name == name }).map { ExerciseDef($0.name, $0.muscle, $0.equip) }
+    }
+
+    /// Case/accent/punctuation-insensitive identity for exercise names (creation collision check).
+    /// Port of Android `Repo.normName`.
+    public static func normName(_ s: String) -> String {
+        let folded = s.lowercased().folding(options: .diacriticInsensitive, locale: nil)
+        return String(folded.unicodeScalars
+            .filter { ("a"..."z").contains($0) || ("0"..."9").contains($0) }
+            .map(Character.init))
+    }
+
+    /// True when a custom name would shadow a catalog exercise (EN key OR FR display name)
+    /// or an existing custom. Port of Android `Repo.customNameTaken`.
+    public static func nameTaken(_ raw: String, customs: [CustomExercise]) -> Bool {
+        let n = normName(raw)
+        if n.isEmpty { return false }
+        for e in ExData.all {
+            if normName(e.name) == n { return true }
+            if normName(ExData.nameFr[e.name] ?? e.name) == n { return true }
+        }
+        return customs.contains { normName($0.name) == n }
+    }
+}
+
+/// Name resolution that sees built-ins AND registered customs — Android `EX` map semantics.
+public enum ExDataPlus {
+    public static func lookup(_ name: String) -> ExerciseDef? {
+        CustomRegistry.lookup(name) ?? ExData.byName[name]
+    }
+
+    /// Built-in catalog + customs (order: built-ins first, customs appended).
+    public static var all: [ExerciseDef] {
+        ExData.all + CustomRegistry.customs.map { ExerciseDef($0.name, $0.muscle, $0.equip) }
+    }
+}
+
 public func cuesFor(_ muscle: String) -> [String] {
     L10n.lang == "fr" ? (ExData.cuesFr[muscle] ?? ExData.cuesEn[muscle] ?? []) : (ExData.cuesEn[muscle] ?? [])
 }
@@ -75,7 +129,7 @@ public func equipHintFor(_ e: String) -> String {
 /// Map an exercise (canonical EN name) to its instruction archetype — port of archetypeOf() (order critical).
 public func archetypeOf(_ name: String) -> String {
     let n = name.lowercased()
-    let muscle = ExData.byName[name]?.muscle ?? ""
+    let muscle = ExDataPlus.lookup(name)?.muscle ?? ""
     func has(_ keys: [String]) -> Bool { keys.contains { n.contains($0) } }
     if n.contains("walking lunge") { return "lunge" }
     if has(["burpee", "jumping jack", "high knee", "butt kick", "jump rope", "rowing machine",
@@ -214,10 +268,11 @@ var nameWordsCache: [String: [String]] = [:]
 var attrWordsCache: [String: [String]] = [:]
 
 /// True if every word of the query appears (or nearly, typos allowed on the name) in the exercise name FR/EN, muscle or equipment.
+/// Custom exercises resolve through `ExDataPlus` (a custom's display name is its own name).
 public func matches(_ q: String, _ nameEn: String) -> Bool {
     let nq = normalize(q).trimmingCharacters(in: .whitespaces)
     if nq.isEmpty { return true }
-    let def = ExData.byName[nameEn]
+    let def = ExDataPlus.lookup(nameEn)
     let nameWords: [String]
     if let c = nameWordsCache[nameEn] {
         nameWords = c

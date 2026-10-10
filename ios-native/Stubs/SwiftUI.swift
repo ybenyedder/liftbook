@@ -21,31 +21,31 @@ public struct EmptyView: View {
 }
 
 public struct Color: Hashable, Sendable, View {
-    public init() {}
-    public init(_ c: Color) {}
-    public init(hex: UInt32) {}
-    public func hash(into h: inout Hasher) {}
-    public static func == (l: Color, r: Color) -> Bool { true }
-    public static var white: Color { _c() }
-    public static var black: Color { _c() }
-    public static var red: Color { _c() }
-    public static var green: Color { _c() }
-    public static var blue: Color { _c() }
-    public static var orange: Color { _c() }
-    public static var yellow: Color { _c() }
-    public static var purple: Color { _c() }
-    public static var gray: Color { _c() }
-    public static var clear: Color { _c() }
-    public static var primary: Color { _c() }
-    public static var secondary: Color { _c() }
-    public static func sRGB(red: Double, green: Double, blue: Double, opacity: Double = 1) -> Color { _c() }
-    public var body: some View { _ev() }
-    public init(red: Double, green: Double, blue: Double, opacity: Double = 1) { self = _c() }
-    public init(_ colorSpace: Color.RGBColorSpace, red: Double, green: Double, blue: Double, opacity: Double = 1) { self = _c() }
+    nonisolated public init() {}
+    nonisolated public init(_ c: Color) {}
+    nonisolated public init(hex: UInt32) {}
+    nonisolated public func hash(into h: inout Hasher) {}
+    nonisolated public static func == (l: Color, r: Color) -> Bool { true }
+    nonisolated public static var white: Color { _c() }
+    nonisolated public static var black: Color { _c() }
+    nonisolated public static var red: Color { _c() }
+    nonisolated public static var green: Color { _c() }
+    nonisolated public static var blue: Color { _c() }
+    nonisolated public static var orange: Color { _c() }
+    nonisolated public static var yellow: Color { _c() }
+    nonisolated public static var purple: Color { _c() }
+    nonisolated public static var gray: Color { _c() }
+    nonisolated public static var clear: Color { _c() }
+    nonisolated public static var primary: Color { _c() }
+    nonisolated public static var secondary: Color { _c() }
+    nonisolated public static func sRGB(red: Double, green: Double, blue: Double, opacity: Double = 1) -> Color { _c() }
+    nonisolated public var body: some View { _ev() }
+    nonisolated public init(red: Double, green: Double, blue: Double, opacity: Double = 1) { self = _c() }
+    nonisolated public init(_ colorSpace: Color.RGBColorSpace, red: Double, green: Double, blue: Double, opacity: Double = 1) { self = _c() }
     public enum RGBColorSpace { case sRGB, sRGBLinear, extendedSRGB, displayP3, extendedLinearSRGB }
-    public func opacity(_ d: Double) -> Color { _c() }
-    public func frame(width: Double? = nil, height: Double? = nil, alignment: Alignment = .center) -> _ColorView { _ColorView() }
-    public func ignoresSafeArea(_ r: SafeAreaRegions = .all, edges: Edge.Set = .all) -> _ColorView { _ColorView() }
+    nonisolated public func opacity(_ d: Double) -> Color { _c() }
+    nonisolated public func frame(width: Double? = nil, height: Double? = nil, alignment: Alignment = .center) -> _ColorView { _ColorView() }
+    nonisolated public func ignoresSafeArea(_ r: SafeAreaRegions = .all, edges: Edge.Set = .all) -> _ColorView { _ColorView() }
 }
 public struct _ColorView: View {
     nonisolated public init() {}
@@ -170,6 +170,7 @@ public struct GeometryReader<Content: View>: View {
 public struct GeometryProxy { public var size: CGSize { CGSize(width: 390, height: 844) } }
 
 // ---- shapes & graphics ----
+public enum ContentMode { case fit, fill }
 public protocol Shape: View { func path(in rect: CGRect) -> Path }
 extension Shape {
     public var body: some View { _sv() }
@@ -350,6 +351,8 @@ public struct ForEach<Data: RandomAccessCollection, ID: Hashable, Content: View>
 public struct Section<Parent: View, Content: View, Footer: View>: View {
     public init(@ViewBuilder content: () -> Content) where Parent == EmptyView, Footer == EmptyView { self.content = content() }
     public init(@ViewBuilder header: () -> Parent, @ViewBuilder content: () -> Content) where Footer == EmptyView { self.content = content() }
+    public init(@ViewBuilder content: () -> Content, @ViewBuilder header: () -> Parent) where Footer == EmptyView { self.content = content() }
+    public init(@ViewBuilder content: () -> Content, @ViewBuilder header: () -> Parent, @ViewBuilder footer: () -> Footer) { self.content = content() }
     let content: Content
     public var body: some View { content }
 }
@@ -474,8 +477,11 @@ extension View {
     public func padding(_ length: Double) -> _Mod { _Mod() }
     public func padding(_ insets: EdgeInsets) -> _Mod { _Mod() }
     public func frame(width: Double? = nil, height: Double? = nil, alignment: Alignment = .center) -> _Mod { _Mod() }
+    public func aspectRatio(_ ratio: CGFloat? = nil, contentMode: ContentMode = .fit) -> _Mod { _Mod() }
+    public func clipped() -> _Mod { _Mod() }
     public func frame(minWidth: Double? = nil, idealWidth: Double? = nil, maxWidth: Double? = .infinity, minHeight: Double? = nil, idealHeight: Double? = nil, maxHeight: Double? = .infinity, alignment: Alignment = .center) -> _Mod { _Mod() }
     public func background<B: View>(_ background: B, alignment: Alignment = .center) -> some View { background }
+    public func background<S: ShapeStyle>(_ style: S, in shape: some Shape, fillStyle: FillStyle = FillStyle()) -> _Mod { _Mod() }
     public func background<B: View>(alignment: Alignment = .center, @ViewBuilder content: () -> B) -> some View { content() }
     public func overlay<B: View>(_ overlay: B, alignment: Alignment = .center) -> some View { overlay }
     public func overlay<B: View>(alignment: Alignment = .center, @ViewBuilder content: () -> B) -> some View { content() }
@@ -601,4 +607,10 @@ public struct OptionalContent<C: View>: View {
 public struct _ConditionalContent<F: View, T: View>: View {
     nonisolated public init() {}
     public var body: some View { EmptyView() }
+}
+
+// Linux Foundation URL n'a pas les méthodes security-scoped (no-op suffisent au typecheck).
+extension URL {
+    public func startAccessingSecurityScopedResource() -> Bool { false }
+    public func stopAccessingSecurityScopedResource() {}
 }

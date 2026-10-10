@@ -559,6 +559,7 @@ struct RoutineDetailView: View {
         let effective = ex.restSec ?? repo.settings.restSec
         let m = effective / 60
         let s = effective % 60
+        let cardio = ex.muscle == "Cardio" || Calc.isCardioName(ex.name)
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 14) {
                 Circle().fill(C.card2).frame(width: 42, height: 42)
@@ -580,15 +581,25 @@ struct RoutineDetailView: View {
             .padding(.vertical, 10)
             HStack(spacing: 0) {
                 Txt(LS("SET", "SÉRIE"), size: 12, color: C.mut).frame(maxWidth: .infinity, alignment: .leading)
-                Txt("KG", size: 12, color: C.mut).frame(maxWidth: .infinity)
-                Txt(LS("REPS", "RÉPS"), size: 12, color: C.mut).frame(maxWidth: .infinity, alignment: .trailing)
+                if cardio {
+                    Txt("MIN", size: 12, color: C.mut).frame(maxWidth: .infinity)
+                    Txt("KM", size: 12, color: C.mut).frame(maxWidth: .infinity, alignment: .trailing)
+                } else {
+                    Txt("KG", size: 12, color: C.mut).frame(maxWidth: .infinity)
+                    Txt(LS("REPS", "RÉPS"), size: 12, color: C.mut).frame(maxWidth: .infinity, alignment: .trailing)
+                }
             }
             .padding(.horizontal, 16)
             ForEach(Array(ex.sets.enumerated()), id: \.offset) { si, st in
                 HStack(spacing: 0) {
                     Txt("\(si + 1)", size: 15).frame(maxWidth: .infinity, alignment: .leading)
-                    Txt(st.kg != nil ? Calc.fmtKg(st.kg, repo.settings.unit) : "—", size: 15).frame(maxWidth: .infinity)
-                    Txt(st.reps.map(String.init) ?? "—", size: 15).frame(maxWidth: .infinity, alignment: .trailing)
+                    if cardio {
+                        Txt(st.mins.map(String.init) ?? "—", size: 15).frame(maxWidth: .infinity)
+                        Txt(st.km != nil ? Calc.trimNum(st.km!) : "—", size: 15).frame(maxWidth: .infinity, alignment: .trailing)
+                    } else {
+                        Txt(st.kg != nil ? Calc.fmtKg(st.kg, repo.settings.unit) : "—", size: 15).frame(maxWidth: .infinity)
+                        Txt(st.reps.map(String.init) ?? "—", size: 15).frame(maxWidth: .infinity, alignment: .trailing)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)

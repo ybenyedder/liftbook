@@ -63,3 +63,19 @@ jobs:
             build.log
             app-ecran-1-auth.png
           if-no-files-found: warn
+
+      - name: Zip de l'app (simulateur, pour release)
+        if: success()
+        run: |
+          cd ios-native
+          APP=$(find build/DerivedData/Build/Products -name "Liftbook.app" -path "*iphonesimulator*" | head -1)
+          ditto -c -k --keepParent "$APP" ../liftbook-ios-simulator-app.zip
+          ls -la ../liftbook-ios-simulator-app.zip
+
+      - name: Artifact app zip
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: liftbook-ios-simulator-app
+          path: liftbook-ios-simulator-app.zip
+          if-no-files-found: warn

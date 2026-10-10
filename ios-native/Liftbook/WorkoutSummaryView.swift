@@ -1,6 +1,8 @@
 import SwiftUI
 import Foundation
 import LiftbookCore
+import PhotosUI
+import UIKit
 
 /** Post-workout recap — port of WorkoutSummary.kt.
     Split into small sub-views: Xcode's type-checker times out on one giant ViewBuilder body. */
@@ -23,6 +25,9 @@ struct WorkoutSummaryView: View {
     @EnvironmentObject var nav: Nav
     @State private var name = ""
     @State private var showSaveRoutine = false
+    @State private var frozenDuration = ""   // figée à l'ouverture (WorkoutSummary.kt)
+    @State private var addedPhotoId: Double?
+    @State private var photoItem: PhotosPickerItem?
 
     var body: some View {
         Group {
@@ -43,12 +48,16 @@ struct WorkoutSummaryView: View {
                 recordsSection(d: d)
                 exercisesSection(d: d)
                 notesSection(d: d)
+                photoSection
                 Spacer().frame(height: 16)
             }
             finishButton
         }
         .background(C.bg)
-        .onAppear { name = d.name }
+        .onAppear {
+            name = d.name
+            frozenDuration = Calc.fmtDur(Date.now.timeIntervalSince1970 * 1000 - d.startedAt!)
+        }
         .overlay {
             if showSaveRoutine {
                 saveAlert
@@ -88,11 +97,10 @@ struct WorkoutSummaryView: View {
         let stats = WorkoutSummaryView.computeStats(d)
         let vol = stats.0
         let setCount = stats.2
-        let dur = Calc.fmtDur(Date.now.timeIntervalSince1970 - d.startedAt!)
         let volText = Calc.fmtVol(vol, unit) + Calc.unitLabel(unit)
         let muscles = Set(d.exercises.map { $0.muscle })
         return HStack(alignment: .top, spacing: 8) {
-            SummaryStat(value: dur, label: LS("Duration", "Durée"), accent: true)
+            SummaryStat(value: frozenDuration, label: LS("Duration", "Durée"), accent: true)
             SummaryStat(value: volText, label: LS("Volume", "Volume"))
             SummaryStat(value: "\(setCount)", label: LS("Sets", "Séries"))
             BodyMap(front: true, muscles: muscles)
@@ -162,13 +170,14 @@ struct WorkoutSummaryView: View {
     }
 
     func exerciseBlock(_ ex: ExEntry) -> some View {
-        let doneSets = ex.sets.filter { $0.done && ($0.kg != nil || $0.reps != nil) }
+        let doneSets = ex.sets.filter { $0.done && ($0.kg != nil || $0.reps != nil || $0.mins != nil || $0.km != nil) }
+        let cardio = ex.muscle == "Cardio" || Calc.isCardioName(ex.name)
         return Group {
             if !doneSets.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     Txt(exName(ex.name), weight: 700, size: 15.5, color: C.accent)
                     ForEach(Array(doneSets.enumerated()), id: \.offset) { i, s in
-                        setRow(i: i, s: s)
+                        setRow(i: i, s: s, cardio: cardio)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -177,14 +186,15 @@ struct WorkoutSummaryView: View {
         }
     }
 
-    func setRow(i: Int, s: SetEntry) -> some View {
+    func setRow(i: Int, s: SetEntry, cardio: Bool) -> some View {
         let unit = repo.settings.unit
-        let kgText = s.kg != nil ? Calc.fmtKg(s.kg, unit) + Calc.unitLabel(unit) : "—"
-        let repsText = s.reps.map(String.init) ?? "—"
+        let valueText = cardio
+            ? Calc.fmtCardioSet(s.mins, s.km)
+            : "\(s.kg != nil ? Calc.fmtKg(s.kg, unit) + Calc.unitLabel(unit) : "—") × \(s.reps.map(String.init) ?? "—")"
         let isPr = s.prW || s.prE
         return HStack(spacing: 6) {
             Txt("\(i + 1)", size: 13, color: C.mut).frame(width: 20, alignment: .leading)
-            Txt("\(kgText) × \(repsText)", weight: 600, size: 13.5)
+            Txt(valueText, weight: 600, size: 13.5)
             Spacer()
             if isPr {
                 Image(systemName: "trophy.fill").font(.system(size: 11)).foregroundColor(C.gold)
@@ -210,6 +220,84 @@ struct WorkoutSummaryView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
+    }
+
+    /* ---- PHOTO DE PROGRESSION (WorkoutSummary.kt:251-322) ---- */
+    var photoSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "camera").font(.system(size: 12)).foregroundColor(C.mut)
+                Txt(LS("PROGRESS PHOTO", "PHOTO DE PROGRESSION"), weight: 800, size: 13, color: C.mut)
+            }
+            if let pid = addedPhotoId, repo.photoById(pid) != nil {
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack(alignment: .topTrailing) {
+                        Group {
+                            if let img = repo.photoImage(pid) {
+                                Image(uiImage: img).resizable().scaledToFill()
+                            } else {
+                                RoundedRectangle(cornerRadius: 12).fill(C.card2)
+                            }
+                        }
+                        .frame(width: 120, height: 120)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        Button {
+                            repo.deletePhoto(id: pid)
+                            addedPhotoId = nil
+                        } label: {
+                            Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundColor(.white)
+                                .frame(width: 22, height: 22)
+                                .background(Circle().fill(Color.black.opacity(0.8)))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(5)
+                    }
+                    Txt(LS("Saved to your progress gallery — compare it later with your previous photos.",
+                           "Ajoutée à ta galerie progression — compare-la plus tard avec tes anciennes photos."),
+                        size: 12, color: C.mut)
+                }
+            } else {
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "camera").font(.system(size: 15)).foregroundColor(C.accent)
+                        Txt(LS("Add a photo of your physique", "Ajouter une photo de ton physique"), weight: 600, size: 13.5, color: C.accent)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(C.line, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: photoItem) { item in
+            guard let item else { return }
+            Task {
+                guard let data = try? await item.loadTransferable(type: Data.self),
+                      let jpeg = downscaleJpeg(data) else {
+                    repo.toast(LS("Could not read this image", "Impossible de lire cette image"))
+                    photoItem = nil
+                    return
+                }
+                addedPhotoId = repo.addPhoto(jpeg: jpeg, ts: Date.now.timeIntervalSince1970 * 1000)
+                photoItem = nil
+            }
+        }
+    }
+
+    /** ≤1440 px de côté long, JPEG 0.86 (WorkoutSummary/Repo Android). */
+    private func downscaleJpeg(_ data: Data) -> Data? {
+        guard let src = UIImage(data: data) else { return nil }
+        let maxDim: CGFloat = 1440
+        let scale = min(1, maxDim / max(src.size.width, src.size.height))
+        let size = CGSize(width: src.size.width * scale, height: src.size.height * scale)
+        let fmt = UIGraphicsImageRendererFormat()
+        fmt.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: size, format: fmt)
+        let img = renderer.image { _ in src.draw(in: CGRect(origin: .zero, size: size)) }
+        return img.jpegData(compressionQuality: 0.86)
     }
 
     var finishButton: some View {
@@ -252,6 +340,9 @@ struct WorkoutSummaryView: View {
 
     func doFinish() {
         let w = repo.finishWorkout(name)
+        if let pid = addedPhotoId, let w {
+            repo.linkPhotoToWorkout(photoId: pid, wId: Double(w.id))
+        }
         RestTimerModel.shared.clear()
         RestTimerModel.shared.cancelWorkout()
         nav.toTab(0)

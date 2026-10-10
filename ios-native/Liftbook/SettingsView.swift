@@ -20,6 +20,7 @@ struct SettingsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
+              Group {
                 HStack {
                     Button { nav.pop() } label: {
                         Image(systemName: "chevron.left").font(.system(size: 20)).foregroundColor(C.text).padding(8)
@@ -66,6 +67,8 @@ struct SettingsView: View {
                     }
                 }
 
+              }
+              Group {
                 SectionHeader("PROFIL")
                 SettingsRow(title: LS("Name", "Nom"), value: repo.settings.profileName) { editName = true }
                 RowDivider()
@@ -101,6 +104,8 @@ struct SettingsView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 14)
 
+              }
+              Group {
                 SectionHeader(LS("DATA", "DONNÉES"))
                 SettingsRow(title: LS("Import from Hevy (account export)", "Importer depuis Hevy (export du compte)")) { hevyPicker = true }
                 RowDivider()
@@ -108,18 +113,21 @@ struct SettingsView: View {
                 RowDivider()
                 SettingsRow(title: LS("Export workouts (CSV)", "Exporter les séances (CSV)"), action: exportCsv)
                 RowDivider()
+              }
+              Group {
                 SettingsRow(title: LS("Backup data (JSON)", "Sauvegarder les données (JSON)"), action: backupJson)
                 RowDivider()
                 SettingsRow(title: LS("Restore backup", "Restaurer une sauvegarde")) { restorePicker = true }
                 RowDivider()
                 SettingsRow(title: LS("Erase all data", "Tout effacer"), red: true) { confirmWipe = true }
 
-                Txt("Liftbook iOS 1.0" + (repo.session != nil ? " · \(LS("synced as", "synchronisé en tant que")) \(repo.session!.email)" : ""),
+                Txt("Liftbook iOS 1.52" + (repo.session != nil ? " · \(LS("synced as", "synchronisé en tant que")) \(repo.session!.email)" : ""),
                     size: 11.5, color: C.mut)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
                     .padding(.top, 26)
                     .padding(.bottom, 30)
+              }
             }
         }
         .background(C.bg)
@@ -193,14 +201,35 @@ struct SettingsView: View {
         }
     }
 
-    func readText(_ url: URL) -> String? {
+    func readData(_ url: URL) -> Data? {
         let accessing = url.startAccessingSecurityScopedResource()
         defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        return try? String(contentsOf: url, encoding: .utf8)
+        return try? Data(contentsOf: url)
+    }
+
+    func readText(_ url: URL) -> String? {
+        dataToString(readData(url))
+    }
+
+    private func dataToString(_ data: Data?) -> String? {
+        guard let data else { return nil }
+        return String(data: data, encoding: .utf8)
     }
 
     func importHevyExport(url: URL) {
-        guard let text = readText(url) else {
+        // ZIP (export du compte) ou CSV plat — importHevyFile gère les deux (MiniZip côté cœur)
+        guard let data = readData(url) else {
+            repo.toast(LS("Import failed (check format)", "Import échoué (vérifie le format)"))
+            return
+        }
+        if data.starts(with: [0x50, 0x4B, 0x03, 0x04]) {
+            let n = repo.importHevyFile(data)
+            repo.toast(n > 0
+                ? "\(n) \(LS("workouts imported from Hevy (routines rebuilt)", "séances importées (routines reconstruites)"))"
+                : LS("No Hevy data found", "Aucune donnée Hevy trouvée"))
+            return
+        }
+        guard let text = dataToString(data) else {
             repo.toast(LS("Import failed (check format)", "Import échoué (vérifie le format)"))
             return
         }
@@ -228,18 +257,8 @@ struct SettingsView: View {
     }
 
     func exportCsv() {
-        let unit = repo.settings.unit
-        var lines = ["Date;Heure;Exercice;Serie;KG;Reps"]
-        for w in repo.workouts.sorted(by: { $0.startedAt < $1.startedAt }) {
-            let date = Calc.fmtDateShort(w.startedAt)
-            let time = Calc.fmtTime(w.startedAt)
-            for ex in w.exercises {
-                for (i, st) in ex.sets.enumerated() {
-                    lines.append("\(date);\(time);\(exName(ex.name).replacingOccurrences(of: ";", with: ","));\(i + 1);\(st.kg != nil ? Calc.fmtKg(st.kg, unit) : "");\(st.reps.map(String.init) ?? "")")
-                }
-            }
-        }
-        writeShareFile(name: "hevy-seances.csv", content: lines.joined(separator: "\n"))
+        // port exact de Util.kt exportCsv via le cœur (date AVEC année, colonnes Min;Km, kg|lbs)
+        writeShareFile(name: "hevy-seances.csv", content: Calc.exportCsvText(workouts: repo.workouts, unit: repo.settings.unit))
     }
 
     func backupJson() {
