@@ -202,7 +202,7 @@ final class Repo: ObservableObject {
 
     func addExToDraft(_ name: String) {
         guard draft != nil else { return }
-        draft!.exercises.append(ExEntry(name: name, muscle: ExData.byName[name]?.muscle ?? "", sets: [SetEntry(kg: nil, reps: nil, done: false)]))
+        draft!.exercises.append(ExEntry(name: name, muscle: ExDataPlus.lookup(name)?.muscle ?? "", sets: [SetEntry(kg: nil, reps: nil, done: false)]))
         touch()
     }
 
