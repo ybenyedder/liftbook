@@ -114,7 +114,7 @@ export function testMapAuthError() {
   assertEq(mapAuthError(400, '{"code":400,"msg":"already exists"}'), 'Cet email a déjà un compte. Connecte-toi.', 'already (json)');
   assertEq(mapAuthError(400, 'invalid_grant: Email not confirmed'), 'Email ou mot de passe incorrect.', 'invalid_grant');
   assertEq(mapAuthError(400, 'Invalid login credentials'), 'Email ou mot de passe incorrect.', 'invalid login');
-  assertEq(mapAuthError(400, 'Password should be at least 6 characters.'), 'Mot de passe trop court (6 caractères minimum).', 'at least character');
+  assertEq(mapAuthError(400, 'Password should be at least 6 characters.'), 'Mot de passe trop court (8 caractères minimum).', 'at least character');
   assertEq(mapAuthError(422, 'validation failed: email is invalid'), 'Adresse email invalide.', 'validation email');
   assertEq(mapAuthError(500, 'boom'), 'Serveur indisponible — réessaie plus tard.', '5xx');
   assertEq(mapAuthError(503, ''), 'Serveur indisponible — réessaie plus tard.', '503');

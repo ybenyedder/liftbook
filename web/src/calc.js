@@ -369,9 +369,9 @@ export function parseCsv(content) {
     if (parts.length < 6) continue;
     const date = parts[0].trim(); const time = parts[1].trim(); const exName = parts[2].trim();
     const si = toIntOrNull(parts[3].trim()); if (si === null) continue;
-    // bornes anti-valeurs absurdes (négatif/NaN/Infinity) : null plutôt que corrompre les stats
+    // bornes anti-valeurs absurdes (négatif/NaN/Infinity/géant) : null plutôt que corrompre les stats
     const kgRaw = toDoubleOrNull(parts[4].trim().replace(/,/g, '.'));
-    const kg = kgRaw != null && kgRaw > 0 && Number.isFinite(kgRaw) ? kgRaw : null;
+    const kg = kgRaw != null && kgRaw > 0 && kgRaw <= 1e5 ? kgRaw : null;
     const repsRaw = toIntOrNull(parts[5].trim());
     const reps = repsRaw != null && repsRaw > 0 ? repsRaw : null;
     const minsCell = parts[6] != null ? parts[6].trim() : null;
@@ -579,7 +579,7 @@ export function parseHevyCsv(content) {
     if (exRaw === '') continue;
     const unitLb = cols.unit !== null && (p[cols.unit] ?? '').toLowerCase().includes('lb');
     const kgRaw = cols.weight !== null ? toDoubleOrNull((p[cols.weight] ?? '').replace(/,/g, '.')) : null;
-    const kg = kgRaw !== null && kgRaw > 0 && Number.isFinite(kgRaw) ? (unitLb ? kgRaw / LB : kgRaw) : null;
+    const kg = kgRaw !== null && kgRaw > 0 && kgRaw <= 1e5 ? (unitLb ? kgRaw / LB : kgRaw) : null;
     const date = parseExportDate(cols.date !== null ? (p[cols.date] ?? '') : '');
     const doneRaw = cols.done !== null ? (p[cols.done] ?? '').toLowerCase() : 'true';
     const supCell = cols.superset !== null ? p[cols.superset] : null;

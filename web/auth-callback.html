@@ -12,7 +12,10 @@
 <body>
   <p>Connexion Google en cours…</p>
   <!-- GitHub Pages 301 /auth-callback?code=… → /auth-callback.html?code=… : cette page
-       démarre l'app, dont le boot détecte le code et fait l'échange PKCE. -->
+       démarre l'app, dont le boot détecte le code et fait l'échange PKCE. #app est requis :
+       après l'échange, le boot rend l'application ici (URL réécrite en index.html) — et son
+       absence faisait crasher applyAccent() AVANT l'échange (login Google cassé v1.52-1.53). -->
+  <div id="app" data-accent="blue"></div>
   <script type="module" src="src/app.js"></script>
 </body>
 </html>

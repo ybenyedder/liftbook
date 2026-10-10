@@ -21,19 +21,21 @@ import { restore as restRestore } from './restimer.js';
 
 const boot = async () => {
   storeMod.init();
+  // callback OAuth Google : /auth-callback(.html)?code=… — AVANT tout accès au DOM de la
+  // page principale : auth-callback.html n'a pas le shell de index.html (#screen-root).
+  // (bug préexistant : applyAccent() sur #app absent jetait un TypeError qui empêchait
+  // l'échange PKCE — le login Google était cassé côté client depuis la v1.52.)
+  const onCallback = /\/auth-callback(\.html)?$/.test(location.pathname);
+  if (onCallback) {
+    await handleGoogleCallback();
+  }
   applyAccent();
   navMod.restoreNav();
   navMod.wireHistory();
   restRestore();
 
-  // callback OAuth Google : /auth-callback(.html)?code=…
-  const onCallback = /\/auth-callback(\.html)?$/.test(location.pathname);
-  if (onCallback) {
-    await handleGoogleCallback();
-  }
-
   const app = document.getElementById('app');
-  navMod.setRoot(app.querySelector('#screen-root'));
+  if (app && app.querySelector('#screen-root')) navMod.setRoot(app.querySelector('#screen-root'));
   storeMod.on('session', renderAll);
   storeMod.on('session', maybeAskLocalMerge);
   storeMod.on('storage-full', () => import('./ui.js').then(ui => ui.toast(L10n.s(
@@ -43,12 +45,20 @@ const boot = async () => {
 
   // multi-onglets : chaque onglet réécrivait TOUT le store → l'onglet périmé effaçait la
   // séance terminée dans l'autre. On recharge depuis le disque à chaque écriture externe
-  // (sauf brouillon actif → avertissement), et on suit les refresh de session de l'autre onglet.
+  // (débondé — un touch() écrit ~6 clés d'un coup), sauf brouillon actif → avertissement.
+  // Session : on suit les refresh de l'autre onglet ; un CHANGEMENT de compte ou un logout
+  // impose un reload complet (le wipe de changement de compte doit s'appliquer ici aussi —
+  // sinon un draft de l'onglet 1 serait synchronisé dans le compte de l'onglet 2).
+  let storageDebounce = null;
   window.addEventListener('storage', (e) => {
-    if (!e.key || !e.key.startsWith('lb.') || e.key === 'lb.nav' || e.key === 'lb.rest') return;
+    if (!e.key || !e.key.startsWith('lb.') || e.key === 'lb.nav' || e.key === 'lb.rest' || e.key.startsWith('lb.pkce')) return;
     if (e.key === 'lb.session') {
-      try { store.session = e.newValue ? JSON.parse(e.newValue) : null; } catch { /* ignore */ }
-      return; // pas de re-rendu : le contenu n'a pas changé, seule la session a été rafraîchie
+      let sess = null;
+      try { sess = e.newValue ? JSON.parse(e.newValue) : null; } catch { /* ignore */ }
+      if (sess && store.lastAccount && sess.userId !== store.lastAccount) { location.replace('index.html'); location.reload(); return; }
+      if (!sess && store.session) { store.session = null; storeMod.emit('session'); return; }
+      store.session = sess; // même compte : adoption des jetons rafraîchis
+      return;
     }
     if (store.draft && store.draft.mode === 'workout') {
       if (!multiTabWarned) {
@@ -59,16 +69,16 @@ const boot = async () => {
       }
       return;
     }
-    storeMod.reloadFromDisk();
-    renderAll();
+    clearTimeout(storageDebounce);
+    storageDebounce = setTimeout(() => { storeMod.reloadFromDisk(); renderAll(); }, 150);
   });
 
   // sync : au boot (400 ms) et au retour de visibilité (onStart Android)
   if (store.session && !store.pendingLocalMerge) storeMod.requestSync(400);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && store.session) storeMod.requestSync(400);
+    if (document.visibilityState === 'visible' && store.session && !store.pendingLocalMerge) storeMod.requestSync(400);
   });
-  window.addEventListener('online', () => store.session && storeMod.requestSync(400));
+  window.addEventListener('online', () => store.session && !store.pendingLocalMerge && storeMod.requestSync(400));
 
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -76,28 +86,36 @@ const boot = async () => {
 };
 let multiTabWarned = false;
 
-/** Premier login avec données locales : fusionner dans le compte, ou laisser le cloud écraser. */
+/** Premier login avec données locales : fusionner dans le compte, ou laisser le cloud écraser.
+ *  ⚠️ onDismiss : fermer le dialogue sans choisir (clic overlay) = « garder le cloud » —
+ *  sinon le flag restait armé et la première synchro écrasait le local sans consentement. */
 function maybeAskLocalMerge() {
   if (!store.session || !store.pendingLocalMerge) return;
   import('./ui.js').then(ui => {
-    ui.confirmDialog({
+    const close = ui.dialog({
       title: L10n.s('Local data found', 'Données locales trouvées'),
       message: L10n.s(
         'This browser already has workouts. Merge them into your account, or replace them with your account data?',
         'Ce navigateur contient déjà des séances. Les fusionner dans ton compte, ou les remplacer par celles du compte ?'),
-      confirmLabel: L10n.s('Merge', 'Fusionner'),
-      cancelLabel: L10n.s('Use account data', 'Garder le cloud'),
-      onConfirm: () => storeMod.resolvePendingLocalMerge(true),
-      onCancel: () => storeMod.resolvePendingLocalMerge(false),
+      onDismiss: () => storeMod.resolvePendingLocalMerge(false),
+      actions: [
+        { label: L10n.s('Use account data', 'Garder le cloud'), class: 'mut', onClick: () => storeMod.resolvePendingLocalMerge(false) },
+        { label: L10n.s('Merge', 'Fusionner'), class: 'acc', onClick: () => storeMod.resolvePendingLocalMerge(true) },
+      ],
     });
+    return close;
   });
 }
 
-function applyAccent() { document.getElementById('app').dataset.accent = store.settings.accent || 'blue'; }
+function applyAccent() { const app = document.getElementById('app'); if (app) app.dataset.accent = store.settings.accent || 'blue'; }
 
 function renderAll() {
   const app = document.getElementById('app');
+  if (!app) return;
   applyAccent();
+  // les listeners sub() de l'écran courant sont liés au root : le prévenir avant de le détacher
+  const oldRoot = app.querySelector('#screen-root');
+  if (oldRoot) { try { oldRoot.dispatchEvent(new Event('screen-gone')); } catch {} }
   app.replaceChildren();
   if (!store.session && !store.skipped) {
     navMod.screens.auth.render(app, {});

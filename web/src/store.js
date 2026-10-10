@@ -177,8 +177,8 @@ export function init() {
   store.routines = arr(lsGet('routines', []));
   store.photos = arr(lsGet('photos', []));
   store.customs = arr(lsGet('customs', []));
-  const st = lsGet('settings', {});
-  store.settings = (st && typeof st === 'object' && !Array.isArray(st)) ? Object.assign({}, store.settings, st) : { ...store.settings };
+  // normalizeSettings bloque aussi __proto__ depuis le localStorage local (défense en profondeur)
+  store.settings = Object.assign({}, store.settings, normalizeSettings(lsGet('settings', {})) || {});
   if (!store.settings.since) store.settings.since = Date.now();
   store.draft = lsGet('draft', null);
   store.skipped = lsGet('skipped', false);
@@ -196,13 +196,11 @@ export function init() {
 
 /** Recharge les données depuis le disque (multi-onglets : l'autre onglet vient d'écrire). */
 export function reloadFromDisk() {
-  const hadDraft = store.draft != null;
   store.workouts = arr(lsGet('workouts', store.workouts));
   store.routines = arr(lsGet('routines', store.routines));
   store.photos = arr(lsGet('photos', store.photos));
   store.customs = arr(lsGet('customs', store.customs));
-  const st = lsGet('settings', {});
-  if (st && typeof st === 'object' && !Array.isArray(st)) store.settings = Object.assign({}, store.settings, st);
+  store.settings = Object.assign({}, store.settings, normalizeSettings(lsGet('settings', {})) || {});
   const meta = lsGet('meta', {});
   Object.assign(store, {
     dirtyAt: meta.dirtyAt || 0, pushedTs: meta.pushedTs || 0, lastSeenRemoteTs: meta.lastSeenRemoteTs || 0,
@@ -706,18 +704,27 @@ export function mergeRemote(rawP) {
     else if ((w.uTs || 0) > (loc.uTs || 0)) updW.set(w.startedAt, w);
   }
   const addR = p.routines.filter(r => !ldR.has(r.name) && !keepR.some(k => k.name === r.name));
-  const addP = p.photos.filter(ph => !ldP.has(ph.id) && !keepP.some(k => k.id === ph.id));
+  // Photos : identité par remote (chemin unique par compte) EN PLUS de l'id — les ids sont
+  // des compteurs LOCAUX, deux appareils les réutilisent pour des photos différentes
+  // (limite structurelle du protocole, cf. AUDIT-SECURITE-WEB.md).
+  const keepPRemote = new Set(keepP.map(ph => ph.remote).filter(Boolean));
+  const addP = p.photos.filter(ph => !ldP.has(ph.id) && !keepP.some(k => k.id === ph.id) && !(ph.remote && keepPRemote.has(ph.remote)));
   const addC = p.customs.filter(c => !ldC.has(c.name) && !keepC.some(k => k.name === c.name));
 
   if (keepW.length === store.workouts.length && keepR.length === store.routines.length &&
       keepP.length === store.photos.length && keepC.length === store.customs.length &&
       !addW.length && !updW.size && !addR.length && !addP.length && !addC.length) return false;
 
+  // ⚠️ ids incrémentés APRÈS construction de keepW (l'ancien `addW.map(w => ({...w, id: nextWorkoutId()}))`
+  // lisait l'ANCIEN store pour chaque élément → ids dupliqués quand le merge amène 2+
+  // séances d'un coup, et deleteWorkout(id) supprimait alors les deux).
+  let nid = nextWorkoutId();
   store.workouts = [
     ...keepW.map(w => { const r = updW.get(w.startedAt); return r ? { ...r, id: w.id } : w; }),
-    ...addW.map(w => ({ ...w, id: nextWorkoutId() })),
+    ...addW.map(w => ({ ...w, id: nid++ })),
   ].sort((a, b) => a.startedAt - b.startedAt);
-  store.routines = [...keepR, ...addR.map(r => ({ ...r, id: nextRoutineId(), pos: nextPos() }))];
+  let nrid = nextRoutineId(), npos = nextPos();
+  store.routines = [...keepR, ...addR.map(r => ({ ...r, id: nrid++, pos: npos++ }))];
   store.photos = [...keepP, ...addP].sort((a, b) => a.ts - b.ts);
   applyCustoms([...keepC, ...addC]);
   store.prCache = Calc.rebuildPrs(store.workouts);
@@ -732,20 +739,23 @@ export function persistSessionNow() { store.session ? lsSet('session', store.ses
 
 export async function applySession(session) {
   const previousAccount = store.lastAccount;
-  const hadLocalData = store.workouts.length > 0 || store.routines.length > 0 || store.customs.length > 0;
   if (previousAccount && previousAccount !== session.userId) {
     // changement de compte : le local repart de zéro, le cloud garde sa copie
     wipe(false);
     store.delW = []; store.delR = []; store.delP = []; store.delC = []; store.pendingDelObjs = [];
     store.dirtyAt = 0; store.pushedTs = 0; store.lastSeenRemoteTs = 0;
   }
+  // hadLocalData APRÈS l'éventuel wipe (sinon le dialogue s'armait à vide au changement de compte)
+  const hadLocalData = store.workouts.length > 0 || store.routines.length > 0 || store.customs.length > 0;
   store.session = session;
   store.lastAccount = session.userId;
   persistSessionNow(); persistMeta();
   emit('session');
-  if (hadLocalData && !store.dirtyAt) {
-    // premier binding avec des données locales : on ne pousse PLUS automatiquement dans le
-    // compte (machine partagée → fuite des séances de A vers le compte de B). L'app demande.
+  if (hadLocalData && !previousAccount) {
+    // PREMIER binding d'un compte sur ce navigateur avec des données locales : on ne pousse
+    // PAS automatiquement (machine partagée → fuite des séances de A vers le compte de B).
+    // (la condition n'est PAS !dirtyAt : toute création de donnée appelle markDirty, le
+    // dialogue n'aurait alors jamais été proposé.)
     store.pendingLocalMerge = true;
     return;
   }
@@ -841,14 +851,15 @@ export async function syncNow() {
       store.syncStatus = stamp('Synchronisé');
     }
   } catch (e) {
-    const msg = String((e && e.message) || e);
+    const msg = String((e && e.message) || e) + ' ' + String((e && e.body) || '');
     if (/lww_stale/.test(msg)) {
       // le serveur a refusé le push : un appareil concurrent a un ts plus récent.
       // dirtyAt reste > pushedTs → re-pull + retry automatiques, rien n'est perdu.
+      // (⚠️ le marqueur est dans le CORPS de l'erreur PostgREST, pas dans le message)
       store.syncStatus = stamp('Conflit de sync — nouvelle tentative');
       requestSync(15000);
     } else {
-      store.syncStatus = stamp(`Sync échouée (${msg.slice(0, 60)})`);
+      store.syncStatus = stamp(`Sync échouée (${String((e && e.message) || e).slice(0, 60)})`);
     }
   } finally {
     store.syncing = false;

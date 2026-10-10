@@ -391,7 +391,7 @@ function renderExerciseDetail(el, { name }) {
       // graphiques : poids le plus lourd + volume total
       wrap.append(h('div', { class: 'card' },
         h('div', { class: 'clbl' }, L10n.s('Heaviest weight', 'Poids le plus lourd')),
-        h('div', { class: 'cval' }, `${Calc.fmtKg(Math.max(...heaviest.map(p => p.value)), unit)} ${uLabel}`),
+        h('div', { class: 'cval' }, `${Calc.fmtKg(Calc.maxOf(heaviest.map(p => p.value)), unit)} ${uLabel}`),
         lineChart(heaviest, v => Calc.fmtKg(v, unit))));
       wrap.append(h('div', { class: 'card' },
         h('div', { class: 'clbl' }, L10n.s('Total volume', 'Volume total')),

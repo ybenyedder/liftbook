@@ -92,7 +92,14 @@ async function http(method, path, opts = {}) {
       // offline / DNS / timeout (AbortError) — l'équivalent Kotlin remonte en Exception.
       throw new CloudError(0, '', NETWORK_ERROR);
     }
-    const buf = await res.arrayBuffer();
+    let buf;
+    try {
+      buf = await res.arrayBuffer();
+    } catch (e) {
+      // coupure en cours de corps : même statut réseau que le fetch lui-même (sinon une
+      // coupure pendant un refresh token déconnectait l'utilisateur à tort)
+      throw new CloudError(0, '', NETWORK_ERROR);
+    }
     return binary
       ? { status: res.status, bytes: buf }
       : { status: res.status, text: new TextDecoder().decode(buf) };
@@ -192,7 +199,7 @@ export function mapAuthError(status, body) {
   if (status === 429) return 'Trop d\'essais — réessaie dans un instant.';
   if (b.includes('already') || b.includes('registered')) return 'Cet email a déjà un compte. Connecte-toi.';
   if (b.includes('invalid_grant') || b.includes('invalid login')) return 'Email ou mot de passe incorrect.';
-  if (b.includes('at least') && b.includes('character')) return 'Mot de passe trop court (6 caractères minimum).';
+  if (b.includes('at least') && b.includes('character')) return 'Mot de passe trop court (8 caractères minimum).';
   if (b.includes('validation') && b.includes('email')) return 'Adresse email invalide.';
   if (status >= 500) return 'Serveur indisponible — réessaie plus tard.';
   return `Erreur inattendue (${status}).`;

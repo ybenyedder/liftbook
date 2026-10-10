@@ -82,10 +82,25 @@ export function zipEntryRaw(bytes, entry) {
   return bytes.subarray(start, start + entry.csize); // tailles réelles : toujours lues du central directory
 }
 
-/** Décompresse un flux DEFLATE brut (method 8) via DecompressionStream('deflate-raw'). */
-export async function inflateRaw(cbytes) {
+/** Décompresse un flux DEFLATE brut (method 8) via DecompressionStream('deflate-raw'),
+ *  avec PLAFOND RÉEL sur la sortie — le usize déclaré du central directory peut mentir
+ *  (une entrée déclarée à 100 o peut décompresser en Go : DecompressionStream ne borne rien). */
+export async function inflateRaw(cbytes, capBytes = 32 * 1024 * 1024) {
   const stream = new Blob([cbytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
+  const reader = stream.getReader();
+  const chunks = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > capBytes) throw new Error('zip: sortie décompressée trop volumineuse');
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.length; }
+  return out;
 }
 
 /**
