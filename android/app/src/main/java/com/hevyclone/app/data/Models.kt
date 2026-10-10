@@ -6,6 +6,8 @@ import kotlinx.serialization.Serializable
 data class SetEntry(
     var kg: Double? = null,
     var reps: Int? = null,
+    var mins: Int? = null,   // cardio: duration in minutes (null = strength set)
+    var km: Double? = null,  // cardio: distance in kilometers
     var done: Boolean = true,
     var prW: Boolean = false,
     var prE: Boolean = false,

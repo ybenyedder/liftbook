@@ -35,7 +35,9 @@ fun shareWorkout(ctx: android.content.Context, w: com.hevyclone.app.data.Workout
     for (ex in w.exercises) {
         sb.appendLine(exName(ex.name) + " (" + ex.sets.size + " séries)")
         for (st in ex.sets) {
-            sb.appendLine("  " + (if (st.kg != null) com.hevyclone.app.data.Calc.fmtKg(st.kg, unit) + " kg" else "") + " × " + (st.reps ?: "—"))
+            val line = if (ex.muscle == "Cardio") com.hevyclone.app.data.Calc.fmtCardioSet(st.mins, st.km)
+                else (if (st.kg != null) com.hevyclone.app.data.Calc.fmtKg(st.kg, unit) + " kg" else "") + " × " + (st.reps ?: "—")
+            sb.appendLine("  " + line)
         }
     }
     val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {

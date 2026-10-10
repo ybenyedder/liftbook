@@ -272,8 +272,8 @@ fun LoggerScreen() {
         Repo.touchPublic()
     }
 
-    fun hasData(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.kg != null || it.reps != null } }
-    fun anyDone(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.done && (it.kg != null || it.reps != null) } }
+    fun hasData(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.kg != null || it.reps != null || it.mins != null || it.km != null } }
+    fun anyDone(): Boolean = draft.exercises.any { ex -> ex.sets.any { it.done && (it.kg != null || it.reps != null || it.mins != null || it.km != null) } }
 
     fun trySaveRoutine() {
         val n = nameText.trim()
@@ -337,7 +337,7 @@ fun LoggerScreen() {
                 }.value
                 var liveVol = 0.0; var liveSets = 0
                 for (ex in draft.exercises) for (s in ex.sets) {
-                    if (s.done && s.kg != null && s.reps != null) { liveVol += s.kg!! * s.reps!!; liveSets++ }
+                    if (s.done && (s.kg != null || s.reps != null || s.mins != null || s.km != null)) { if (s.kg != null && s.reps != null) liveVol += s.kg!! * s.reps!!; liveSets++ }
                 }
                 val muscles = remember(rev) { draft.exercises.map { it.muscle }.toSet() }
                 Row(
@@ -660,7 +660,7 @@ private fun ExCard(
                             menuOpen = false
                             Repo.draft?.exercises?.let { list ->
                                 if (ei < list.size) {
-                                    val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+                                    val copy = ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.mins, it.km, it.done) }.toMutableList())
                                     list.add(ei + 1, copy)
                                 }
                             }
@@ -749,16 +749,22 @@ private fun ExCard(
         }
         Spacer(Modifier.height(8.dp))
         // column headers
+        val isCardio = ex.muscle == "Cardio"
         if (isWorkout) {
             Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(L10n.s("SET", "SÉRIE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.width(38.dp), textAlign = TextAlign.Center)
                 Text(L10n.s("PREVIOUS", "PRÉCÉDENT"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1.15f), textAlign = TextAlign.Center)
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
-                    Spacer(Modifier.width(3.dp))
-                    Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                if (isCardio) {
+                    Text(L10n.s("MIN", "MIN"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Text(L10n.s("KM", "KM"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                } else {
+                    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 }
-                Text(L10n.s("REPS", "RÉPS"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 Box(Modifier.width(44.dp), contentAlignment = Alignment.Center) {
                     Icon(Icons.Rounded.Check, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(15.dp))
                 }
@@ -766,19 +772,24 @@ private fun ExCard(
         } else {
             Row(Modifier.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.width(38.dp), textAlign = TextAlign.Center)
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
-                    Spacer(Modifier.width(3.dp))
-                    Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                if (isCardio) {
+                    Text(L10n.s("MIN", "MIN"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Text(L10n.s("KM", "KM"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                } else {
+                    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(12.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text(unit.uppercase(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 }
-                Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 Box(Modifier.width(44.dp))
             }
         }
         Spacer(Modifier.height(4.dp))
         val prev = if (isWorkout) Repo.prevFor(ex.name) else null
         ex.sets.forEachIndexed { si, s ->
-            SetRow(s, si, ei, isWorkout, unit, ex, if (isWorkout) prev?.getOrNull(si) else null, ex.restSec)
+            SetRow(s, si, ei, isWorkout, unit, ex, if (isWorkout) prev?.getOrNull(si) else null, ex.restSec, isCardio)
         }
         // add set — Hevy dark full-width button
         Row(
@@ -789,7 +800,7 @@ private fun ExCard(
                 .background(C.Card2)
                 .clickable {
                     val last = ex.sets.lastOrNull()
-                    ex.sets.add(SetEntry(last?.kg, last?.reps, done = false))
+                    ex.sets.add(SetEntry(last?.kg, last?.reps, last?.mins, last?.km, done = false))
                     Repo.touchPublic()
                 }
                 .padding(vertical = 12.dp),
@@ -886,7 +897,7 @@ fun evaluatePr(ex: ExEntry, s: SetEntry) {
 @Composable
 private fun SetRow(
     s: SetEntry, si: Int, ei: Int, isWorkout: Boolean, unit: String,
-    ex: ExEntry, prevText: String?, restOverride: Int? = null,
+    ex: ExEntry, prevText: String?, restOverride: Int? = null, isCardio: Boolean = false,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     val rowView = androidx.compose.ui.platform.LocalView.current
@@ -928,7 +939,7 @@ private fun SetRow(
                 DropdownMenuItem(text = { Text(L10n.s("Copy set", "Copier la série")) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null, modifier = Modifier.size(15.dp)) }, onClick = {
                     menuOpen = false
                     Repo.draft?.exercises?.getOrNull(ei)?.let { exx ->
-                        if (si < exx.sets.size) exx.sets.add(si + 1, SetEntry(s.kg, s.reps, done = false))
+                        if (si < exx.sets.size) exx.sets.add(si + 1, SetEntry(s.kg, s.reps, s.mins, s.km, done = false))
                     }
                     Repo.touchPublic()
                 })
@@ -952,18 +963,33 @@ private fun SetRow(
                 textAlign = TextAlign.Center,
             )
         }
-        SetField(
-            init = Calc.fmtKg(s.kg, unit),
-            hint = "-",
-            onChange = { s.kg = Calc.toKg(it, unit) },
-            modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-        )
-        SetField(
-            init = s.reps?.toString() ?: "",
-            hint = "-",
-            onChange = { v -> s.reps = v.filter { it.isDigit() }.take(4).toIntOrNull() },
-            modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
-        )
+        if (isCardio) {
+            SetField(
+                init = s.mins?.toString() ?: "",
+                hint = "-",
+                onChange = { v -> s.mins = v.filter { it.isDigit() }.take(3).toIntOrNull(); Repo.persistDraftNow() },
+                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+            )
+            SetField(
+                init = s.km?.let { Calc.trimNum(it) } ?: "",
+                hint = "-",
+                onChange = { v -> s.km = v.filter { it.isDigit() || it == '.' }.take(6).toDoubleOrNull(); Repo.persistDraftNow() },
+                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+            )
+        } else {
+            SetField(
+                init = Calc.fmtKg(s.kg, unit),
+                hint = "-",
+                onChange = { s.kg = Calc.toKg(it, unit); Repo.persistDraftNow() },
+                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+            )
+            SetField(
+                init = s.reps?.toString() ?: "",
+                hint = "-",
+                onChange = { v -> s.reps = v.filter { it.isDigit() }.take(4).toIntOrNull(); Repo.persistDraftNow() },
+                modifier = Modifier.weight(1f).padding(horizontal = 4.dp),
+            )
+        }
         Spacer(Modifier.width(4.dp))
         if (isWorkout) {
             // plain gray check → green filled rounded square when done
@@ -978,6 +1004,7 @@ private fun SetRow(
                     .size(44.dp)
                     .clickable {
                         s.done = !s.done
+                        Repo.persistDraftNow()
                         rowView.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
                         if (s.done) {
                             evaluatePr(ex, s)

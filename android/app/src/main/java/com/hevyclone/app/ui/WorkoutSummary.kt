@@ -71,8 +71,9 @@ fun WorkoutSummaryScreen() {
 
     var vol = 0.0; var reps = 0; var sets = 0
     for (ex in draft.exercises) for (s in ex.sets) {
-        if (!s.done || s.kg == null || s.reps == null) continue
-        vol += s.kg!! * s.reps!!; reps += s.reps!!; sets++
+        if (!s.done || (s.kg == null && s.reps == null && s.mins == null && s.km == null)) continue
+        if (s.kg != null && s.reps != null) { vol += s.kg!! * s.reps!!; reps += s.reps!! }
+        sets++
     }
     // records are evaluated against history strictly before this session
     val prs = remember(draft) {
@@ -204,7 +205,7 @@ fun WorkoutSummaryScreen() {
                         )
                     }
                     Spacer(Modifier.height(4.dp))
-                    val doneSets = ex.sets.filter { it.done && (it.kg != null || it.reps != null) }
+                    val doneSets = ex.sets.filter { it.done && (it.kg != null || it.reps != null || it.mins != null || it.km != null) }
                     doneSets.forEachIndexed { i, s ->
                         Row(
                             Modifier
@@ -216,7 +217,8 @@ fun WorkoutSummaryScreen() {
                         ) {
                             Text("${i + 1}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.width(20.dp))
                             Text(
-                                "${s.kg?.let { Calc.fmtKg(it, unit) + Calc.unitLabel(unit) } ?: "—"} × ${s.reps ?: "—"}",
+                                if (ex.muscle == "Cardio") Calc.fmtCardioSet(s.mins, s.km)
+                                else "${s.kg?.let { Calc.fmtKg(it, unit) + Calc.unitLabel(unit) } ?: "—"} × ${s.reps ?: "—"}",
                                 fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
                                 modifier = Modifier.weight(1f),
                             )

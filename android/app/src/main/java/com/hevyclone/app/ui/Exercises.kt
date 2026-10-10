@@ -27,11 +27,15 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.Canvas
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.EmojiEvents
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Notes
@@ -154,6 +158,27 @@ fun ExerciseDetailScreen(name: String) {
                 fontWeight = FontWeight.Bold, fontSize = 17.sp,
                 modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis,
             )
+        }
+        if (def?.equip == "Barbell") {
+            var showPlateCalc by remember { mutableStateOf(false) }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(C.Card2)
+                    .clickable { showPlateCalc = true }
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.FitnessCenter, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    L10n.s("Plate calculator", "Calculateur de disques"),
+                    color = MaterialTheme.colorScheme.primary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+                )
+            }
+            if (showPlateCalc) PlateCalcSheet(name) { showPlateCalc = false }
         }
         // tab row with animated underline
         BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
@@ -516,5 +541,143 @@ private fun ExerciseRow(e: com.hevyclone.app.data.ExerciseDef) {
             Text("${muscleName(e.muscle)} · ${equipName(e.equip)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
         }
         Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(16.dp))
+    }
+}
+
+// ============================ plate calculator ============================
+
+/** Gym plate colors by size — the familiar red 25 / blue 20 / yellow 15 / green 10 scheme. */
+private fun plateColor(kg: Double): Color = when (kg) {
+    45.0, 25.0 -> Color(0xFFD64545)
+    35.0, 15.0 -> Color(0xFFE8B931)
+    20.0 -> Color(0xFF3F7BD8)
+    10.0 -> Color(0xFF3FA35C)
+    else -> Color(0xFF9AA3AB)
+}
+
+/**
+ * Hevy-style plate calculator bottom sheet: target weight + bar choice →
+ * greedy breakdown per side, drawn on a bar with real plate proportions.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun PlateCalcSheet(exName: String, onClose: () -> Unit) {
+    val unit = Repo.settings.unit
+    val isLb = unit == "lb"
+    val pr = Repo.prFor(exName)
+    var target by remember {
+        mutableStateOf(pr?.weight?.let { Calc.fmtKg(it, unit) } ?: "")
+    }
+    var barIdx by remember { mutableStateOf(0) }
+    val bars = if (isLb) listOf(45.0, 35.0, 25.0, 0.0) else listOf(20.0, 15.0, 10.0, 0.0)
+    val barLabel = { b: Double -> if (b == 0.0) L10n.s("No bar", "Sans barre") else Calc.trimNum(b) + Calc.unitLabel(unit) }
+    val targetVal = target.replace(',', '.').toDoubleOrNull()
+    val plates = targetVal?.let { Calc.platesForSide(it, bars[barIdx], unit) } ?: emptyList()
+    val perSide = plates.sumOf { it.first * it.second }
+    val reached = if (targetVal != null) bars[barIdx] + 2 * perSide else 0.0
+
+    ModalBottomSheet(onDismissRequest = onClose, containerColor = MaterialTheme.colorScheme.background) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
+            Text(
+                L10n.s("Plate calculator", "Calculateur de disques"),
+                fontWeight = FontWeight.ExtraBold, fontSize = 17.sp,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(exName(exName), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+            Spacer(Modifier.height(14.dp))
+            OutlinedTextField(
+                value = target,
+                onValueChange = { target = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(6) },
+                label = { Text(L10n.s("Target weight", "Poids ciblé") + " (" + Calc.unitLabel(unit) + ")") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(L10n.s("Bar", "Barre"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                bars.forEachIndexed { i, b ->
+                    Text(
+                        barLabel(b),
+                        color = if (barIdx == i) Color.Black else MaterialTheme.colorScheme.onBackground,
+                        fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(99.dp))
+                            .background(if (barIdx == i) MaterialTheme.colorScheme.primary else C.Card2)
+                            .clickable { barIdx = i }
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(18.dp))
+            if (targetVal == null || targetVal <= 0.0) {
+                Text(
+                    L10n.s("Enter a target weight.", "Saisis un poids ciblé."),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.5.sp,
+                )
+            } else {
+                PlateBarCanvas(plates, Modifier.fillMaxWidth().height(110.dp))
+                Spacer(Modifier.height(12.dp))
+                if (plates.isEmpty()) {
+                    Text(
+                        L10n.s("Empty bar.", "Barre à vide."),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.5.sp,
+                    )
+                } else {
+                    Text(
+                        L10n.s("Per side", "Par côté") + " : " +
+                            plates.joinToString(" · ") { (pl, n) -> "$n×${Calc.trimNum(pl)}" } +
+                            "  —  " + L10n.s("Total", "Total") + " : ${Calc.trimNum(reached)}${Calc.unitLabel(unit)}",
+                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    )
+                    if (kotlin.math.abs(reached - targetVal) > 0.001) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            L10n.s("Closest load achievable with these plates.", "Charge la plus proche atteignable avec ces disques."),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Side view of a loaded bar: gray bar with proportional plates on both ends. */
+@Composable
+private fun PlateBarCanvas(plates: List<Pair<Double, Int>>, modifier: Modifier = Modifier) {
+    val maxPl = plates.maxOfOrNull { it.first } ?: 1.0
+    val ordered = plates.sortedByDescending { it.first }
+    Canvas(modifier) {
+        val cy = size.height / 2
+        val barH = 7.dp.toPx()
+        val sleeve = size.width * 0.30f
+        val cx = size.width / 2
+        // bar
+        drawRoundRect(
+            color = Color(0xFF6E767E),
+            topLeft = androidx.compose.ui.geometry.Offset(cx - sleeve - 14.dp.toPx(), cy - barH / 2),
+            size = androidx.compose.ui.geometry.Size(2 * sleeve + 28.dp.toPx(), barH),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(barH / 2),
+        )
+        var side = -1
+        while (side <= 1) {
+            var x = cx + side * (sleeve + 10.dp.toPx())
+            val dir = side
+            ordered.forEach { (pl, n) ->
+                val w = (6.dp.toPx() + 3.dp.toPx() * (pl / maxPl).toFloat()).coerceAtMost(16.dp.toPx())
+                val h = (26.dp.toPx() + 62.dp.toPx() * (pl / maxPl).toFloat()).coerceAtMost(size.height - 6.dp.toPx())
+                repeat(n) {
+                    drawRoundRect(
+                        color = plateColor(pl),
+                        topLeft = androidx.compose.ui.geometry.Offset(x - w / 2, cy - h / 2),
+                        size = androidx.compose.ui.geometry.Size(w, h),
+                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(w / 2),
+                    )
+                    x += dir * (w + 3.dp.toPx())
+                }
+            }
+            side += 2
+        }
     }
 }

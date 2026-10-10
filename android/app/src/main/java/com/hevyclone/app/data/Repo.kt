@@ -145,7 +145,7 @@ object Repo {
     fun startRoutine(routineId: Long?) {
         val r = routineId?.let { routineById(it) }
         val exs = r?.exercises?.map { ex ->
-            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.mins, it.km, it.done) }.toMutableList())
         }?.toMutableList() ?: mutableListOf()
         draft = Draft("routine", routineId, r?.name ?: "Nouvelle Routine", null, "", exs)
         touch()
@@ -275,7 +275,7 @@ object Repo {
     fun routineFromWorkout(workoutId: Long, name: String): Routine? {
         val w = workoutById(workoutId) ?: return null
         val r = Routine(nextRoutineId(), name.trim().ifEmpty { w.name }, w.exercises.map { ex ->
-            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.mins, it.km, it.done) }.toMutableList())
         }.toMutableList(), nextPos())
         routines.add(r)
         persistRoutine(r)
@@ -295,7 +295,7 @@ object Repo {
     fun duplicateRoutine(id: Long): Routine? {
         val r = routineById(id) ?: return null
         val copy = Routine(nextRoutineId(), r.name + " (2)", r.exercises.map { ex ->
-            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+            ExEntry(ex.name, ex.muscle, ex.notes, ex.superset, ex.restSec, ex.sets.map { SetEntry(it.kg, it.reps, it.mins, it.km, it.done) }.toMutableList())
         }.toMutableList(), nextPos())
         routines.add(copy)
         persistRoutine(copy)
@@ -583,10 +583,12 @@ object Repo {
         prevCache[name]?.let { return it.ifEmpty { null } }
         var result: List<String>? = null
         for (w in workoutsDesc()) {
-            val ex = w.exercises.firstOrNull { e -> e.name == name && e.sets.any { it.kg != null || it.reps != null } }
+            val ex = w.exercises.firstOrNull { e -> e.name == name && e.sets.any { it.kg != null || it.reps != null || it.mins != null || it.km != null } }
             if (ex != null) {
+                val cardio = Calc.isCardioName(name)
                 result = ex.sets.map { s ->
-                    if (s.kg == null && s.reps == null) "—"
+                    if (s.kg == null && s.reps == null && s.mins == null && s.km == null) "—"
+                    else if (cardio) Calc.fmtCardioSet(s.mins, s.km)
                     else "${Calc.fmtKg(s.kg, settings.unit)}${Calc.unitLabel(settings.unit)} × ${s.reps ?: "—"}"
                 }
                 break
@@ -603,9 +605,11 @@ object Repo {
     fun prevSetsBefore(beforeMs: Long, name: String): List<String>? {
         for (w in workouts.sortedByDescending { it.startedAt }) {
             if (w.startedAt >= beforeMs) continue
-            val ex = w.exercises.firstOrNull { e -> e.name == name && e.sets.any { it.kg != null || it.reps != null } } ?: continue
+            val ex = w.exercises.firstOrNull { e -> e.name == name && e.sets.any { it.kg != null || it.reps != null || it.mins != null || it.km != null } } ?: continue
+            val cardio = Calc.isCardioName(name)
             return ex.sets.map { s ->
-                if (s.kg == null && s.reps == null) "—"
+                if (s.kg == null && s.reps == null && s.mins == null && s.km == null) "—"
+                else if (cardio) Calc.fmtCardioSet(s.mins, s.km)
                 else "${Calc.fmtKg(s.kg, settings.unit)}${Calc.unitLabel(settings.unit)} × ${s.reps ?: "—"}"
             }
         }

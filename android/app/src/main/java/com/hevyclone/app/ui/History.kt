@@ -466,8 +466,13 @@ fun WorkoutDetailScreen(id: Long) {
                         Row(Modifier.fillMaxWidth()) {
                             Text("SÉRIE", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.width(34.dp))
                             Text(L10n.s("PREVIOUS", "PRÉCÉDENTE"), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1.1f))
-                            Text("KG", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                            Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            if (ex.muscle == "Cardio") {
+                                Text("MIN", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                Text("KM", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            } else {
+                                Text("KG", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                                Text("RÉPS", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                            }
                         }
                         ex.sets.forEachIndexed { i, s ->
                             Row(
@@ -482,16 +487,29 @@ fun WorkoutDetailScreen(id: Long) {
                                     color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp,
                                     modifier = Modifier.weight(1.1f),
                                 )
-                                Text(
-                                    if (s.kg != null) Calc.fmtKg(s.kg, Repo.settings.unit) else "—",
-                                    fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                Text(
-                                    "${s.reps ?: "—"}",
-                                    fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
-                                    modifier = Modifier.weight(1f),
-                                )
+                                if (ex.muscle == "Cardio") {
+                                    Text(
+                                        s.mins?.toString() ?: "—",
+                                        fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Text(
+                                        s.km?.let { Calc.trimNum(it) } ?: "—",
+                                        fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                } else {
+                                    Text(
+                                        if (s.kg != null) Calc.fmtKg(s.kg, Repo.settings.unit) else "—",
+                                        fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Text(
+                                        "${s.reps ?: "—"}",
+                                        fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
                                 if (s.prW || s.prE) {
                                     Text(
                                         if (s.prW) "WEIGHT PR" else "1RM PR",

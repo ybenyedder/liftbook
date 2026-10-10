@@ -24,7 +24,7 @@ object Calc {
     }
 
     fun setsDone(w: Workout): Int = w.exercises.sumOf { ex ->
-        ex.sets.count { it.done && (it.kg != null || it.reps != null) }
+        ex.sets.count { it.done && (it.kg != null || it.reps != null || it.mins != null || it.km != null) }
     }
 
     private fun r1(x: Double): Double = Math.round(x * 10) / 10.0
@@ -39,6 +39,36 @@ object Calc {
 
     /** Display label for the weight unit, Hevy style: kgs / lbs. */
     fun unitLabel(unit: String): String = if (unit == "lb") "lbs" else "kg"
+
+    /** Cardio exercises (muscle == "Cardio") log minutes/km instead of weight × reps. */
+    fun isCardioName(name: String): Boolean = EX[name]?.muscle == "Cardio"
+
+    /** "22min · 5.2km" for a cardio set; "—" when empty. */
+    fun fmtCardioSet(mins: Int?, km: Double?): String {
+        val parts = mutableListOf<String>()
+        if (mins != null && mins > 0) parts.add(if (mins >= 60) "${mins / 60}h${if (mins % 60 > 0) "%02d".format(mins % 60) else ""}" else "${mins}min")
+        if (km != null && km > 0) parts.add(trim(km) + "km")
+        return if (parts.isEmpty()) "—" else parts.joinToString(" · ")
+    }
+
+    /** Plain number (1 decimal max) for input fields. */
+    fun trimNum(x: Double): String = trim(x)
+
+    /** Greedy plate breakdown per side for a target total (bar included). Returns plate→count. */
+    fun platesForSide(targetKg: Double, barKg: Double, unit: String): List<Pair<Double, Int>> {
+        val (avail, bar) = if (unit == "lb")
+            listOf(45.0, 35.0, 25.0, 10.0, 5.0, 2.5) to 45.0
+        else
+            listOf(25.0, 20.0, 15.0, 10.0, 5.0, 2.5, 1.25) to 20.0
+        var perSide = ((targetKg - (if (barKg > 0) barKg else bar)) / 2 * 100).toInt() / 100.0
+        if (perSide < 0) perSide = 0.0
+        val out = mutableListOf<Pair<Double, Int>>()
+        for (p in avail) {
+            val n = kotlin.math.floor(perSide / p + 1e-9).toInt()
+            if (n > 0) { out.add(p to n); perSide -= n * p }
+        }
+        return out
+    }
 
     fun toKg(text: String, unit: String): Double? {
         val v = text.trim().replace(',', '.').toDoubleOrNull() ?: return null
@@ -467,7 +497,7 @@ object Calc {
                     name,
                     latest.exercises.map { ex ->
                         ExEntry(ex.name, ex.muscle, "", ex.superset, ex.restSec,
-                            ex.sets.map { SetEntry(it.kg, it.reps, it.done) }.toMutableList())
+                            ex.sets.map { SetEntry(it.kg, it.reps, it.mins, it.km, it.done) }.toMutableList())
                     }.toMutableList(),
                 )
             )

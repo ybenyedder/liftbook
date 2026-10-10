@@ -16,7 +16,7 @@ class LogicTest {
         Workout(
             id = id, name = "W$id", startedAt = startedAt, endedAt = startedAt + 3600000,
             exercises = exs.map { (name, sets) ->
-                ExEntry(name, "Quads", "", false, null, sets.map { SetEntry(it.first, it.second, it.third) }.toMutableList())
+                ExEntry(name, "Quads", "", false, null, sets.map { SetEntry(it.first, it.second, done = it.third) }.toMutableList())
             }.toMutableList(),
         )
 
@@ -266,7 +266,7 @@ class LogicTest {
     fun `routines rebuilt from imported workout names use latest occurrence`() {
         fun w(id: Long, at: Long, name: String, vararg exs: String) = Workout(
             id, name, at, at + 3_600_000,
-            exs.map { ExEntry(it, "Quads", "", false, null, mutableListOf(SetEntry(50.0, 10, true))) }.toMutableList(),
+            exs.map { ExEntry(it, "Quads", "", false, null, mutableListOf(SetEntry(50.0, 10, done = true))) }.toMutableList(),
         )
         val imported = listOf(
             w(1, 1000L, "Push A", "Barbell Bench Press"),
