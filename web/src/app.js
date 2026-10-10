@@ -204,7 +204,9 @@ export async function startGoogleAuth() {
   const challenge = await Cloud.pkceChallenge(verifier);
   localStorage.setItem('lb.pkce_verifier', verifier);
   localStorage.setItem('lb.pkce_ts', String(Date.now()));
-  const redirectTo = new URL('auth-callback', new URL(location.href.replace(/[^/]*$/, ''))).href;
+  // ⚠️ .html EXPLICITE : le retour Google atterrit sur cette URL telle quelle. GitHub Pages
+  // redirige /auth-callback → .html tout seul, mais le serveur volthost non → « Error response » 404.
+  const redirectTo = new URL('auth-callback.html', new URL(location.href.replace(/[^/]*$/, ''))).href;
   location.href = Cloud.googleAuthorizeUrl(verifier, challenge, redirectTo);
 }
 

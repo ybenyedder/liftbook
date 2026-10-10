@@ -113,7 +113,7 @@ function render(el) {
       localStorage.setItem('lb.pkce_ts', String(Date.now()));
       sessionStorage.setItem('lb.google_pending', '1');
       googlePending = true; paint();
-      const redirectTo = new URL('auth-callback', location.href.replace(/[^/]*$/, '')).href;
+      const redirectTo = new URL('auth-callback.html', location.href.replace(/[^/]*$/, '')).href;
       location.href = Cloud.googleAuthorizeUrl(verifier, challenge, redirectTo);
     } catch {
       googlePending = false; paint();
