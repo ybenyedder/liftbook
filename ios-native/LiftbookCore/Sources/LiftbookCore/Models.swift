@@ -142,9 +142,10 @@ public struct SyncPayload: Codable, Equatable, Sendable {
     public var delR: [String]
     public var photos: [ProgressPhoto]
     public var delP: [Double]
+    public var customs: [CustomExercise]
     public var v: Int
 
-    public init(workouts: [Workout] = [], routines: [Routine] = [], settings: Settings? = nil, delW: [Double] = [], delR: [String] = [], photos: [ProgressPhoto] = [], delP: [Double] = [], v: Int = 1) {
+    public init(workouts: [Workout] = [], routines: [Routine] = [], settings: Settings? = nil, delW: [Double] = [], delR: [String] = [], photos: [ProgressPhoto] = [], delP: [Double] = [], customs: [CustomExercise] = [], v: Int = 1) {
         self.workouts = workouts
         self.routines = routines
         self.settings = settings
@@ -152,7 +153,58 @@ public struct SyncPayload: Codable, Equatable, Sendable {
         self.delR = delR
         self.photos = photos
         self.delP = delP
+        self.customs = customs
         self.v = v
+    }
+
+    /// Older clients (v1/v2 payloads) push snapshots without the newer fields —
+    /// decode them with defaults instead of failing.
+    private enum CodingKeys: String, CodingKey { case workouts, routines, settings, delW, delR, photos, delP, customs, v }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        workouts = try c.decodeIfPresent([Workout].self, forKey: .workouts) ?? []
+        routines = try c.decodeIfPresent([Routine].self, forKey: .routines) ?? []
+        settings = try c.decodeIfPresent(Settings.self, forKey: .settings)
+        delW = try c.decodeIfPresent([Double].self, forKey: .delW) ?? []
+        delR = try c.decodeIfPresent([String].self, forKey: .delR) ?? []
+        photos = try c.decodeIfPresent([ProgressPhoto].self, forKey: .photos) ?? []
+        delP = try c.decodeIfPresent([Double].self, forKey: .delP) ?? []
+        customs = try c.decodeIfPresent([CustomExercise].self, forKey: .customs) ?? []
+        v = try c.decodeIfPresent(Int.self, forKey: .v) ?? 1
+    }
+}
+
+/// User-created exercise (Android `CustomExDef`). Round-trip only on iOS.
+/// kotlinx omits fields at their default ("equip" = "Other") → lenient decode;
+/// encoding always writes all three (never null, which kotlinx cannot decode).
+public struct CustomExercise: Codable, Equatable, Sendable, Identifiable {
+    public var name: String
+    public var muscle: String
+    public var equip: String
+
+    public var id: String { name }
+
+    public init(name: String, muscle: String, equip: String = "Other") {
+        self.name = name
+        self.muscle = muscle
+        self.equip = equip
+    }
+
+    private enum CodingKeys: String, CodingKey { case name, muscle, equip }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        name = try c.decode(String.self, forKey: .name)
+        muscle = try c.decode(String.self, forKey: .muscle)
+        equip = try c.decodeIfPresent(String.self, forKey: .equip) ?? "Other"
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(muscle, forKey: .muscle)
+        try c.encode(equip, forKey: .equip)
     }
 }
 

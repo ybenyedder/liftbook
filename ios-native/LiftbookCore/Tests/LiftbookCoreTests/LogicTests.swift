@@ -169,6 +169,20 @@ final class CloudHelpersTests: XCTestCase {
         XCTAssertEqual(back, p)
     }
 
+    func testSyncPayloadDecodesAndroidCustomsJson() throws {
+        // kotlinx omits `equip` at its "Other" default
+        let json = """
+        {"workouts":[],"routines":[],"delW":[],"delR":[],"photos":[],"delP":[],
+         "customs":[{"name":"Tirage Majorette","muscle":"Back"},{"name":"Mollets Assis","muscle":"Calves","equip":"Machine"}],"v":3}
+        """
+        let p = try JSONDecoder().decode(SyncPayload.self, from: json.data(using: .utf8)!)
+        XCTAssertEqual(p.customs.count, 2)
+        XCTAssertEqual(p.customs[0].equip, "Other")
+        XCTAssertEqual(p.customs[1].equip, "Machine")
+        let back = try JSONDecoder().decode(SyncPayload.self, from: JSONEncoder().encode(p))
+        XCTAssertEqual(back.customs, p.customs)
+    }
+
     func testSyncPayloadDecodesAndroidPhotosJson() throws {
         // real payload shape pushed by the Android app (Long ids as numbers, optional fields)
         let json = """

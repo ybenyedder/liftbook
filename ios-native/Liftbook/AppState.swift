@@ -36,6 +36,7 @@ final class Repo: ObservableObject {
     var delR: [String] = []
     var delP: [Double] = []
     var photos: [ProgressPhoto] = []   // round-trip only (no photo UI on iOS yet)
+    var customs: [CustomExercise] = [] // round-trip only
     private var syncing = false
     private var syncTask: Task<Void, Never>?
 
@@ -63,6 +64,7 @@ final class Repo: ObservableObject {
             lastAccount = m.lastAccount; skipped = m.skipped; delW = m.delW; delR = m.delR; delP = m.delP
         }
         if let ph = d.data(forKey: "photos"), let dec = try? JSONDecoder().decode([ProgressPhoto].self, from: ph) { photos = dec }
+        if let cs = d.data(forKey: "customs"), let dec = try? JSONDecoder().decode([CustomExercise].self, from: cs) { customs = dec }
         session = Keychain.loadSession()
     }
 
@@ -84,6 +86,7 @@ final class Repo: ObservableObject {
         d.set(try? enc.encode(routines), forKey: "routines")
         d.set(try? enc.encode(settings), forKey: "settings")
         d.set(try? enc.encode(photos), forKey: "photos")
+        d.set(try? enc.encode(customs), forKey: "customs")
     }
 
     func persistDraft() {
@@ -366,6 +369,7 @@ final class Repo: ObservableObject {
         routines = []
         draft = nil
         photos = []
+        customs = []
         prCache = [:]
         queueSave()
         if markDirtyFlag { markDirty() }
@@ -466,7 +470,7 @@ final class Repo: ObservableObject {
     }
 
     func snapshot() -> SyncPayload {
-        SyncPayload(workouts: workouts, routines: routines, settings: settings, delW: delW, delR: delR, photos: photos, delP: delP, v: 1)
+        SyncPayload(workouts: workouts, routines: routines, settings: settings, delW: delW, delR: delR, photos: photos, delP: delP, customs: customs, v: 1)
     }
 
     func currentTombP() -> [Double] { delP }
@@ -478,6 +482,7 @@ final class Repo: ObservableObject {
         if let ps = p.settings { settings = ps }
         photos = p.photos.sorted { $0.ts < $1.ts }
         delP = p.delP
+        customs = p.customs
         prCache = Calc.rebuildPrs(&workouts)
         queueSave()
     }
@@ -515,6 +520,8 @@ final class Repo: ObservableObject {
         }
         photos = (keepP + addP).sorted { $0.ts < $1.ts }
         for d in p.delP where !delP.contains(d) { delP.append(d) }
+        let knownC = Set(customs.map { $0.name })
+        customs += p.customs.filter { !knownC.contains($0.name) }
         prCache = Calc.rebuildPrs(&workouts)
         queueSave()
         return true
@@ -554,6 +561,7 @@ final class Repo: ObservableObject {
             delR = []
             delP = []
             photos = []
+            customs = []
             dirtyAt = 0
             pushedTs = 0
             lastSeenRemoteTs = 0

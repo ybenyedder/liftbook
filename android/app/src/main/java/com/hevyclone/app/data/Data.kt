@@ -647,9 +647,9 @@ private val EX_EXTRA: List<ExerciseDef> = listOf(
     ExerciseDef("Running", "Cardio", "Bodyweight"),
 )
 
-val EXERCISES: List<ExerciseDef> = EX_BASE + EX_EXTRA
+val EXERCISES: MutableList<ExerciseDef> = (EX_BASE + EX_EXTRA).toMutableList()
 
-val EX: Map<String, ExerciseDef> = EXERCISES.associateBy { it.name }
+val EX: MutableMap<String, ExerciseDef> = EXERCISES.associateBy { it.name }.toMutableMap()
 val MUSCLES: List<String> = EXERCISES.map { it.muscle }.distinct().sorted()
 
 val EQUIP_HINT: Map<String, String> = mapOf(

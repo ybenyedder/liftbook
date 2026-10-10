@@ -319,4 +319,18 @@ class LogicTest {
         assertEquals(backup.workouts.first().exercises.first().sets.size,
                      back.workouts.first().exercises.first().sets.size)
     }
+
+    fun testStreak() {
+        val now = System.currentTimeMillis()
+        fun at(dayBack: Long) = now - dayBack * 86400000L
+        fun w(dayBack: Long) = com.hevyclone.app.data.Workout(1, "S", at(dayBack), at(dayBack) + 3600000)
+        // 3 jours consécutifs dont aujourd'hui
+        assertEquals(3, com.hevyclone.app.data.Calc.streak(listOf(w(0), w(1), w(2)), now))
+        // hier+avant-hier mais pas aujourd'hui → tolérance : compte quand même 2
+        assertEquals(2, com.hevyclone.app.data.Calc.streak(listOf(w(1), w(2)), now))
+        // trou d'un jour → 1
+        assertEquals(1, com.hevyclone.app.data.Calc.streak(listOf(w(0), w(2)), now))
+        // rien → 0
+        assertEquals(0, com.hevyclone.app.data.Calc.streak(emptyList(), now))
+    }
 }

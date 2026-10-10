@@ -1274,6 +1274,35 @@ private fun PickerContent(onClose: () -> Unit, onPick: (String) -> Unit) {
             }
         }
         LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+            item(key = "create") {
+                var showCreate by remember { mutableStateOf(false) }
+                if (showCreate) {
+                    CreateExerciseDialog(
+                        initialName = q,
+                        onCreated = { created ->
+                            showCreate = false
+                            onPick(created)
+                        },
+                        onClose = { showCreate = false },
+                    )
+                }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(C.Card2)
+                        .clickable { showCreate = true }
+                        .padding(horizontal = 20.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        L10n.s("Create exercise", "Créer un exercice"),
+                        color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
             if (filtered.isEmpty()) item { EmptyState(L10n.s("No exercises found.", "Aucun exercice trouvé.")) }
             else items(filtered) { e ->
                 Row(

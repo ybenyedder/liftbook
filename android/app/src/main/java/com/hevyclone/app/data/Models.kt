@@ -96,6 +96,14 @@ data class BackupData(
     val photos: List<ProgressPhoto> = emptyList(),
 )
 
+/** User-created exercise, registered into the global catalog at startup. */
+@Serializable
+data class CustomExDef(
+    val name: String,
+    val muscle: String,
+    val equip: String = "Other",
+)
+
 /** Full cloud snapshot pushed/pulled per account (deletions ride along as tombstones). */
 @Serializable
 data class SyncPayload(
@@ -106,5 +114,6 @@ data class SyncPayload(
     val delR: List<String> = emptyList(),
     val photos: List<ProgressPhoto> = emptyList(),
     val delP: List<Long> = emptyList(),
-    val v: Int = 2,
+    val customs: List<CustomExDef> = emptyList(),
+    val v: Int = 3,
 )

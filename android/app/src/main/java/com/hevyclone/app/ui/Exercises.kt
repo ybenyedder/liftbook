@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -41,12 +42,14 @@ import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -84,8 +87,27 @@ fun ExercisesScreen() {
     val grouped = remember(filtered) { filtered.groupBy { it.muscle } }
 
     Column(Modifier.fillMaxSize()) {
+        var showCreate by remember { mutableStateOf(false) }
+        if (showCreate) {
+            CreateExerciseDialog(initialName = q, onCreated = { showCreate = false }, onClose = { showCreate = false })
+        }
         Text(L10n.s("Exercises", "Exercices"), fontSize = 22.sp, fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 6.dp))
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(C.Card2)
+                .clickable { showCreate = true }
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.Add, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(17.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(L10n.s("Create exercise", "Créer un exercice"), color = MaterialTheme.colorScheme.primary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Spacer(Modifier.height(4.dp))
         TextField(
             value = q,
             onValueChange = { q = it },
@@ -680,4 +702,96 @@ private fun PlateBarCanvas(plates: List<Pair<Double, Int>>, modifier: Modifier =
             side += 2
         }
     }
+}
+
+
+// ============================ create custom exercise ============================
+
+/** Creates a user-defined exercise: name + muscle group + equipment, registered
+ *  into the global catalog so search, icons and stats all work. */
+@Composable
+fun CreateExerciseDialog(initialName: String, onCreated: (String) -> Unit, onClose: () -> Unit) {
+    var name by remember { mutableStateOf(initialName) }
+    var muscle by remember { mutableStateOf("Chest") }
+    var equip by remember { mutableStateOf("Barbell") }
+    var pickMuscle by remember { mutableStateOf(false) }
+    var pickEquip by remember { mutableStateOf(false) }
+    val ctx = LocalContext.current
+    val equips = listOf("Barbell", "Dumbbell", "Machine", "Cable", "Bodyweight", "Other")
+
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(L10n.s("New exercise", "Nouvel exercice"), fontWeight = FontWeight.ExtraBold) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it.take(48) },
+                    label = { Text(L10n.s("Name", "Nom")) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(C.Card2)
+                        .clickable { pickMuscle = true }.padding(horizontal = 12.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(L10n.s("Muscle group", "Groupe musculaire"), fontSize = 13.5.sp, modifier = Modifier.weight(1f))
+                    Text(muscleName(muscle), color = MaterialTheme.colorScheme.primary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(C.Card2)
+                        .clickable { pickEquip = true }.padding(horizontal = 12.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(L10n.s("Equipment", "Équipement"), fontSize = 13.5.sp, modifier = Modifier.weight(1f))
+                    Text(equipName(equip), color = MaterialTheme.colorScheme.primary, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val cx = Repo.addCustom(name, muscle, equip)
+                if (cx == null) toast(ctx, L10n.s("This exercise already exists", "Cet exercice existe déjà"))
+                else { toast(ctx, L10n.s("Exercise created", "Exercice créé")); onCreated(cx.name) }
+            }) { Text(L10n.s("Create", "Créer"), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold) }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text(L10n.s("Cancel", "Annuler"), color = C.Mut) } },
+    )
+    if (pickMuscle) {
+        ListPickDialog(L10n.s("Muscle group", "Groupe musculaire"), com.hevyclone.app.data.MUSCLES.map { it to muscleName(it) }) {
+            muscle = it; pickMuscle = false
+        }
+    }
+    if (pickEquip) {
+        ListPickDialog(L10n.s("Equipment", "Équipement"), equips.map { it to equipName(it) }) {
+            equip = it; pickEquip = false
+        }
+    }
+}
+
+@Composable
+private fun ListPickDialog(title: String, options: List<Pair<String, String>>, onPick: (String) -> Unit) {
+    AlertDialog(
+        onDismissRequest = {},
+        title = { Text(title, fontWeight = FontWeight.ExtraBold) },
+        text = {
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 380.dp)) {
+                items(options) { (value, label) ->
+                    Text(
+                        label,
+                        fontSize = 14.5.sp, fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable { onPick(value) }
+                            .padding(horizontal = 8.dp, vertical = 11.dp),
+                    )
+                }
+            }
+        },
+        confirmButton = {},
+    )
 }

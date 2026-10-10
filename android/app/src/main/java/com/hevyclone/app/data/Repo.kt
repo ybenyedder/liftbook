@@ -34,6 +34,7 @@ object Repo {
     val workouts = mutableListOf<Workout>()     // sorted by startedAt ASC
     val routines = mutableListOf<Routine>()
     val photos = mutableListOf<ProgressPhoto>() // sorted by ts ASC
+    val customs = mutableListOf<CustomExDef>()  // user-created exercises
     var settings = Settings()
     var draft: Draft? = null
     var prCache: Map<String, PrBest> = emptyMap()
@@ -75,6 +76,10 @@ object Repo {
             if (c.moveToFirst()) c.getString(0) else null
         }
         settings = sRow?.let { runCatching { json.decodeFromString<Settings>(it) }.getOrNull() } ?: Settings(since = System.currentTimeMillis())
+        db.readableDatabase.rawQuery("SELECT v FROM settings WHERE k='customs'", null).use { c ->
+            if (c.moveToFirst()) runCatching { json.decodeFromString<List<CustomExDef>>(c.getString(0)) }.getOrNull()?.let { customs.addAll(it) }
+        }
+        for (cx in customs) registerCustomCatalog(cx)
         db.readableDatabase.rawQuery("SELECT json FROM workouts ORDER BY startedAt ASC", null).use { c ->
             while (c.moveToNext()) runCatching { json.decodeFromString<Workout>(c.getString(0)) }.getOrNull()?.let { workouts.add(it) }
         }
@@ -323,6 +328,35 @@ object Repo {
         Cloud.markDirty()
     }
 
+    // ---------- custom exercises ----------
+
+    /** Inserts a custom exercise into the global catalog (EX/EXERCISES) so every lookup works. */
+    private fun registerCustomCatalog(cx: CustomExDef) {
+        if (EX.containsKey(cx.name)) return
+        val def = ExerciseDef(cx.name, cx.muscle, cx.equip)
+        EXERCISES.add(def)
+        EX[cx.name] = def
+    }
+
+    fun addCustom(nameRaw: String, muscle: String, equip: String): CustomExDef? {
+        val name = nameRaw.trim()
+        if (name.isEmpty() || EX.containsKey(name)) return null
+        val cx = CustomExDef(name, muscle, equip)
+        customs.add(cx)
+        registerCustomCatalog(cx)
+        db.writableDatabase.insertWithOnConflict(
+            "settings", null,
+            ContentValues().apply {
+                put("k", "customs")
+                put("v", json.encodeToString(kotlinx.serialization.builtins.ListSerializer(CustomExDef.serializer()), customs))
+            },
+            SQLiteDatabase.CONFLICT_REPLACE,
+        )
+        touch()
+        Cloud.markDirty()
+        return cx
+    }
+
     // ---------- progress photos ----------
 
     fun nextPhotoId(): Long = (photos.maxOfOrNull { it.id } ?: 0L) + 1
@@ -489,7 +523,7 @@ object Repo {
     }
 
     fun wipe(markDirty: Boolean = true) {
-        workouts.clear(); routines.clear(); photos.clear(); draft = null
+        workouts.clear(); routines.clear(); photos.clear(); customs.clear(); draft = null
         db.writableDatabase.delete("workouts", null, null)
         db.writableDatabase.delete("routines", null, null)
         db.writableDatabase.delete("photos", null, null)
@@ -510,6 +544,7 @@ object Repo {
         delR = Cloud.currentTombR(),
         photos = photos.toList(),
         delP = Cloud.currentTombP(),
+        customs = customs.toList(),
     )
 
     /** Replace local state wholesale with a remote snapshot (clean pull). No dirty marking. */
@@ -522,6 +557,7 @@ object Repo {
         p.routines.forEachIndexed { i, r -> r.pos = i; routines.add(r); persistRoutine(r) }
         p.photos.forEach { photos.add(it); persistPhoto(it) }
         photos.sortBy { it.ts }
+        applyCustoms(p.customs)
         p.settings?.let {
             settings = it
             persistSettings()
@@ -550,9 +586,10 @@ object Repo {
         val addW = p.workouts.filter { it.startedAt !in localDelW && it.startedAt !in knownW }
         val addR = p.routines.filter { it.name !in localDelR && it.name !in knownR }
         val addP = p.photos.filter { it.id !in localDelP && it.id !in knownP }
+        val addC = p.customs.filter { c -> customs.none { it.name == c.name } }
 
         if (keepW.size == workouts.size && keepR.size == routines.size && keepP.size == photos.size &&
-            addW.isEmpty() && addR.isEmpty() && addP.isEmpty()
+            addW.isEmpty() && addR.isEmpty() && addP.isEmpty() && addC.isEmpty()
         ) return false
 
         db.writableDatabase.delete("workouts", null, null)
@@ -567,9 +604,29 @@ object Repo {
         keepP.forEach { photos.add(it); persistPhoto(it) }
         addP.forEach { photos.add(it); persistPhoto(it) }
         photos.sortBy { it.ts }
+        if (addC.isNotEmpty()) applyCustoms(customs + addC)
         prCache = Calc.rebuildPrs(workouts)
         touch()
         return true
+    }
+
+    /** Replace/merge the custom custom-exercise list (from a remote snapshot) and re-register the catalog. */
+    private fun applyCustoms(list: List<CustomExDef>) {
+        customs.clear()
+        customs.addAll(list.distinctBy { it.name })
+        persistCustoms()
+        for (cx in customs) registerCustomCatalog(cx)
+    }
+
+    private fun persistCustoms() {
+        db.writableDatabase.insertWithOnConflict(
+            "settings", null,
+            ContentValues().apply {
+                put("k", "customs")
+                put("v", json.encodeToString(kotlinx.serialization.builtins.ListSerializer(CustomExDef.serializer()), customs))
+            },
+            SQLiteDatabase.CONFLICT_REPLACE,
+        )
     }
 
     // ---------- queries ----------

@@ -106,6 +106,26 @@ fun ProfileScreen() {
             )
             HeatmapYear(dayVolumes, heatYear)
         }
+        item(key = "streak") {
+            val streak = remember(rev) { Calc.streak(Repo.workouts, System.currentTimeMillis()) }
+            if (streak >= 2) {
+                Row(
+                    Modifier
+                        .padding(start = 16.dp, top = 12.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(C.Card2)
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("🔥", fontSize = 14.sp)
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        L10n.s("%1\$d-day streak", "Série de %1\$d jours").format(streak),
+                        fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                    )
+                }
+            }
+        }
         item(key = "totals") {
             Text(
                 buildString {
