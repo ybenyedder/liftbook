@@ -35,13 +35,15 @@ le téléphone apparaît dans le navigateur après « Synchroniser maintenant »
 d'onglet), et réciproquement — payload v4 identique, tombstones comprises.
 
 ## Déploiement
-- **GitHub Pages** : `.github/workflows/pages.yml` (dossier `web/` servi à la racine du site).
-- **Serveur perso (volthost)** : `./deploy-volthost.sh` — rsync vers `volt@192.168.1.87:~/liftbook-web/`,
-  servi par le service systemd `liftbook-web.service` sur **http://192.168.1.87:8913**
-  (aussi reachable via Tailscale : http://100.107.129.74:8913). Redémarrer le service :
-  `ssh volt@192.168.1.87 'sudo systemctl restart liftbook-web'`.
-- OAuth Google : `redirect_to = <origine>/auth-callback` (URLs GitHub Pages + localhost + 8913
-  déclarées dans `ADDITIONAL_REDIRECT_URLS` du GoTrue du serveur Supabase).
+- **URL principale (Cloudflare, HTTPS)** : **https://liftbook.webtvmedia.net** — tunnel Cloudflare
+  du serveur volthost (règle ingress `liftbook.webtvmedia.net → http://localhost:8913` dans
+  `~/webtvmedia-site/tunnel/tunnel.yml`, CNAME routé vers le tunnel `bd29b796-…`).
+- **GitHub Pages** (miroir) : `.github/workflows/pages.yml` → https://ybenyedder.github.io/liftbook/.
+- **Serveur volthost** : `./deploy-volthost.sh` — rsync vers `volt@192.168.1.87:~/liftbook-web/`,
+  servi par le systemd `liftbook-web.service` sur le port 8913 (LAN : http://192.168.1.87:8913,
+  Tailscale : http://100.107.129.74:8913). No-store : un rsync suffit, aucun redémarrage.
+- OAuth Google : `redirect_to = <origine>/auth-callback` — les 3 origines (Cloudflare, Pages,
+  localhost + LAN 8913) sont déclarées dans `ADDITIONAL_REDIRECT_URLS` du GoTrue.
 
 ## Écarts assumés (plateforme web)
 - Pas de widget d'accueil (exclusivité Android), pas de notification chronomètre de séance persistante.
