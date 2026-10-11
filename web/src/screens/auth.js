@@ -12,22 +12,31 @@ function render(el) {
   if (!document.getElementById('css-auth')) {
     const st = h('style', { id: 'css-auth' });
     st.textContent = `
-.scr-auth { overflow-y:auto; padding:0 24px calc(30px + env(safe-area-inset-bottom)); }
-.scr-auth .logo-row { display:flex; flex-direction:column; align-items:center; padding:64px 0 26px; }
-.scr-auth .logo-box { width:58px; height:58px; border-radius:15px; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; }
-.scr-auth .wordmark { font-size:24px; font-weight:800; margin-top:12px; }
-.scr-auth .tagline { color:var(--mut); font-size:13px; margin-top:2px; }
-.scr-auth .title { font-size:22px; font-weight:800; margin:26px 0 4px; }
-.scr-auth .pitch { color:var(--mut); font-size:13.5px; line-height:1.45; margin-bottom:20px; }
-.scr-auth .fld { position:relative; margin-bottom:12px; }
-.scr-auth .fld input { width:100%; height:48px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:0 44px 0 14px; font-size:15px; color:var(--text); outline:none; }
+/* Auth.kt : Column scrollable padding h24, spacer 46, logo Row (box 58 r16 + 14 + textes) */
+.scr-auth { overflow-y:auto; padding:0 24px calc(24px + env(safe-area-inset-bottom)); }
+.scr-auth .logo-row { display:flex; align-items:center; gap:14px; padding:46px 0 0; }
+.scr-auth .logo-box { width:58px; height:58px; border-radius:16px; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+.scr-auth .wordmark { font-size:24px; font-weight:800; line-height:29px; }
+.scr-auth .tagline { color:var(--mut); font-size:12.5px; font-weight:500; margin-top:1px; }
+.scr-auth .title { font-size:26px; font-weight:800; margin:34px 0 0; }
+.scr-auth .pitch { color:var(--mut); font-size:14px; line-height:20px; margin-top:8px; }
+/* AuthField = OutlinedTextField M3 : label flottant sur la bordure, surface, radius 12 */
+.scr-auth .fld { position:relative; margin-top:26px; }
+.scr-auth .fld:first-of-type { margin-top:26px; }
+.scr-auth .fld input { width:100%; height:56px; background:var(--card); border:1px solid var(--line2); border-radius:12px; padding:20px 44px 6px 14px; font-size:16px; color:var(--text); outline:none; }
 .scr-auth .fld input:focus { border-color:var(--accent); }
-.scr-auth .fld .eye { position:absolute; right:6px; top:4px; }
-.scr-auth .err { color:var(--red); font-size:13px; margin:2px 0 10px; line-height:1.4; }
-.scr-auth .switch { text-align:center; margin-top:18px; font-size:13.5px; }
-.scr-auth .skip { text-align:center; margin-top:14px; color:var(--mut); font-size:13.5px; }
-.scr-auth .google-g { width:20px; height:20px; }
-.scr-auth .spin { width:18px; height:18px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .8s linear infinite; }
+.scr-auth .fld label { position:absolute; top:17px; left:14px; color:var(--mut); font-size:16px; pointer-events:none; transition:all .15s; }
+.scr-auth .fld input:focus + label, .scr-auth .fld input:not(:placeholder-shown) + label { top:-8px; font-size:12px; background:var(--bg); padding:0 4px; }
+.scr-auth .fld input:focus + label { color:var(--accent); }
+.scr-auth .fld .eye { position:absolute; right:0px; top:4px; }
+.scr-auth .err { color:var(--red); font-size:13.5px; margin:10px 0 0; line-height:1.4; }
+.scr-auth .submit { margin-top:20px; height:52px; width:100%; border-radius:12px; background:var(--accent); color:#fff; font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+.scr-auth .submit:disabled { background:var(--card); color:var(--mut); }
+.scr-auth .switch { display:flex; justify-content:center; align-items:baseline; margin-top:22px; font-size:14px; color:var(--mut); }
+.scr-auth .skip { display:block; width:100%; text-align:center; margin-top:40px; color:var(--mut); font-size:14px; font-weight:500; }
+.scr-auth .google-g { width:22px; height:22px; }
+.scr-auth .spin { width:24px; height:24px; border:2.5px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; animation:spin .8s linear infinite; }
+.scr-auth .submit:disabled .spin { border-color:rgba(255,255,255,.15); border-top-color:var(--mut); }
 @keyframes spin { to { transform:rotate(360deg); } }
 `;
     document.head.append(st);
@@ -48,40 +57,42 @@ function render(el) {
     const kids = [
       h('div', { class: 'logo-row' },
         h('div', { class: 'logo-box' }, icon('fitness_center', { size: 30 })),
-        h('div', { class: 'wordmark' }, 'Liftbook'),
-        h('div', { class: 'tagline' }, L10n.s('Workout tracker', 'Carnet de musculation')),
+        h('div', {},
+          h('div', { class: 'wordmark' }, 'Liftbook'),
+          h('div', { class: 'tagline' }, L10n.s('Workout tracker', 'Carnet de musculation'))),
       ),
       h('div', { class: 'title' }, mode === 'signin' ? L10n.s('Welcome back', 'Content de te revoir') : L10n.s('Create account', 'Créer un compte')),
-      h('div', { class: 'pitch' }, L10n.s('Your workouts and routines, synced across all your devices.', 'Tes séances et tes routines, synchronisées sur tous tes appareils.')),
+      h('div', { class: 'pitch' }, L10n.s('Your workouts and routines, synced on all your devices.', 'Tes séances et tes routines, synchronisées sur tous tes appareils.')),
       (() => {
-        const inp = h('input', { type: 'email', 'data-k': 'email', placeholder: L10n.s('Email', 'Email'), value: ev, autocapitalize: 'off', autocomplete: 'email', inputmode: 'email' });
+        const inp = h('input', { type: 'email', 'data-k': 'email', placeholder: ' ', value: ev, autocapitalize: 'off', autocomplete: 'email', inputmode: 'email' });
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
-        return h('div', { class: 'fld' }, inp);
+        inp.addEventListener('input', refreshSubmit);
+        return h('div', { class: 'fld', style: { marginTop: '26px' } }, inp, h('label', {}, L10n.s('Email', 'Email')));
       })(),
       (() => {
-        const inp = h('input', { type: showPwd ? 'text' : 'password', 'data-k': 'pwd', placeholder: L10n.s('Password', 'Mot de passe'), value: pv, autocomplete: mode === 'signin' ? 'current-password' : 'new-password' });
+        const inp = h('input', { type: showPwd ? 'text' : 'password', 'data-k': 'pwd', placeholder: ' ', value: pv, autocomplete: mode === 'signin' ? 'current-password' : 'new-password' });
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
-        return h('div', { class: 'fld' }, inp,
-          h('button', { class: 'iconbtn eye', onclick: () => { showPwd = !showPwd; paint(); } }, icon(showPwd ? 'visibility_off' : 'visibility', { size: 20, cls: 't-mut' })));
+        inp.addEventListener('input', refreshSubmit);
+        return h('div', { class: 'fld', style: { marginTop: '12px' } }, inp, h('label', {}, L10n.s('Password', 'Mot de passe')),
+          h('button', { class: 'iconbtn eye', onclick: () => { showPwd = !showPwd; paint(); } }, icon(showPwd ? 'visibility_off' : 'visibility', { size: 24, cls: 't-mut' })));
       })(),
       errMsg ? h('div', { class: 'err' }, errMsg) : null,
       h('button', {
-        class: 'btn-primary', disabled: busy,
+        class: 'submit', disabled: busy || !ev.trim() || !pv,
         onclick: submit,
       }, busy ? h('span', { class: 'spin' }) : (mode === 'signin' ? L10n.s('Sign in', 'Se connecter') : L10n.s('Create account', 'Créer un compte'))),
-      h('div', { class: 'divider-or' }, L10n.s('or', 'ou')),
-      h('button', { class: 'btn-white', onclick: startGoogle }, googleG(), L10n.s('Continue with Google', 'Continuer avec Google')),
-      googlePending ? h('div', { class: 't-sm', style: { textAlign: 'center', marginTop: '10px' } }, L10n.s('Google sign-in in progress…', 'Connexion Google en cours…')) : null,
+      h('div', { class: 'divider-or', style: { margin: '18px 0' } }, L10n.s('or', 'ou')),
+      h('button', { class: 'btn-white', onclick: startGoogle, style: { height: '52px', fontSize: '15.5px', fontWeight: 600, color: '#1F1F1F' } }, googleG(), L10n.s('Continue with Google', 'Continuer avec Google')),
+      googlePending ? h('div', { class: 't-sm', style: { textAlign: 'center', marginTop: '12px' } }, L10n.s('Google sign-in in progress…', 'Connexion Google en cours…')) : null,
       h('div', { class: 'switch' },
         mode === 'signin'
-          ? [L10n.s("No account yet? Sign up", "Pas encore de compte ? S'inscrire"), ' — ']
-          : [L10n.s('Already have an account? Sign in', 'Déjà un compte ? Se connecter'), ' — '],
-        h('button', { class: 'link', onclick: () => { mode = mode === 'signin' ? 'signup' : 'signin'; errMsg = ''; paint(); } },
+          ? L10n.s('No account yet? ', "Pas encore de compte ? ")
+          : L10n.s('Already have an account? ', 'Déjà un compte ? '),
+        h('button', { class: 'link', style: { fontSize: '14px', fontWeight: 600 }, onclick: () => { mode = mode === 'signin' ? 'signup' : 'signin'; errMsg = ''; paint(); } },
           mode === 'signin' ? L10n.s('Sign up', "S'inscrire") : L10n.s('Sign in', 'Se connecter')),
       ),
-      h('div', { class: 'skip' },
-        h('button', { class: 'link', style: { color: 'var(--mut)' }, onclick: () => { store.skipped = true; persistSkip(); emit('session'); } },
-          L10n.s('Continue without an account', 'Continuer sans compte'))),
+      h('button', { class: 'skip', onclick: () => { store.skipped = true; persistSkip(); emit('session'); } },
+        L10n.s('Continue without an account', 'Continuer sans compte')),
     ];
     body.replaceChildren(...kids.filter(k => k != null && k !== false));
     const e2 = body.querySelector('input[data-k=email]');
@@ -89,6 +100,14 @@ function render(el) {
   }
 
   let errMsg = '';
+
+  /** canSubmit Android : bouton grisé (surface) tant qu'un champ est vide. */
+  function refreshSubmit() {
+    const em = body.querySelector('input[data-k=email]');
+    const pw = body.querySelector('input[data-k=pwd]');
+    const btn = body.querySelector('.submit');
+    if (btn) btn.disabled = busy || !(em && em.value.trim()) || !(pw && pw.value);
+  }
 
   async function submit() {
     const email = (body.querySelector('input[data-k=email]').value || '').trim().toLowerCase();

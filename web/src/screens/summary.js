@@ -60,7 +60,7 @@ function render(el) {
 
   el.append(h('div', { class: 'topbar' },
     h('button', { class: 'iconbtn', onclick: () => nav.nav.pop() }, icon('arrow_back')),
-    h('div', { class: 'topbar-title t-center' }, L10n.s('Workout Summary', 'Résumé de la séance')),
+    h('div', { class: 'topbar-title t-center', style: { fontSize: '17px', fontWeight: '800' } }, L10n.s('Workout Summary', 'Résumé de la séance')),
     h('div', { style: { width: '48px' } }),
   ));
 

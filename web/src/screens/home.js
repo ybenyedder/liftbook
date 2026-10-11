@@ -15,20 +15,26 @@ function render(el) {
     st.textContent = `
 .scr-home .hdr { display:flex; align-items:center; gap:4px; padding:14px 16px 10px; }
 .scr-home .hdr .t-display { flex:1; }
-.scr-home .post { background:var(--card); border:1px solid var(--line); border-radius:14px; margin:0 16px 10px; padding:14px 16px; }
-.scr-home .post-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+/* FeedPost (Home.kt) : pas de carte — colonne pleine largeur, padding vertical 10dp */
+.scr-home .post { padding:10px 0; cursor:pointer; }
+.scr-home .post + .post { border-top:8px solid var(--bg); }
+.scr-home .post-head { display:flex; align-items:center; gap:12px; padding:0 16px; }
 .scr-home .post-author { font-size:16px; font-weight:700; }
-.scr-home .post-when { font-size:12px; color:var(--mut); }
-.scr-home .post-title { font-size:14.5px; font-weight:600; margin-bottom:8px; }
-.scr-home .post-stats { display:flex; gap:8px; margin-bottom:10px; }
-.scr-home .pstat { flex:1; background:var(--card2); border-radius:10px; padding:8px 10px; }
-.scr-home .pstat .v { font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.scr-home .pstat .l { font-size:10px; font-weight:600; color:var(--mut); margin-top:1px; }
-.scr-home .exline { display:flex; align-items:center; gap:10px; padding:4px 0; }
-.scr-home .exn { min-width:26px; height:22px; border-radius:6px; background:var(--card2); color:var(--mut); font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center; }
-.scr-home .exname-l { font-size:13.5px; color:var(--text); }
-.scr-home .more-btn { font-size:13px; color:var(--accent); font-weight:600; padding:6px 0 2px; }
-.scr-home .post-actions { display:flex; gap:2px; margin-top:8px; padding-top:8px; border-top:.5px solid var(--line); }
+.scr-home .post-when { font-size:13px; color:var(--mut); margin-top:1px; }
+.scr-home .post-title { font-size:21px; font-weight:800; padding:10px 16px 8px; }
+/* FeedStat : label gris 13sp AU-DESSUS, valeur 15sp semibold — pas de fond */
+.scr-home .post-stats { display:flex; gap:0; padding:0 16px; }
+.scr-home .pstat { flex:1.2; min-width:0; }
+.scr-home .pstat.last { flex:1; }
+.scr-home .pstat .l { font-size:13px; color:var(--mut); }
+.scr-home .pstat .v { font-size:15px; font-weight:600; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.scr-home .pstat .medal { display:flex; align-items:center; gap:5px; margin-top:2px; font-size:15px; font-weight:600; }
+.scr-home .post-div { border-top:.5px solid var(--line); margin:12px 16px; }
+.scr-home .exline { display:flex; align-items:center; gap:12px; padding:7px 16px; }
+.scr-home .exn { border-radius:8px; background:var(--card2); color:var(--text); font-size:13px; font-weight:700; padding:5px 9px; flex:0 0 auto; }
+.scr-home .exname-l { font-size:16px; font-weight:500; color:var(--text); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+.scr-home .more-btn { display:block; width:100%; font-size:14.5px; color:var(--mut); padding:8px 0; text-align:center; }
+.scr-home .post-actions { display:flex; padding:6px 4px 0 12px; }
 `;
     document.head.append(st);
   }
@@ -72,23 +78,26 @@ function feedPost(w) {
   renderExs();
 
   const stats = h('div', { class: 'post-stats' },
-    pstat(Calc.fmtDur(w.endedAt - w.startedAt), L10n.s('Time', 'Temps')),
-    pstat(Calc.fmtVol(Calc.vol(w), store.settings.unit), L10n.s('Volume', 'Volume')),
-    pstat(String(prs), '🏅 ' + L10n.s('Records', 'Records')));
+    pstat(L10n.s('Time', 'Temps'), Calc.fmtDur(w.endedAt - w.startedAt)),
+    pstat(L10n.s('Volume', 'Volume'), `${Calc.fmtVol(Calc.vol(w), store.settings.unit)} ${Calc.unitLabel(store.settings.unit)}`),
+    pstat(L10n.s('Records', 'Records'), null, prs));
 
   const card = h('div', { class: 'post', onclick: () => nav.nav.push('workoutDetail', { id: w.id }) },
     h('div', { class: 'post-head' },
       avatarEl(store.settings.profileName, 44),
-      h('div', { style: { flex: '1' } },
+      h('div', { style: { flex: '1', minWidth: '0' } },
         h('div', { class: 'post-author' }, store.settings.profileName),
-        h('div', { class: 'post-when' }, L10n.relativeTime(w.startedAt)))),
+        h('div', { class: 'post-when' }, L10n.relativeTime(w.startedAt))),
+      h('button', { class: 'iconbtn', onclick: e => { e.stopPropagation(); nav.nav.push('workoutDetail', { id: w.id }); } }, icon('more_horiz', { size: 18 }))),
     h('div', { class: 'post-title' }, Calc.dayName(w.startedAt)),
     stats,
+    h('div', { class: 'post-div' }),
     exWrap,
+    h('div', { class: 'post-div' }),
     h('div', { class: 'post-actions', onclick: e => e.stopPropagation() },
-      h('button', { class: 'iconbtn', onclick: () => toast(L10n.s('Added to favorites', 'Ajouté aux favoris')) }, icon('thumb_up', { size: 20 })),
-      h('button', { class: 'iconbtn', onclick: () => toast(L10n.s('Comments coming soon', 'Les commentaires arrivent bientôt')) }, icon('chat_bubble', { size: 20 })),
-      h('button', { class: 'iconbtn', onclick: () => sharePost(w) }, icon('ios_share', { size: 20 })),
+      h('button', { class: 'iconbtn', onclick: () => toast(L10n.s('Added to favorites', 'Ajouté aux favoris')) }, icon('thumb_up')),
+      h('button', { class: 'iconbtn', onclick: () => toast(L10n.s('Comments coming soon', 'Les commentaires arrivent bientôt')) }, icon('chat_bubble')),
+      h('button', { class: 'iconbtn', onclick: () => sharePost(w) }, icon('ios_share')),
     ),
   );
 
@@ -102,8 +111,13 @@ function feedPost(w) {
   return card;
 }
 
-function pstat(v, l) {
-  return h('div', { class: 'pstat' }, h('div', { class: 'v' }, v), h('div', { class: 'l' }, l));
+function pstat(l, v, medal = null) {
+  // FeedStat (Home.kt) : label gris 13sp au-dessus ; valeur 15sp semibold ou « 🏅 N » pour Records.
+  return h('div', { class: 'pstat' + (medal != null ? ' last' : '') },
+    h('div', { class: 'l' }, l),
+    medal != null
+      ? h('div', { class: 'medal' }, '🏅', h('span', {}, String(medal)))
+      : h('div', { class: 'v' }, v));
 }
 
 async function sharePost(w) {

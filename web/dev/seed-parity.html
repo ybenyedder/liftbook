@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Liftbook — seed parité émulateur</title></head>
+<body style="background:#000;color:#F4F8F8;font-family:sans-serif;padding:24px">
+<p>Seed parité (dataset émulateur QA)…</p>
+<script type="module">
+// Seed PARITÉ : reproduit EXACTEMENT le dataset de test émulateur Android (hevyAVD) pour
+// comparer les captures web ↔ Android écran par écran :
+//   routine "Push" = Développé Couché (Barre) 5 séries / Développé Militaire (Barre) 3 /
+//   Élévation Latérale (Haltères) 2 ; séance terminée : 80×8, 82.5×8 (DC), 40×10 (Militaire),
+//   durée ~3 min, PRs calculés par l'app.
+import { store, persistAll, persistSkip } from '../src/store.js';
+
+const now = Date.now(), M = 60_000;
+const t0 = now - 14 * M;
+const S = (kg, reps, done = false) => ({ kg, reps, done, prW: false, prE: false });
+const workout = {
+  id: 1001, name: 'Push', startedAt: t0, endedAt: t0 + 3 * M, notes: '', prs: [],
+  exercises: [
+    { name: 'Barbell Bench Press', muscle: 'Chest', notes: '', superset: false, restSec: 90,
+      sets: [S(80, 8, true), S(82.5, 8, true), S(null, null), S(null, null), S(null, null)] },
+    { name: 'Overhead Press', muscle: 'Shoulders', notes: '', superset: false, restSec: 90,
+      sets: [S(40, 10, true), S(null, null), S(null, null)] },
+    { name: 'Lateral Raise', muscle: 'Shoulders', notes: '', superset: false, restSec: 90,
+      sets: [S(null, null), S(null, null)] },
+  ],
+};
+const routine = {
+  id: 1, name: 'Push', pos: 0, notes: '',
+  exercises: [
+    { name: 'Barbell Bench Press', muscle: 'Chest', notes: '', superset: false, restSec: 90,
+      sets: [S(null, null), S(null, null), S(null, null), S(null, null), S(null, null)] },
+    { name: 'Overhead Press', muscle: 'Shoulders', notes: '', superset: false, restSec: 90,
+      sets: [S(null, null), S(null, null), S(null, null)] },
+    { name: 'Lateral Raise', muscle: 'Shoulders', notes: '', superset: false, restSec: 90,
+      sets: [S(null, null), S(null, null)] },
+  ],
+};
+store.workouts = [workout];
+store.routines = [routine];
+Object.assign(store.settings, { unit: 'kg', restSec: 90, theme: 'dark', accent: 'blue', profileName: 'Athlète', handle: 'athlete' });
+store.photos = [];
+store.customs = [];
+store.skipped = true;
+persistAll(); persistSkip();
+document.querySelector('p').textContent = 'Seed parité OK — retour à l’app…';
+setTimeout(() => location.href = '../index.html', 400);
+</script>
+</body>
+</html>

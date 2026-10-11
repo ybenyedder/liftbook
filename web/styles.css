@@ -65,14 +65,14 @@ input, textarea, select { font-family: inherit; color: var(--text); }
 .t-gold { color: var(--gold); }
 .t-center { text-align: center; }
 
-/* ---- Top bar ---- */
+/* ---- Top bar ---- (App.kt/écrans : Row padding h8 v6 + IconButton 48dp) */
 .topbar {
-  display: flex; align-items: center; gap: 4px; padding: 8px 12px 8px 8px;
-  min-height: 52px; position: sticky; top: 0; background: var(--bg); z-index: 5;
+  display: flex; align-items: center; gap: 4px; padding: 6px 8px;
+  min-height: 60px; position: sticky; top: 0; background: var(--bg); z-index: 5;
 }
-.topbar-title { flex: 1; font-size: 17px; font-weight: 700; }
+.topbar-title { flex: 1; font-size: 16px; font-weight: 600; }
 .iconbtn {
-  width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center;
+  width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center;
   justify-content: center; color: var(--text); flex: 0 0 auto; user-select: none;
 }
 .iconbtn:active { background: var(--card2); }
@@ -142,16 +142,19 @@ input, textarea, select { font-family: inherit; color: var(--text); }
 .searchbar input { flex: 1; background: none; border: none; outline: none; font-size: 14.5px; color: var(--text); }
 .searchbar .msr { color: var(--mut); font-size: 22px; }
 
-/* ---- Barre d'onglets ---- */
+/* ---- Barre d'onglets (NavigationBar M3 : 80dp, pill indicateur 64x32 sur la sélection) ---- */
 .tabbar {
   position: absolute; bottom: 0; left: 0; right: 0; background: var(--navbar);
-  border-top: 1px solid var(--line); display: flex; padding-bottom: env(safe-area-inset-bottom);
+  display: flex; padding-bottom: env(safe-area-inset-bottom);
   z-index: 20;
 }
-.tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 8px 0 7px; color: var(--mut); font-size: 11px; font-weight: 500; }
+.tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 0 16px; color: var(--mut); font-size: 11px; font-weight: 500; }
+.tab .ipill { width: 64px; height: 32px; border-radius: 16px; display: flex;
+  align-items: center; justify-content: center; }
 .tab .msr { font-size: 26px; }
 .tab.sel { color: var(--accent); }
+.tab.sel .ipill { background: var(--card); }
 
 /* ---- Toast ---- */
 .toast-host { position: absolute; left: 0; right: 0; bottom: calc(84px + env(safe-area-inset-bottom));
@@ -210,29 +213,32 @@ input, textarea, select { font-family: inherit; color: var(--text); }
 .menu-item:active { background: var(--card2); }
 
 /* ---- Lignes de réglages ---- */
-.setrow { display: flex; align-items: center; justify-content: space-between; padding: 13px 16px;
-  border-bottom: .5px solid var(--line); width: 100%; text-align: left; font-size: 15px; }
+/* SettingsRow (Settings.kt) : padding h16 v15, titre 15.5sp, valeur 13.5sp */
+.setrow { display: flex; align-items: center; justify-content: space-between; padding: 15px 16px;
+  border-bottom: .5px solid var(--line); width: 100%; text-align: left; font-size: 15.5px; }
 .setrow:last-child { border-bottom: none; }
 .setrow .val { color: var(--mut); font-size: 13.5px; }
 .setrow.red { color: var(--red); }
 .setrow.blue { color: var(--accent); }
-.section-label { font-size: 12px; font-weight: 600; color: var(--mut2); letter-spacing: .6px;
-  text-transform: uppercase; padding: 18px 16px 6px; }
+/* SectionHeader (Settings.kt) : 11sp Bold, letterSpacing 1.1, padding 16/24/4 */
+.section-label { font-size: 11px; font-weight: 700; color: var(--mut2); letter-spacing: 1.1px;
+  text-transform: uppercase; padding: 24px 16px 4px; }
 
 /* ---- Séparateur ---- */
 .hairline { height: .5px; background: var(--line); }
 
 /* ---- État vide ---- */
-.empty { text-align: center; color: var(--mut); font-size: 14.5px; line-height: 1.6;
-  padding: 44px 30px; }
+/* EmptyState (Comps.kt) : 13.5sp, lineHeight 20, padding h20 v30 */
+.empty { text-align: center; color: var(--mut); font-size: 13.5px; line-height: 20px;
+  padding: 30px 20px; white-space: pre-line; }
 
 /* ---- Squelette de liste d'exercices du logger ---- */
 .exsection { margin: 0 0 8px; }
 .exsection-head { display: flex; align-items: center; gap: 10px; padding: 14px 0 4px; }
 .exname { color: var(--accent); font-size: 17px; font-weight: 700; flex: 1; text-align: left; }
-.setgrid-head { display: grid; gap: 6px; padding: 8px 0 6px; color: var(--mut);
+.setgrid-head { display: grid; gap: 6px; padding: 5px 0 4px; color: var(--mut);
   font-size: 11px; font-weight: 600; letter-spacing: .4px; align-items: center; }
-.setrow-grid { display: grid; gap: 6px; align-items: center; margin-bottom: 6px; }
+.setrow-grid { display: grid; gap: 6px; align-items: center; margin-bottom: 10px; }
 .setnum { width: 38px; height: 38px; border-radius: 8px; background: var(--card2); display: flex;
   align-items: center; justify-content: center; font-size: 14px; font-weight: 600; justify-self: center; }
 .setfield {

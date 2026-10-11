@@ -312,7 +312,9 @@ export function bodyMap(front, muscles, w = 34) {
 export function lineChart(points, fmtLabel = v => String(v)) {
   const el = h('div');
   points = (points || []).filter(p => p && Number.isFinite(p.value)); // NaN/Infinity → attribut SVG invalide, courbe morte
-  if (points.length < 2) { el.style.height = '0px'; return el; }
+  // Comps.kt : le Canvas fait toujours 150dp — avec <2 points il reste un bloc vide de
+  // la même hauteur (return@Canvas avant tout dessin), pas un div de hauteur 0.
+  if (points.length < 2) { el.style.height = '150px'; return el; }
   const W = 340, Hh = 150, padL = 6, padR = 54, padT = 16, padB = 20;
   const iw = W - padL - padR, ih = Hh - padT - padB;
   let vals = points.map(p => p.value);

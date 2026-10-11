@@ -152,7 +152,7 @@ function tabBar() {
     bar.append(h('button', {
       class: 'tab' + (sel ? ' sel' : ''),
       onclick: () => navMod.nav.toTab(t.i),
-    }, icon(t.ic, { size: 26 }), h('span', {}, t.label)));
+    }, h('span', { class: 'ipill' }, icon(t.ic, { size: 26 })), h('span', {}, t.label)));
   }
   return bar;
 }

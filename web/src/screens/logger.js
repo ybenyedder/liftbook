@@ -385,7 +385,7 @@ function exCard(ex, ei) {
     isWorkout ? h('div', { class: 'hcell' }, icon('check', { size: 15 })) : h('div'));
 
   const sec = h('div', { class: 'exsection' }, head, notes, restLine,
-    h('div', { style: { height: '8px' } }), headRow, h('div', { style: { height: '4px' } }));
+    h('div', { style: { height: '4px' } }), headRow, h('div', { style: { height: '3px' } }));
   ex.sets.forEach((s, si) => sec.append(setRow(s, si, ex, prev ? prev[si] : null, isCardio)));
 
   // « Ajouter une Série » — fond Card2, copie la dernière, décochée

@@ -78,7 +78,7 @@ function render(el) {
         { label: L10n.s('Training', 'Entraînement', 'Entrenamiento', 'Training'), icon: view === 0 ? 'check' : null, onClick: () => { view = 0; body(); } },
         { label: L10n.s('Calendar', 'Calendrier', 'Calendario', 'Kalender'), icon: view === 1 ? 'check' : null, onClick: () => { view = 1; body(); } },
       ]) },
-        h('div', { class: 't-title' }, L10n.s('Training', 'Entraînement', 'Entrenamiento', 'Training')),
+        h('div', { class: 't-title', style: { fontSize: '26px' } }, L10n.s('Training', 'Entraînement', 'Entrenamiento', 'Training')),
         h('div', { class: 'chev' }, icon('expand_more', { size: 17 })),
       ),
     );
@@ -284,7 +284,7 @@ function renderRoutineDetail(el, { id }) {
   list.append(
     h('div', { style: { fontSize: '26px', fontWeight: 800, padding: '8px 0 2px' } }, r.name),
     h('div', { class: 't-sm', style: { marginBottom: '12px' } },
-      L10n.s('Created by %1$s', 'Créée par %1$s').replace('%1$s', '@' + store.settings.handle)),
+      L10n.s('Created by %1$s', 'Créée par %1$s').replace('%1$s', store.settings.handle)),
     primaryButton(L10n.s('Start routine', 'Commencer la Routine', 'Comenzar la rutina', 'Routine starten'), {
       onClick: () => guard(() => { S.startWorkout(r.id); nav.nav.push('logger'); }),
     }),

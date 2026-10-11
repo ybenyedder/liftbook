@@ -18,6 +18,7 @@ function css() {
   if (!document.getElementById('css-exercises')) {
     const st = h('style', { id: 'css-exercises' });
     st.textContent = `
+.scr-ex .extitle { font-size:22px; font-weight:800; padding:20px 16px 6px; }
 .scr-ex .mkrow { display:flex; align-items:center; gap:8px; margin:4px 16px; padding:10px 12px;
   border-radius:10px; background:var(--card2); color:var(--accent); font-size:13.5px; font-weight:600; cursor:pointer; }
 .scr-ex .exsearch { display:flex; align-items:center; gap:10px; margin:4px 16px 2px; height:52px;
@@ -115,15 +116,11 @@ function renderExercises(el) {
   // Catalogue complet = builtins + customs (équivalent Android EX + registerCustomCatalog).
   const catalog = () => [...EXERCISES, ...store.customs];
 
-  el.append(
-    h('div', { class: 'topbar' },
-      h('button', { class: 'iconbtn', onclick: () => nav.nav.pop() }, icon('arrow_back')),
-      h('div', { class: 'topbar-title' }, L10n.s('Exercises', 'Exercices'))),
-  );
-
+  // Exercises.kt : pas de barre retour — titre inline 22sp ExtraBold (retour = geste/panier nav).
   const chipsRow = h('div', { class: 'chips-row', style: { padding: '6px 16px' } });
   const listBox = h('div', { class: 'exscroll' });
   el.append(
+    h('div', { class: 'extitle' }, L10n.s('Exercises', 'Exercices')),
     h('div', {},
       h('div', {
         class: 'mkrow',
@@ -276,8 +273,8 @@ function renderExerciseDetail(el, { name }) {
     el.append(h('div', { class: 'topbar' },
       h('button', { class: 'iconbtn', onclick: () => nav.nav.pop() }, icon('arrow_back')),
       h('div', {
-        class: 'topbar-title t-center',
-        style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
+        class: 'topbar-title',
+        style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '700', fontSize: '17px' },
       }, exName(name)),
       isCustom
         ? h('button', { class: 'iconbtn', onclick: e => menu(e.currentTarget) }, icon('more_horiz'))

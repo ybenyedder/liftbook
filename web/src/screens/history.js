@@ -200,7 +200,7 @@ function renderDetail(el, { id }) {
 
   el.append(h('div', { class: 'topbar' },
     h('button', { class: 'iconbtn', onclick: () => nav.nav.pop() }, icon('arrow_back')),
-    h('div', { class: 'topbar-title', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, w.name),
+    h('div', { class: 'topbar-title', style: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '700' } }, w.name),
     h('button', { class: 'iconbtn', onclick: e => detailMenu(e.currentTarget, w) }, icon('more_horiz')),
   ));
 

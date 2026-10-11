@@ -10,7 +10,7 @@ import * as nav from '../router.js';
 import * as Calc from '../calc.js';
 import { L10n } from '../search.js';
 
-const VERSION = '1.53'; // version web (bump Android à part dans build.gradle.kts)
+const VERSION = '1.54'; // version web (bump Android à part dans build.gradle.kts)
 
 nav.registerScreen('settings', { render });
 

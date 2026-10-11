@@ -1,7 +1,7 @@
 // Service worker minimal : cache-first sur le shell statique, réseau pour l'API.
 // ⚠️ CACHE doit être bumpé À CHAQUE release : les clients servent sinon l'ancien code
 // à vie (le no-store HTTP ne s'applique pas au Cache Storage).
-const CACHE = 'liftbook-v1.53.1';
+const CACHE = 'liftbook-v1.54';
 const SHELL = [
   'index.html', 'styles.css', 'manifest.webmanifest',
   'assets/material-symbols.css', 'assets/material-symbols.woff2',
