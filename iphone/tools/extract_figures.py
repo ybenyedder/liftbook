@@ -4,7 +4,7 @@ to a TS module of SVG path arrays — exact same artwork, no lossy re-drawing.""
 import re
 from pathlib import Path
 
-RES = Path("/home/cvsbd/hevy/android/app/src/main/res/drawable")
+RES = Path(__file__).resolve().parents[2] / "android/app/src/main/res/drawable"
 MUSCLES = ["Chest", "Shoulders", "Biceps", "Triceps", "Lats", "Lower back", "Traps",
            "Quads", "Hamstrings", "Glutes", "Abductors", "Adductors", "Calves", "Abs", "Forearms"]
 
@@ -39,7 +39,7 @@ for mus in MUSCLES:
     out.append(f'  "{mus}": {{ light: {k}_l, dark: {k}_d }},')
 out.append('  "Cardio": { light: abs_l, dark: abs_d },')
 out.append("};")
-dest = Path("/home/cvsbd/hevy/iphone/src/ui/figures_gen.ts")
+dest = Path(__file__).resolve().parents[2] / "iphone/src/ui/figures_gen.ts"
 dest.parent.mkdir(parents=True, exist_ok=True)
 dest.write_text("\n".join(out) + "\n", encoding="utf-8")
 total = sum(len(p) for m in MUSCLES for p in parse(f"ill_{slug(m)}.xml")["paths"])

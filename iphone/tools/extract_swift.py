@@ -7,12 +7,12 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-ROOT = Path("/home/cvsbd/hevy/android/app/src/main/java/com/hevyclone/app/data")
-DEST = Path("/home/cvsbd/hevy/ios-native/LiftbookCore/Sources/LiftbookCore")
+ROOT = Path(__file__).resolve().parents[2] / "android/app/src/main/java/com/hevyclone/app/data"
+DEST = Path(__file__).resolve().parents[2] / "ios-native/LiftbookCore/Sources/LiftbookCore"
 DEST.mkdir(parents=True, exist_ok=True)
 
 # reuse the JSON extraction (already produced by extract_data.py into iphone/src/data)
-data = json.loads(Path("/home/cvsbd/hevy/iphone/src/data/exdata.json").read_text(encoding="utf-8"))
+data = json.loads((Path(__file__).resolve().parents[2] / "iphone/src/data/exdata.json").read_text(encoding="utf-8"))
 
 def swift_str(s: str) -> str:
     return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
@@ -60,7 +60,7 @@ print(f"ExData.swift: {len(data['exercises'])} exercices, {(DEST / 'ExData.swift
 
 # ---- figures: reuse the XML parsing from extract_figures.py ----
 import re
-RES = Path("/home/cvsbd/hevy/android/app/src/main/res/drawable")
+RES = Path(__file__).resolve().parents[2] / "android/app/src/main/res/drawable"
 MUSCLES = ["Chest", "Shoulders", "Biceps", "Triceps", "Lats", "Lower back", "Traps",
            "Quads", "Hamstrings", "Glutes", "Abductors", "Adductors", "Calves", "Abs", "Forearms"]
 

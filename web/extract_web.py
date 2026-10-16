@@ -9,7 +9,7 @@ import json
 import re
 from pathlib import Path
 
-ROOT = Path("/home/cvsbd/hevy")
+ROOT = Path(__file__).resolve().parents[1]
 EXDATA = ROOT / "iphone/src/data/exdata.json"
 RES = ROOT / "android/app/src/main/res/drawable"
 DEST = ROOT / "web/src"

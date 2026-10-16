@@ -6,7 +6,7 @@ import re
 import sys
 from pathlib import Path
 
-ROOT = Path("/home/cvsbd/hevy/android/app/src/main/java/com/hevyclone/app/data")
+ROOT = Path(__file__).resolve().parents[2] / "android/app/src/main/java/com/hevyclone/app/data"
 DATA = (ROOT / "Data.kt").read_text(encoding="utf-8")
 L10N = (ROOT / "L10nData.kt").read_text(encoding="utf-8")
 
@@ -105,7 +105,7 @@ out = {
     "equipHint": equip_hint,
     "muscles": muscles,
 }
-dest = Path("/home/cvsbd/hevy/iphone/src/data/exdata.json")
+dest = Path(__file__).resolve().parents[2] / "iphone/src/data/exdata.json"
 dest.parent.mkdir(parents=True, exist_ok=True)
 dest.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print(f"{len(exercises)} exercises, {len(name_fr)} FR names, {len(arch_steps)}+{len(arch_steps_fr)} archetypes, "
