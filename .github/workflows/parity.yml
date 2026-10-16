@@ -1,0 +1,48 @@
+name: data-parity
+
+# Garde-fou anti-dérive : les 4 ports (Android / iOS natif / iPhone Expo / web) partagent
+# le catalogue d'exercices extrait des sources Kotlin (Data.kt / L10nData.kt) par des
+# scripts de génération. Si une source Kotlin change sans re-génération commitée
+# (ou inversement un module généré édité à la main), ce job échoue avec le diff.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "android/app/src/main/java/com/hevyclone/app/data/**"
+      - "iphone/tools/extract_data.py"
+      - "iphone/tools/extract_swift.py"
+      - "iphone/tools/extract_figures.py"
+      - "web/extract_web.py"
+      - "iphone/src/data/exdata.json"
+      - "iphone/src/ui/figures_gen.ts"
+      - "web/src/data.js"
+      - "web/src/figures.js"
+      - "ios-native/LiftbookCore/Sources/LiftbookCore/ExData.swift"
+      - "ios-native/LiftbookCore/Sources/LiftbookCore/Figures.swift"
+      - ".github/workflows/parity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: data-parity
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Régénérer les ports depuis les sources Android (source de vérité)
+        run: |
+          python3 iphone/tools/extract_data.py
+          python3 web/extract_web.py
+          python3 iphone/tools/extract_swift.py
+          python3 iphone/tools/extract_figures.py
+      - name: Vérifier l'absence de dérive (diff vs commit)
+        run: |
+          if ! git diff --exit-code; then
+            echo "::error::Dérive génération↔sources Android. Relance les scripts d'extraction (extract_data.py → extract_web.py / extract_swift.py / extract_figures.py) et committe le résultat."
+            exit 1
+          fi
