@@ -2,11 +2,11 @@
 
 Clone fonctionnel de l'app de workout tracking **Hevy**, en **Kotlin natif** (Jetpack Compose, Material 3), UI française complète (**609 exercices traduits** — 16 groupes dont Cardio —, noms alignés sur Hevy : « Tirage Poitrine », « Rowing », « Développé »…) + EN/ES/DE. Implémentation originale : aucun asset ni code de l'app officielle — design recréé par comparaison capture par capture avec les références officielles (Play Store FR) et les captures fournies par l'utilisateur. **Aucune donnée factice** : l'app démarre vide, tout est créé par l'utilisateur.
 
-**Dernière version : Android v1.52 · Web v1.55** — https://github.com/ybenyedder/hevy-clone/releases · CHANGELOG.md
+**Dernière version : Android v1.53 · Web v1.55** — https://github.com/ybenyedder/liftbook/releases · CHANGELOG.md
 
 ## Installation
 
-Télécharge `liftbook-v1.52-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
+Télécharge `liftbook-v1.53-release.apk` depuis la page Releases et installe-le (Android 8+, source inconnue autorisée). APK release R8 signé (~1,7 Mo). La langue suit automatiquement celle du téléphone (FR par défaut chez toi).
 
 ## Fonctions (toutes vérifiées par capture sur émulateur fr-FR ou par test unitaire)
 
