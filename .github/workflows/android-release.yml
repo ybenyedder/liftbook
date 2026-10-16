@@ -41,9 +41,9 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "platform-tools" > /dev/null
       - name: Restituer keystore + local.properties depuis les secrets
         run: |
-          echo "$ANDROID_KEYSTORE_B64" | base64 -d > android/hevy-release.keystore
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d -i > android/hevy-release.keystore
           printf 'sdk.dir=%s\n' "$ANDROID_HOME" > android/local.properties
-          echo "$ANDROID_LOCALPROPS" | base64 -d >> android/local.properties
+          echo "$ANDROID_LOCALPROPS" >> android/local.properties
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
           ANDROID_LOCALPROPS: ${{ secrets.ANDROID_LOCALPROPS }}
