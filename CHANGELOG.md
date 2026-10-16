@@ -2,6 +2,10 @@
 
 Historique des livraisons (les notes complètes vivent dans les messages de commit).
 
+## Android (source de vérité)
+
+- **v1.53 (master, APK à builder)** — Onboarding premier lancement (gate `App.kt`, flag `onboarded` rétro-compatible dans `Settings`, jamais montré si des données existent) · bouton « Répéter la Dernière Séance » à l'écran Entraînement (réutilise `Repo.startRepeat`) · **undo snackbar Material 3** dans le Logger (suppression d'exercice/série, 3 sites, snapshot deep-copy 5 s) · 2 tests unitaires du clonage.
+
 ## Web
 
 - **v1.55** — Bouclier du démarrage : toute donnée du localStorage (séances, routines, photos, customs, brouillon, session, méta sync) passe désormais par les normalisateurs au boot — un localStorage corrompu ne provoque plus de page blanche, les données inexploitables sont écartées avec un toast invitant à restaurer une sauvegarde. Multi-onglets : pendant une séance en cours dans un onglet, les écritures de l'autre onglet sont maintenant aussi *relues* (et pas seulement signalées) — le prochain `persistAll()` ne peut plus écraser l'autre onglet avec une copie périmée.
