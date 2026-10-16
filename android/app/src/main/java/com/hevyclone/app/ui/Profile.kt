@@ -63,7 +63,6 @@ fun ProfileScreen() {
     val ctx = LocalContext.current
     val st = Repo.settings
     val unit = st.unit
-    var heatYear by remember { mutableStateOf(LocalDate.now().year) }
 
     // cached aggregates
     val totalVol = remember(rev) { Calc.totalVol(Repo.workouts) }
@@ -99,12 +98,7 @@ fun ProfileScreen() {
             }
         }
         item(key = "volume-heat") {
-            SectionTitle(
-                L10n.s("Volume", "Volume"),
-                "$heatYear",
-                onYearTap = { heatYear = if (heatYear > LocalDate.now().year - 5) heatYear - 1 else LocalDate.now().year },
-            )
-            HeatmapYear(dayVolumes, heatYear)
+            TrainingDaysGrid(dayVolumes)
         }
         item(key = "streak") {
             val streak = remember(rev) { Calc.streak(Repo.workouts, System.currentTimeMillis()) }
@@ -334,88 +328,184 @@ private fun ProfileStat(value: String, label: String) {
     }
 }
 
+/**
+ * Multi-year training-day grid (GitHub contribution style).
+ * One square per day, lit on the days you trained — in the app accent.
+ * Stacked by year with month labels, fun rest-day caption, and a next-year closer.
+ */
 @Composable
-private fun SectionTitle(title: String, year: String, onYearTap: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(title, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .clip(RoundedCornerShape(999.dp))
-                .clickable { onYearTap() }
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-        ) {
-            Text(year, color = MaterialTheme.colorScheme.primary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text(" ˅", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp)
+private fun TrainingDaysGrid(dayVolumes: Map<String, Double>) {
+    val accent = MaterialTheme.colorScheme.primary
+    val empty = C.Card2
+    val trainedDays = remember(dayVolumes) { dayVolumes.keys }
+    val today = LocalDate.now()
+    val years = remember(trainedDays) {
+        val first = trainedDays.minOrNull()?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: today
+        ((first.year)..(today.year)).toList() // chronological top → bottom
+    }
+
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            L10n.s(
+                "One square per day, lit on the days you trained.",
+                "Un carré par jour, allumé les jours où tu t'es entraîné.",
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+
+        years.forEach { year ->
+            YearGrid(year, dayVolumes, accent, empty, today)
         }
+
+        // Fun rest-day caption (the day of week you almost never train)
+        val restDow = remember(trainedDays) {
+            if (trainedDays.size < 8) null
+            else {
+                val counts = IntArray(7) // Mon=0 … Sun=6
+                for (k in trainedDays) {
+                    val d = runCatching { LocalDate.parse(k) }.getOrNull() ?: continue
+                    counts[(d.dayOfWeek.value + 6) % 7]++
+                }
+                counts.indices.minBy { counts[it] }.takeIf { counts[it] < trainedDays.size / 20.0 }
+            }
+        }
+        if (restDow != null) {
+            val loc = if (L10n.lang == "fr") java.util.Locale.FRENCH else java.util.Locale.US
+            val name = java.time.DayOfWeek.of(restDow + 1)
+                .getDisplayName(java.time.format.TextStyle.FULL, loc)
+                .replaceFirstChar { it.uppercase(loc) }
+            Text(
+                if (L10n.lang == "fr") "$name c'est repos." else "$name is rest day.",
+                color = MaterialTheme.colorScheme.onBackground,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 22.dp),
+            )
+        }
+
+        Text(
+            L10n.s(
+                "See you there in ${today.year + 1}",
+                "Rendez-vous en ${today.year + 1}",
+            ),
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 28.dp),
+        )
     }
 }
 
-/** GitHub-style year heatmap of daily volume, blue intensity in 4 steps. */
 @Composable
-private fun HeatmapYear(dayVolumes: Map<String, Double>, year: Int) {
-    val accent = MaterialTheme.colorScheme.primary
-    val empty = MaterialTheme.colorScheme.surfaceVariant
+private fun YearGrid(
+    year: Int,
+    dayVolumes: Map<String, Double>,
+    accent: Color,
+    empty: Color,
+    today: LocalDate,
+) {
     val days: List<LocalDate> = remember(year) {
         val start = LocalDate.of(year, 1, 1)
         val end = LocalDate.of(year, 12, 31)
         generateSequence(start) { if (it < end) it.plusDays(1) else null }.toList()
     }
     val maxDay = remember(dayVolumes) { dayVolumes.values.maxOrNull() ?: 1.0 }
-    val thisYear = LocalDate.now().year
+    val loc = if (L10n.lang == "fr") java.util.Locale.FRENCH else java.util.Locale.US
+    val trainedCount = remember(year, dayVolumes) {
+        days.count { (dayVolumes[it.toString()] ?: 0.0) > 0.0 }
+    }
 
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Canvas(Modifier.fillMaxWidth().height(96.dp)) {
-            drawHeatmap(days, dayVolumes, maxDay, accent, empty, thisYear)
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "$year",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier.weight(1f),
+            )
+            if (trainedCount > 0) {
+                Text(
+                    L10n.s("$trainedCount days", "$trainedCount jours", "$trainedCount días", "$trainedCount Tage"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        // month labels (12 evenly spaced)
+        Row(Modifier.fillMaxWidth()) {
+            (1..12).forEach { m ->
+                Text(
+                    LocalDate.of(year, m, 1)
+                        .format(java.time.format.DateTimeFormatter.ofPattern("MMM", loc))
+                        .take(3),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         Spacer(Modifier.height(4.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(
-                LocalDate.of(year, 1, 1).format(java.time.format.DateTimeFormatter.ofPattern("MMM", java.util.Locale.FRANCE)),
-                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp,
-            )
-            Text(
-                LocalDate.of(year, 12, 31).format(java.time.format.DateTimeFormatter.ofPattern("MMM", java.util.Locale.FRANCE)),
-                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp,
-            )
+        Canvas(Modifier.fillMaxWidth().height(88.dp)) {
+            drawYearGrid(days, dayVolumes, maxDay, accent, empty, today)
         }
+        Spacer(Modifier.height(10.dp))
     }
 }
 
-private fun DrawScope.drawHeatmap(
+private fun DrawScope.drawYearGrid(
     days: List<LocalDate>,
     dayVolumes: Map<String, Double>,
     maxDay: Double,
     accent: Color,
     empty: Color,
-    currentYear: Int,
+    today: LocalDate,
 ) {
     if (days.isEmpty()) return
     val first = days[0]
     val lead = (first.dayOfWeek.value + 6) % 7   // Monday-first
     val weeks = ((lead + days.size) + 6) / 7
-    val gap = 2f
-    val cell = minOf((size.width - gap * (weeks - 1)) / weeks, (size.height - gap * 6) / 7)
-    val today = LocalDate.now()
+    val gap = 2.2f
+    val cell = minOf(
+        (size.width - gap * (weeks - 1)) / weeks,
+        (size.height - gap * 6) / 7,
+    )
     days.forEach { d ->
         val idx = d.dayOfYear - 1 + lead
         val w = idx / 7
         val dow = idx % 7
         val v = dayVolumes[d.toString()] ?: 0.0
         val future = d > today
+        val isToday = d == today
         val color = when {
-            future -> empty.copy(alpha = 0.35f)
+            future -> empty.copy(alpha = 0.40f)
             v <= 0.0 -> empty
-            else -> accent.copy(alpha = (0.30f + 0.70f * ((v / maxDay).coerceIn(0.0, 1.0)).toFloat()))
+            else -> accent.copy(alpha = (0.45f + 0.55f * ((v / maxDay).coerceIn(0.0, 1.0)).toFloat()))
         }
+        val pad = if (isToday) cell * 0.08f else 0f
         drawRoundRect(
             color = color,
-            topLeft = Offset(w * (cell + gap), dow * (cell + gap)),
-            size = Size(cell, cell),
+            topLeft = Offset(w * (cell + gap) + pad, dow * (cell + gap) + pad),
+            size = Size(cell - pad * 2, cell - pad * 2),
             cornerRadius = CornerRadius(cell * 0.22f),
         )
+        if (isToday) {
+            drawRoundRect(
+                color = accent,
+                topLeft = Offset(w * (cell + gap), dow * (cell + gap)),
+                size = Size(cell, cell),
+                cornerRadius = CornerRadius(cell * 0.22f),
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f),
+            )
+        }
     }
 }

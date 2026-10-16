@@ -77,12 +77,31 @@ function scheduleEnd() {
   endTimer = setTimeout(async () => {
     if (rest.endAt <= 0) return;
     chime();
-    if ('Notification' in window && Notification.permission === 'granted' && document.visibilityState !== 'visible') {
+    if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification('Repos terminé', { body: rest.exName || 'Minuteur de repos', tag: 'liftbook-rest' });
+        new Notification('✅ Repos terminé — à toi !', {
+          body: rest.exName ? `${rest.exName} · prêt pour la prochaine série` : 'Prêt pour la prochaine série',
+          tag: 'liftbook-rest',
+          requireInteraction: true,
+          vibrate: [90, 120, 90, 120, 250],
+        });
       } catch {}
     }
   }, Math.max(0, rest.endAt - Date.now()));
+}
+
+// Onglet en arrière-plan : les setTimeout sont throttlés → on rattrape au retour visible.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (rest.endAt > 0 && Date.now() >= rest.endAt && Date.now() < rest.endAt + 4000) {
+      // le countdown a fini pendant qu'on était ailleurs — chime immédiate
+      chime();
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (rest.endAt > 0 && Date.now() >= rest.endAt && Date.now() < rest.endAt + 4000) chime();
+  });
 }
 
 let audioCtx = null;
@@ -94,10 +113,19 @@ export function chime() {
       .then(r => r.arrayBuffer())
       .then(b => audioCtx.decodeAudioData(b))
       .then(buf => {
-        const src = audioCtx.createBufferSource();
-        src.buffer = buf; src.connect(audioCtx.destination); src.start();
+        // 2 cloches à plein volume — "plus fort et plus long" (gym-proof)
+        const play = (when) => {
+          const src = audioCtx.createBufferSource();
+          const g = audioCtx.createGain();
+          g.gain.value = 1.0;
+          src.buffer = buf; src.connect(g); g.connect(audioCtx.destination);
+          src.start(when);
+        };
+        const t0 = audioCtx.currentTime;
+        play(t0);
+        play(t0 + 0.35);
       })
-      .catch(() => { fallbackBeep(); });
+      .catch(() => { fallbackBeep(); fallbackBeep(); });
   } catch { fallbackBeep(); }
 }
 function fallbackBeep() {
@@ -105,8 +133,8 @@ function fallbackBeep() {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     const o = audioCtx.createOscillator(), g = audioCtx.createGain();
     o.connect(g); g.connect(audioCtx.destination);
-    o.frequency.value = 880; g.gain.value = 0.12;
+    o.frequency.value = 880; g.gain.value = 0.22;
     o.start();
-    o.stop(audioCtx.currentTime + 0.45);
+    o.stop(audioCtx.currentTime + 0.55);
   } catch {}
 }

@@ -67,12 +67,14 @@ function render(el) {
         const inp = h('input', { type: 'email', 'data-k': 'email', placeholder: ' ', value: ev, autocapitalize: 'off', autocomplete: 'email', inputmode: 'email' });
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
         inp.addEventListener('input', refreshSubmit);
+        inp.addEventListener('change', refreshSubmit);
         return h('div', { class: 'fld', style: { marginTop: '26px' } }, inp, h('label', {}, L10n.s('Email', 'Email')));
       })(),
       (() => {
         const inp = h('input', { type: showPwd ? 'text' : 'password', 'data-k': 'pwd', placeholder: ' ', value: pv, autocomplete: mode === 'signin' ? 'current-password' : 'new-password' });
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
         inp.addEventListener('input', refreshSubmit);
+        inp.addEventListener('change', refreshSubmit);
         return h('div', { class: 'fld', style: { marginTop: '12px' } }, inp, h('label', {}, L10n.s('Password', 'Mot de passe')),
           h('button', { class: 'iconbtn eye', onclick: () => { showPwd = !showPwd; paint(); } }, icon(showPwd ? 'visibility_off' : 'visibility', { size: 24, cls: 't-mut' })));
       })(),
@@ -97,6 +99,11 @@ function render(el) {
     body.replaceChildren(...kids.filter(k => k != null && k !== false));
     const e2 = body.querySelector('input[data-k=email]');
     if (e2 && document.activeElement && document.activeElement.dataset && document.activeElement.dataset.k === 'email') e2.focus();
+    // Autofill silencieux (Chrome/Safari password manager) : pas d'event 'input' ni 'change'
+    // → polling léger 3×300 ms après chaque paint pour débloquer le bouton si les champs sont remplis
+    let _af = 0;
+    const _poll = () => { refreshSubmit(); if (++_af < 3) setTimeout(_poll, 300); };
+    setTimeout(_poll, 300);
   }
 
   let errMsg = '';

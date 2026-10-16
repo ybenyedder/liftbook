@@ -123,6 +123,7 @@ object RestTimer {
             totalMs = p.getLong("totalMs", 0L).takeIf { it > 0 }
                 ?: ((saved - System.currentTimeMillis()) / 1000L) * 1000L
             startService(ctx, (totalMs / 1000L).toInt())
+            com.hevyclone.app.RestEndReceiver.schedule(ctx, endAt)
         } else if (saved > 0) {
             p.edit().remove("endAt").remove("total").remove("totalMs").apply()
         }
@@ -134,6 +135,8 @@ object RestTimer {
         appContext?.let {
             prefs(it).edit().putLong("endAt", endAt).putInt("total", sec).putLong("totalMs", totalMs).apply()
             startService(it, sec)
+            // Alarm exact : le chime part même si le service est gelé/tué en tâche de fond.
+            com.hevyclone.app.RestEndReceiver.schedule(it, endAt)
         }
     }
 
@@ -148,7 +151,10 @@ object RestTimer {
 
     /** +15s from the notification button. */
     fun plus15() {
-        if (endAt > 0) { endAt += 15_000L; totalMs += 15_000L; persistEnd() }
+        if (endAt > 0) {
+            endAt += 15_000L; totalMs += 15_000L; persistEnd()
+            appContext?.let { com.hevyclone.app.RestEndReceiver.schedule(it, endAt) }
+        }
     }
 
     /** −15s from the notification button (never below 0.5 s left, never on a finished rest). */
@@ -156,6 +162,7 @@ object RestTimer {
         if (endAt > System.currentTimeMillis()) {
             endAt = maxOf(System.currentTimeMillis() + 500L, endAt - 15_000L)
             persistEnd()
+            appContext?.let { com.hevyclone.app.RestEndReceiver.schedule(it, endAt) }
         }
     }
 
@@ -170,6 +177,7 @@ object RestTimer {
         exMuscle = null
         appContext?.let { ctx ->
             prefs(ctx).edit().remove("endAt").remove("total").remove("totalMs").apply()
+            com.hevyclone.app.RestEndReceiver.cancel(ctx)
             runCatching {
                 ctx.stopService(android.content.Intent(ctx, RestNotifService::class.java))
                 (ctx.getSystemService(android.content.Context.NOTIFICATION_SERVICE) as android.app.NotificationManager)
@@ -188,7 +196,10 @@ object RestTimer {
         totalMs = 0
         exName = null
         exMuscle = null
-        appContext?.let { prefs(it).edit().remove("endAt").remove("total").remove("totalMs").apply() }
+        appContext?.let {
+            prefs(it).edit().remove("endAt").remove("total").remove("totalMs").apply()
+            com.hevyclone.app.RestEndReceiver.cancel(it)
+        }
     }
 }
 

@@ -220,15 +220,21 @@ object Cloud {
     }
 
     private suspend fun onLoggedIn(email: String) {
+        val ctx = appCtx
         if (lastAccount != null && lastAccount != email) {
             // Account switch: this device currently holds the previous account's data.
             withContext(Dispatchers.Main) { Repo.wipe(markDirty = false) }
             clearTombstones()
             dirtyAt = 0L; pushedTs = 0L; lastSeenRemoteTs = 0L
+            // The previous account's profile picture must never leak into the new one.
+            if (ctx != null) AvatarCache.clear(ctx)
         } else if (lastAccount == null && (Repo.workouts.isNotEmpty() || Repo.routines.isNotEmpty())) {
             // First bind of an existing local profile → make sure local data is pushed (merged with remote).
             dirtyAt = System.currentTimeMillis()
         }
+        // Fresh account on a device that still holds a leftover avatar.jpg (signed out then
+        // signed up) — drop it; the new account starts with the letter avatar.
+        if (ctx != null && lastAccount != email) AvatarCache.clear(ctx)
         lastAccount = email
         skipped = false
         persistMeta()
@@ -247,6 +253,8 @@ object Cloud {
             .remove("pkce_verifier").remove("pkce_state").remove("pkce_ts")
             .apply()
         session = null
+        // Local avatar cache is per-account — never show it to the next login.
+        appCtx?.let { AvatarCache.clear(it) }
         skipped = false
         googlePending = false
         syncStatus = null
@@ -802,5 +810,10 @@ object AvatarCache {
     fun file(ctx: Context) = java.io.File(ctx.filesDir, "avatar.jpg")
     fun reload(ctx: Context) {
         bmp = runCatching { android.graphics.BitmapFactory.decodeFile(file(ctx).absolutePath) }.getOrNull()
+    }
+    /** Drop the local photo so a new account never sees the previous one's PP. */
+    fun clear(ctx: Context) {
+        bmp = null
+        runCatching { file(ctx).delete() }
     }
 }

@@ -1,18 +1,106 @@
 package com.hevyclone.app.ui
 
 import android.widget.Toast
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.composed
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 
+/**
+ * Clickable with a spring press-scale + light haptic tick — the "animations when I
+ * click on things" feel. Every interactive row/button/chip goes through here.
+ */
 fun Modifier.clickableNoRipple(onClick: () -> Unit): Modifier = composed {
+    val haptic = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.955f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "pressScale",
+    )
+    this
+        .graphicsLayer {
+            scaleX = scale
+            scaleY = scale
+        }
+        .clickable(
+            interactionSource = interaction,
+            indication = null,
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                onClick()
+            },
+        )
+}
+
+/** Same press feel, but for already-clickable scopes that only want the scale + haptic. */
+fun Modifier.pressScale(): Modifier = composed {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.955f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "pressScale",
+    )
+    this.graphicsLayer { scaleX = scale; scaleY = scale }
+}
+
+/** Light haptic tick on tap (checkboxes, toggles, set-complete). */
+fun Modifier.hapticTap(onTap: () -> Unit): Modifier = composed {
+    val haptic = LocalHapticFeedback.current
     clickable(
         interactionSource = remember { MutableInteractionSource() },
         indication = null,
-        onClick = onClick,
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onTap()
+        },
     )
+}
+
+/**
+ * Open the Basic-Fit app (where the gym-access QR lives). Falls back to the Play Store
+ * when the app isn't installed. We cannot read another app's QR code — Android forbids
+ * it and Basic-Fit has no public API — so the fastest path is a one-tap hop into their app.
+ */
+fun openBasicFit(ctx: android.content.Context) {
+    val pkg = "com.basicfit.android"
+    val launch = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
+        addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        setPackage(pkg)
+        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+    val launched = runCatching {
+        ctx.startActivity(launch)
+        true
+    }.getOrDefault(false)
+    if (!launched) {
+        // Not installed → open the Play Store listing.
+        val store = android.content.Intent(
+            android.content.Intent.ACTION_VIEW,
+            android.net.Uri.parse("market://details?id=$pkg"),
+        ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) }
+        runCatching { ctx.startActivity(store) }.onFailure {
+            runCatching {
+                ctx.startActivity(
+                    android.content.Intent(
+                        android.content.Intent.ACTION_VIEW,
+                        android.net.Uri.parse("https://play.google.com/store/apps/details?id=$pkg"),
+                    ).apply { addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK) },
+                )
+            }
+        }
+    }
 }
 
 fun toast(ctx: android.content.Context, msg: String) {

@@ -58,6 +58,20 @@ function css() {
 .scr-profile .mrow .mnm .v { font-size:12px; color:var(--mut); }
 .scr-profile .mrow .accbar-wrap { margin-top:5px; }
 .scr-profile .pfoot { font-size:11.5px; color:var(--mut); text-align:center; padding:18px 16px 0; }
+/* ---- grille multi-annuelle des jours d'entraînement (TrainingDaysGrid) ---- */
+.scr-profile .tg { padding: 8px 0 4px; }
+.scr-profile .tg-cap { color:var(--mut); font-size:13px; line-height:18px; padding:4px 16px 10px; }
+.scr-profile .tg-year { padding: 6px 16px 12px; }
+.scr-profile .tg-yhead { display:flex; align-items:baseline; margin-bottom:6px; }
+.scr-profile .tg-y { font-size:28px; font-weight:800; letter-spacing:-.4px; flex:1; }
+.scr-profile .tg-ycnt { font-size:12.5px; font-weight:600; color:var(--mut); }
+.scr-profile .tg-months { display:grid; grid-template-columns:repeat(12,1fr); margin-bottom:4px; }
+.scr-profile .tg-m { font-size:9.5px; font-weight:500; color:var(--mut); text-align:center; }
+.scr-profile .tg-grid { display:grid; grid-auto-flow:column; grid-template-rows:repeat(7,1fr); gap:2px; height:88px; }
+.scr-profile .tg-c { border-radius:22%; background:var(--card2); min-width:0; }
+.scr-profile .tg-c.today { box-shadow:0 0 0 1.5px var(--accent); }
+.scr-profile .tg-rest { font-size:26px; font-weight:800; text-align:center; padding:22px 16px; letter-spacing:-.3px; }
+.scr-profile .tg-next { font-size:17px; font-weight:700; color:var(--accent); text-align:center; padding:6px 16px 28px; }
 `;
   document.head.append(st);
 }
@@ -65,7 +79,6 @@ function css() {
 function render(el) {
   css();
   el.classList.add('scr-profile');
-  let heatYear = new Date().getFullYear();
 
   const wrap = h('div', { class: 'screen pscroll' });
   el.append(wrap);
@@ -94,21 +107,13 @@ function render(el) {
       h('button', { class: 'iconbtn', onclick: () => nav.nav.push('settings') }, icon('settings')),
     ));
 
-    /* ---- heatmap annuelle du volume (HeatmapYear + drawHeatmap) ---- */
+    /* ---- grille multi-annuelle des jours d'entraînement (TrainingDaysGrid) ---- */
     const dayVolumes = {};
     for (const w of workouts) {
       const k = Calc.dayKey(w.startedAt);
       dayVolumes[k] = (dayVolumes[k] || 0) + Calc.vol(w);
     }
-    wrap.append(
-      h('div', { class: 'psec-title' },
-        h('div', { class: 'tt' }, L10n.s('Volume', 'Volume')),
-        h('button', {
-          class: 'yearbtn',
-          onclick: () => { heatYear = heatYear > new Date().getFullYear() - 5 ? heatYear - 1 : new Date().getFullYear(); build(); },
-        }, h('span', { class: 'y' }, String(heatYear)), h('span', { class: 'ar' }, ' ˅'))),
-      heatmapYear(dayVolumes, heatYear),
-    );
+    wrap.append(trainingDaysGrid(dayVolumes));
 
     /* ---- pilule série (streak ≥ 2) ---- */
     const streak = Calc.streak(workouts, Date.now());
@@ -257,27 +262,85 @@ function photoThumb(p) {
   return el;
 }
 
-/* HeatmapYear : grille GitHub 53 semaines × 7 lignes lundi-premier (drawHeatmap). */
-function heatmapYear(dayVolumes, year) {
-  const grid = h('div', { class: 'hm' });
-  const start = new Date(year, 0, 1), end = new Date(year, 11, 31);
-  const lead = (start.getDay() + 6) % 7; // lundi-first
+/**
+ * Grille multi-annuelle des jours d'entraînement (parité TrainingDaysGrid.kt).
+ * Un carré par jour, allumé les jours où tu t'es entraîné — en accent de l'app.
+ * Années empilées + labels de mois + caption repos + closer.
+ */
+function trainingDaysGrid(dayVolumes) {
+  const wrap = h('div', { class: 'tg' });
   const today = new Date();
+  const trained = Object.keys(dayVolumes);
+  const first = trained.length
+    ? new Date(Math.min(...trained.map(k => new Date(k).getTime())))
+    : today;
+  const y0 = first.getFullYear();
+  const y1 = today.getFullYear();
+
+  wrap.append(h('div', { class: 'tg-cap' },
+    L10n.s('One square per day, lit on the days you trained.',
+      'Un carré par jour, allumé les jours où tu t\'es entraîné.')));
+
+  for (let year = y0; year <= y1; year++) {
+    wrap.append(yearGrid(year, dayVolumes, today));
+  }
+
+  // caption repos : le jour de semaine le moins entraîné
+  if (trained.length >= 8) {
+    const counts = [0, 0, 0, 0, 0, 0, 0]; // Mon=0 … Sun=6
+    for (const k of trained) {
+      const d = new Date(k);
+      counts[(d.getDay() + 6) % 7]++;
+    }
+    let mi = 0;
+    for (let i = 1; i < 7; i++) if (counts[i] < counts[mi]) mi = i;
+    if (counts[mi] < trained.length / 20) {
+      const name = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][mi];
+      const frName = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'][mi];
+      wrap.append(h('div', { class: 'tg-rest' },
+        L10n.s(`${name} is rest day.`, `${frName} c'est repos.`)));
+    }
+  }
+
+  wrap.append(h('div', { class: 'tg-next' },
+    L10n.s(`See you there in ${y1 + 1}`, `Rendez-vous en ${y1 + 1}`)));
+  return wrap;
+}
+
+function yearGrid(year, dayVolumes, today) {
+  const box = h('div', { class: 'tg-year' });
+  const start = new Date(year, 0, 1), end = new Date(year, 11, 31);
+  const lead = (start.getDay() + 6) % 7;
   const maxDay = Math.max(Calc.maxOf(Object.values(dayVolumes)), 1) || 1;
-  for (let i = 0; i < lead; i++) grid.append(h('div'));
+  let trainedCount = 0;
+  const grid = h('div', { class: 'tg-grid' });
+  for (let i = 0; i < lead; i++) grid.append(h('div', { class: 'tg-c' }));
   for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate()); // clone local
+    const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const key = Calc.dayKey(dd.getTime());
     const v = dayVolumes[key] || 0;
     const future = dd > today;
-    const cell = h('div', { class: 'hmc' });
-    cell.style.background = future || v <= 0 ? 'var(--card2)' : 'var(--accent)';
-    cell.style.opacity = future ? '0.35' : (v <= 0 ? '1' : String(0.30 + 0.70 * Math.max(0, Math.min(1, v / maxDay))));
+    const isToday = dd.toDateString() === today.toDateString();
+    if (v > 0) trainedCount++;
+    const cell = h('div', { class: 'tg-c' + (isToday ? ' today' : '') });
+    if (future) cell.style.opacity = '0.4';
+    else if (v > 0) {
+      cell.style.background = 'var(--accent)';
+      cell.style.opacity = String(0.45 + 0.55 * Math.max(0, Math.min(1, v / maxDay)));
+    }
     grid.append(cell);
   }
-  return h('div', {},
+  const months = h('div', { class: 'tg-months' });
+  for (let m = 0; m < 12; m++) {
+    months.append(h('div', { class: 'tg-m' }, Calc.monthShort(new Date(year, m, 1).getTime()).slice(0, 3)));
+  }
+  box.append(
+    h('div', { class: 'tg-yhead' },
+      h('div', { class: 'tg-y' }, String(year)),
+      trainedCount > 0 ? h('div', { class: 'tg-ycnt' },
+        L10n.s(`${trainedCount} days`, `${trainedCount} jours`)) : null),
+    months,
     grid,
-    h('div', { class: 'hmlabels' },
-      h('span', {}, Calc.monthShort(start.getTime())),
-      h('span', {}, Calc.monthShort(end.getTime()))));
+  );
+  return box;
 }

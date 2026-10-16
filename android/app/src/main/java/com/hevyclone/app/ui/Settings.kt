@@ -220,6 +220,15 @@ fun SettingsScreen() {
                     }
                 }
             }
+            // ---- SALLE (Basic-Fit) ----
+            item {
+                SectionHeader(L10n.s("GYM", "SALLE", "GIMNASIO", "FITNESSSTUDIO"))
+                SettingsRow(
+                    L10n.s("Open Basic-Fit (gym QR)", "Ouvrir Basic-Fit (QR salle)"),
+                    value = L10n.s("One tap to your gym pass", "Un tap pour ton pass salle"),
+                    onClick = { openBasicFit(ctx) },
+                )
+            }
             // ---- DONNÉES ----
             item {
                 SectionHeader(L10n.s("DATA", "DONNÉES", "DATOS", "DATEN"))

@@ -216,6 +216,12 @@ function render(el) {
       h('span', { class: 'val' }, restLabel(store.settings.restSec))));
     list.append(accentRow());
 
+    // ---- SALLE (Basic-Fit) ----
+    list.append(sectionLabel(L10n.s('GYM', 'SALLE', 'GIMNASIO', 'FITNESSSTUDIO')));
+    list.append(h('button', { class: 'setrow', onclick: openBasicFit },
+      L10n.s('Open Basic-Fit (gym QR)', 'Ouvrir Basic-Fit (QR salle)'),
+      h('span', { class: 'val' }, L10n.s('One tap to your gym pass', 'Un tap pour ton pass salle'))));
+
     // ---- DONNÉES ----
     list.append(sectionLabel(L10n.s('DATA', 'DONNÉES', 'DATOS', 'DATEN')));
     list.append(h('button', { class: 'setrow', onclick: () => hevyInput.click() },
@@ -237,6 +243,28 @@ function render(el) {
 
     // pickers cachés (rememberLauncherForActivityResult) — recréés à chaque body()
     list.append(hevyInput, csvInput, restoreInput, photoInput);
+  }
+
+  /** Open the Basic-Fit app (gym QR lives there). Fallback: App Store / Play Store. */
+  function openBasicFit() {
+    const ua = navigator.userAgent || '';
+    const isIOS = /iPad|iPhone|iPod/.test(ua);
+    // Try the app scheme first, then fall back to the store listing.
+    const appUrl = 'basicfit://';
+    const storeUrl = isIOS
+      ? 'https://apps.apple.com/app/basic-fit/id1068833348'
+      : 'https://play.google.com/store/apps/details?id=com.basicfit.android';
+    let fell = false;
+    const timer = setTimeout(() => {
+      if (!fell) window.open(storeUrl, '_blank', 'noopener');
+    }, 900);
+    try {
+      window.location.href = appUrl;
+      setTimeout(() => { fell = true; clearTimeout(timer); }, 700);
+    } catch {
+      clearTimeout(timer);
+      window.open(storeUrl, '_blank', 'noopener');
+    }
   }
 
   /* ---------- COMPTE ---------- */

@@ -32,6 +32,10 @@ import com.hevyclone.app.ui.RestTimer
  * The state lives in [RestTimer] (single source of truth, observed by the in-app RestBar);
  * this service only renders it every 500 ms and handles the notification button actions.
  * When the countdown hits 0 a soft bell chime (res/raw/rest_done.wav) plays once.
+ *
+ * The countdown itself is rendered by the system via [androidx.core.app.NotificationCompat.Builder.setChronometerCountDown]
+ * + setWhen(endAt) — so it keeps ticking even when the process is frozen in the background
+ * (the old Handler-driven text froze while the in-app bar kept counting).
  */
 class RestNotifService : Service() {
 
@@ -45,10 +49,11 @@ class RestNotifService : Service() {
         /** Same notification id the old RestTimer notification used. */
         const val NOTIF_ID = 4242
         private const val CHANNEL = "rest_timer"
+        private const val CHANNEL_DONE = "rest_done"
         private const val TICK_MS = 500L
 
         /** How long the "Repos terminé" state is shown after the timer hits 0. */
-        private const val FINISHED_LINGER_MS = 4000L
+        private const val FINISHED_LINGER_MS = 10_000L
 
         /** Accent blue (same as the in-app rest bar progress line). */
         private val ACCENT = 0xFF028CFD.toInt()
@@ -139,18 +144,18 @@ class RestNotifService : Service() {
     }
 
     /**
-     * Soft bell chime when the rest countdown reaches 0 (Hevy-like).
+     * Stronger + longer end-of-rest chime (Hevy-like, gym-proof).
      *
-     * The chime plays on the notification stream when that stream is audible,
-     * but falls back to the ALARM stream (audible even in silent/vibrate mode
-     * and through DND) when the phone is silenced or notification volume is 0 —
-     * the typical gym setup where the sound would otherwise never be heard.
-     * A short double vibration accompanies it either way.
+     * Plays on the notification stream when audible, falls back to the ALARM stream
+     * (audible even in silent/vibrate/DND) otherwise. The sample is played TWICE
+     * with a short gap and at full gain so it cuts through gym noise; a long
+     * multi-pulse vibration accompanies it either way.
      */
     private fun playDoneChime() {
         runCatching {
             val vib = getSystemService(Vibrator::class.java)
-            vib?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 70, 90, 70), -1))
+            // 0 → 90 → 120 → 90 → 120 → 250 : marqué, long, impossible à rater
+            vib?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 90, 120, 90, 120, 250), -1))
         }
         runCatching {
             releasePlayer()
@@ -168,9 +173,19 @@ class RestNotifService : Service() {
             val afd: AssetFileDescriptor = resources.openRawResourceFd(R.raw.rest_done) ?: return
             mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
             afd.close()
-            mp.setOnCompletionListener { it.release() }
-            mp.setOnErrorListener { p, _, _ -> p.release(); true }
+            mp.setVolume(1.0f, 1.0f)
             mp.prepare()
+            // 1re cloche, puis 2e après 350 ms — "plus fort et plus long"
+            mp.setOnCompletionListener { p ->
+                Handler(Looper.getMainLooper()).postDelayed({
+                    runCatching {
+                        p.seekTo(0); p.start()
+                    }.onFailure {
+                        runCatching { p.release() }
+                    }
+                }, 350)
+            }
+            mp.setOnErrorListener { pl, _, _ -> pl.release(); true }
             mp.start()
             player = mp
         }
@@ -187,27 +202,47 @@ class RestNotifService : Service() {
         nm.createNotificationChannel(
             NotificationChannel(CHANNEL, "Minuteur de repos", NotificationManager.IMPORTANCE_LOW)
         )
+        // Separate high-importance channel for the "Repos terminé" alert — it must cut
+        // through silent/DND when the countdown ends even if the app is backgrounded.
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_DONE, "Fin de repos", NotificationManager.IMPORTANCE_HIGH).apply {
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 90, 120, 90, 120, 250)
+                setSound(null, null) // the chime is played by us on the ALARM stream
+            }
+        )
         val content = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE,
         )
         val finished = RestTimer.endAt > 0 && System.currentTimeMillis() >= RestTimer.endAt
-        val builder = NotificationCompat.Builder(this, CHANNEL)
+        val builder = if (finished) {
+            NotificationCompat.Builder(this, CHANNEL_DONE)
+                .setContentTitle(L10nText.restDone(this))
+                .setSubText(L10nText.restDoneSub(this))
+                .setProgress(totalSecNow(), 0, false)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setAutoCancel(false)
+        } else {
+            val remain = remainingSec()
+            NotificationCompat.Builder(this, CHANNEL)
+                .setContentTitle(L10nText.restRemaining(this, remain))
+                .setProgress(totalSecNow(), remain, false)
+                // System-rendered live countdown — keeps ticking when our process is frozen.
+                .setWhen(RestTimer.endAt)
+                .setUsesChronometer(true)
+                .setChronometerCountDown(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        }
+        builder
             .setSmallIcon(R.drawable.ic_notif)
             .setColor(ACCENT)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setContentIntent(content)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-        if (finished) {
-            builder.setContentTitle(L10nText.restDone(this))
-                .setProgress(totalSecNow(), 0, false)
-        } else {
-            val remain = remainingSec()
-            builder.setContentTitle(L10nText.restRemaining(this, remain))
-                .setProgress(totalSecNow(), remain, false)
-        }
         builder.addAction(0, L10nText.actMinus15(this), actionPendingIntent(ACTION_MINUS15, 1))
         builder.addAction(0, L10nText.actPlus15(this), actionPendingIntent(ACTION_ADD15, 2))
         builder.addAction(0, L10nText.actSkip(this), actionPendingIntent(ACTION_SKIP, 3))
@@ -250,7 +285,10 @@ private object L10nText {
     }
 
     fun restDone(ctx: Context): String =
-        if (fr(ctx)) "Repos terminé" else "Rest complete"
+        if (fr(ctx)) "✅ Repos terminé — à toi !" else "✅ Rest complete — go!"
+
+    fun restDoneSub(ctx: Context): String =
+        if (fr(ctx)) "Prêt pour la prochaine série" else "Ready for the next set"
 
     fun actMinus15(ctx: Context): String =
         if (fr(ctx)) "− 15 s" else "-15s"

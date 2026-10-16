@@ -32,6 +32,27 @@ input, textarea, select { font-family: inherit; color: var(--text); }
 ::placeholder { color: var(--mut2); }
 :focus-visible { outline: none; }
 
+/* ---- Animations de pression partout (feedback tactile) ---- */
+.btn-primary, .btn-sec, .btn-ghost, .btn-white, .btn-blue-row, .chip, .iconbtn,
+.setrow, .card, .tab, .lcard, .menu-item, .restbtn, .addset, .exrow, .pkrow {
+  transition: transform .12s cubic-bezier(.2,.8,.3,1), opacity .12s, background .15s;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.btn-primary:active, .btn-sec:active, .btn-ghost:active, .btn-white:active, .btn-blue-row:active,
+.chip:active, .iconbtn:active, .setrow:active, .lcard:active, .menu-item:active,
+.addset:active, .exrow:active, .pkrow:active, .restbtn:active, .tab:active {
+  transform: scale(0.955);
+  opacity: .88;
+}
+.card:active { transform: scale(0.985); }
+/* Pop d'apparition des cartes / listes */
+@keyframes card-in { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: none; } }
+.card, .psec-title + *, .hm, .mbars { animation: card-in .32s cubic-bezier(.2,.8,.3,1) both; }
+/* Barres du heatmap / volume qui se remplissent */
+.accbar, .mbar, .rest-progress { will-change: width, height; }
+
 /* ---- Conteneur appli : colonne téléphone centrée sur desktop, plein écran sur mobile ---- */
 #app {
   height: 100dvh; max-width: 430px; margin: 0 auto; background: var(--bg);

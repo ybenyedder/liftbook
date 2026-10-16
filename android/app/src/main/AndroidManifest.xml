@@ -59,6 +59,13 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="rest_timer" />
         </service>
+        <receiver
+            android:name=".RestEndReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.hevyclone.app.rest.END" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

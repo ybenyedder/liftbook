@@ -157,6 +157,16 @@ export async function savePhotoBytes(id, blob) {
 }
 export async function setAvatarBlob(blob) { await idbPut('misc', 'avatar', blob); emit('avatar'); }
 export async function avatarBlob() { return idbGet('misc', 'avatar'); }
+/** Drop the local photo so a new account never sees the previous one's PP. */
+export async function clearAvatar() {
+  if (avatarUrlCache) { URL.revokeObjectURL(avatarUrlCache.url); avatarUrlCache = null; }
+  store.settings.avatarUrl = '';
+  try {
+    const d = await db().catch(() => null);
+    if (d) { try { d.transaction('misc', 'readwrite').objectStore('misc').delete('avatar'); } catch {} }
+  } catch {}
+  emit('avatar');
+}
 /* Object URL de l'avatar MIS EN CACHE : les écrans en créaient un neuf à chaque rendu
    (fuite d'URLs) — un seul, révoqué quand le blob change. */
 let avatarUrlCache = null;
@@ -744,6 +754,11 @@ export async function applySession(session) {
     wipe(false);
     store.delW = []; store.delR = []; store.delP = []; store.delC = []; store.pendingDelObjs = [];
     store.dirtyAt = 0; store.pushedTs = 0; store.lastSeenRemoteTs = 0;
+    // la PP du compte précédent ne doit jamais fuiter dans le nouveau
+    await clearAvatar();
+  } else if (previousAccount !== session.userId) {
+    // first login / signup on this browser — drop any leftover local avatar
+    await clearAvatar();
   }
   // hadLocalData APRÈS l'éventuel wipe (sinon le dialogue s'armait à vide au changement de compte)
   const hadLocalData = store.workouts.length > 0 || store.routines.length > 0 || store.customs.length > 0;
@@ -773,6 +788,8 @@ export async function signOutNow() {
   const s = store.session;
   store.session = null;
   persistSessionNow();
+  // la photo de profil est par compte : jamais montrée au prochain login
+  await clearAvatar();
   // reste PKCE de Google : parité Cloud.kt signOut (verifier à usage unique mais ne doit pas traîner)
   try {
     localStorage.removeItem('lb.pkce_verifier');
