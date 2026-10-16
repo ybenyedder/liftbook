@@ -658,13 +658,16 @@ const MAX_SETS = 1000, MAX_EX = 200, MAX_STR = 500;
 /** Liste d'exercices bornée (cloud, backup, localStorage au boot) : kg/reps/mins/km
  *  finis uniquement (Infinity/NaN corrompent JSON.stringify en null, les graphes et la sync).
  *  mode 'workout' : done conservé, PRs conservées — 'routine' et brouillon : tout à false. */
+/** Garde numérique stockée : fini ET raisonnable (1e308 est « fini » mais explose les
+ *  graphes SVG et JSON.stringify le garde en 1e+308 — parité avec la garde d'entrée toKg). */
+const fin = v => (Number.isFinite(v) && Math.abs(v) <= 1e6 ? v : null);
 function normExs(list, mode = 'workout') {
   const keepDone = mode === 'workout';
   return (Array.isArray(list) ? list : []).slice(0, MAX_EX).map(e => ({
     name: e.name, muscle: e.muscle || '', notes: String(e.notes || '').slice(0, MAX_STR * 20), superset: !!e.superset, restSec: e.restSec ?? null,
     sets: (Array.isArray(e.sets) ? e.sets : []).slice(0, MAX_SETS).map(s => ({
-      kg: Number.isFinite(s.kg) ? s.kg : null, reps: Number.isFinite(s.reps) ? s.reps : null,
-      mins: Number.isFinite(s.mins) ? s.mins : null, km: Number.isFinite(s.km) ? s.km : null,
+      kg: fin(s.kg), reps: fin(s.reps),
+      mins: fin(s.mins), km: fin(s.km),
       done: keepDone ? s.done !== false : !!s.done,
       prW: keepDone ? !!s.prW : false, prE: keepDone ? !!s.prE : false,
     })),
