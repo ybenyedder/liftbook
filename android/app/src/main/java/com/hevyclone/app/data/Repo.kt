@@ -374,11 +374,12 @@ object Repo {
         .replace(Regex("\\p{Mn}+"), "")
         .replace(Regex("[^a-z0-9]"), "")
 
-    /** True when a custom name would shadow a catalog exercise (EN key OR localized display name). */
+    /** True when a custom name would shadow a catalog exercise (EN key OR FR alias) —
+     *  locale-agnostique : sur un appareil EN, un custom collerait quand même à l'affichage FR d'une synchro. */
     fun customNameTaken(raw: String): Boolean {
         val n = normName(raw)
         if (n.isEmpty()) return false
-        return EXERCISES.any { normName(it.name) == n || normName(L10nData.name(it.name)) == n }
+        return EXERCISES.any { normName(it.name) == n || normName(L10nData.NAME_FR[it.name] ?: it.name) == n }
     }
 
     fun addCustom(nameRaw: String, muscle: String, equip: String): CustomExDef? {
