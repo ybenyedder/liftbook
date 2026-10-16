@@ -29,4 +29,10 @@ Historique des livraisons (les notes complètes vivent dans les messages de comm
 
 ## CI
 
-- **data-parity** (nouveauté) — job GitHub Actions qui re-génère les 4 ports depuis les sources Kotlin (`extract_data.py` → `extract_web.py` / `extract_swift.py` / `extract_figures.py`) et échoue avec le diff si les modules générés divergent du commit.
+- **data-parity** — job GitHub Actions qui re-génère les 4 ports depuis les sources Kotlin (`extract_data.py` → `extract_web.py` / `extract_swift.py` / `extract_figures.py`) et échoue avec le diff si les modules générés divergent du commit.
+- **android-release** (nouveau) — build+tests+APK signé sur les runners GitHub (keystore et local.properties fournis par les secrets `ANDROID_KEYSTORE_B64` / `ANDROID_LOCALPROPS`), release automatique au push d'un tag `v*`, dispatch manuel possible.
+
+## Serveur (2026-10-16)
+
+- **Rate limiting auth actif** (audit P2-5) : `docker-compose.override.yml` sur le Supabase (machine .192) injecte `GOTRUE_RATE_LIMIT_TOKEN_REFRESH=150`, `EMAIL_SENT=30`, `SMS_SENT=30`, `VERIFY=30` et surtout `GOTRUE_RATE_LIMIT_HEADER=X-Forwarded-For` — sans ce header, GoTrue OSS ignore ses propres limites (vérifié dans le code source v2.186.0, `internal/api/middleware.go`). Re-test brutal : 170 requêtes → 31×400 puis **139×429**. Fusible : supprimer l'override + `docker compose up -d auth --force-recreate`.
+- Headers sécurité, timeout slowloris, listing interdit, systemd durci : **déjà en place** (vérifié live sur liftbook.webtvmedia.net et 192.168.1.87:8913).
