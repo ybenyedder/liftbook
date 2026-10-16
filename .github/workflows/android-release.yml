@@ -1,0 +1,72 @@
+name: android-release
+
+# Build+signe l'APK Android avec le keystore du projet (secrets GitHub) et publie la
+# release quand on pousse un tag v*. Validation continue : CLI manual build sans release.
+# Le keystore vit SUR DISQUE chez le dev (android/hevy-release.keystore) ET dans les
+# secrets (ANDROID_KEYSTORE_B64 + ANDROID_LOCALPROPS) pour que la machine de build
+# puisse être rendue par quelqu'un d'autre (aucun secret en clair dans le repo, cf. audit).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      release:
+        description: "Créer la release GitHub avec l'APK"
+        type: boolean
+        default: false
+      tag:
+        description: "Tag de release (v1.53, …)"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: SDK Android (platform 36 + licences, idempotent)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "platform-tools" > /dev/null
+      - name: Restituer keystore + local.properties depuis les secrets
+        run: |
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > android/hevy-release.keystore
+          printf 'sdk.dir=%s\n' "$ANDROID_HOME" > android/local.properties
+          echo "$ANDROID_LOCALPROPS" | base64 -d >> android/local.properties
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          ANDROID_LOCALPROPS: ${{ secrets.ANDROID_LOCALPROPS }}
+      - name: Tests unitaires + APK signé
+        run: cd android && ./gradlew :app:testReleaseUnitTest :app:assembleRelease --no-daemon
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: liftbook-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+      - name: Release GitHub (tag push ou dispatch.release=true)
+        if: >-
+          startsWith(github.ref, 'refs/tags/') ||
+          (github.event_name == 'workflow_dispatch' && inputs.release == true)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd android
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then TAG="${{ inputs.tag }}"; fi
+          if [ -z "$TAG" ] || [ "$TAG" = "main" ]; then echo "tag non fourni (dispatch.release sans inputs.tag) — release sautée"; exit 1; fi
+          cp app/build/outputs/apk/release/app-release.apk "../liftbook-${TAG}-release.apk"
+          printf 'Build Android signé automatiquement par la CI. Notes détaillées : CHANGELOG.md à la racine.\n' > /tmp/notes.md
+          gh release view "$TAG" >/dev/null 2>&1 \
+            && gh release upload "$TAG" --clobber "../liftbook-${TAG}-release.apk" \
+            || gh release create "$TAG" "../liftbook-${TAG}-release.apk" \
+                 --title "Liftbook ${TAG} (CI)" --notes-file /tmp/notes.md
