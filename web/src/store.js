@@ -182,18 +182,54 @@ export async function avatarObjectUrl() {
 /* ============================== boot ============================== */
 const builtinNames = new Set(EXERCISES.map(e => e.name));
 
+function normMeta(m) {
+  return {
+    dirtyAt: +m.dirtyAt || 0, pushedTs: +m.pushedTs || 0, lastSeenRemoteTs: +m.lastSeenRemoteTs || 0,
+    lastAccount: typeof m.lastAccount === 'string' ? m.lastAccount : '',
+    delW: arr(m.delW).map(Number).filter(Number.isFinite).slice(0, 5000),
+    delR: arr(m.delR).filter(x => typeof x === 'string').slice(0, 5000),
+    delP: arr(m.delP).map(Number).filter(Number.isFinite).slice(0, 5000),
+    delC: arr(m.delC).filter(x => typeof x === 'string').slice(0, 5000),
+    pendingDelObjs: arr(m.pendingDelObjs).filter(x => typeof x === 'string').slice(0, 500),
+  };
+}
+/** Brouillon corrompu (localStorage édité / ancien bug) : jamais de page blanche au boot. */
+function normalizeDraft(d) {
+  if (!d || typeof d !== 'object') return null;
+  const mode = d.mode === 'routine' ? 'routine' : 'workout';
+  return {
+    mode, routineId: d.routineId ?? null,
+    name: String(d.name || '').slice(0, MAX_STR) || (mode === 'routine' ? 'Nouvelle Routine' : 'Séance'),
+    startedAt: mode === 'workout' ? (Number.isFinite(+d.startedAt) ? +d.startedAt : Date.now()) : null,
+    notes: String(d.notes || '').slice(0, MAX_STR * 20),
+    exercises: normExs(d.exercises, mode),
+  };
+}
+function normalizeSession(v) {
+  if (!v || typeof v !== 'object' || typeof v.userId !== 'string' || !v.userId) return null;
+  return v;
+}
+/* Liste lue du disque avec normalisation : une donnée corrompue (localStorage retouché,
+ * ancien version du format, backup malveillant) ne doit JAMAIS tuer le boot — on jette,
+ * on signale, l'utilisateur récupère via sa sauvegarde JSON (audit P1-3 vecteur 5). */
+function saneStoreGet(key, fallback, norm, repaired) {
+  const raw = lsGet(key, null);
+  if (raw == null) return fallback;
+  try { return norm(raw); } catch { repaired.length++; return fallback; }
+}
 export function init() {
-  store.workouts = arr(lsGet('workouts', []));
-  store.routines = arr(lsGet('routines', []));
-  store.photos = arr(lsGet('photos', []));
-  store.customs = arr(lsGet('customs', []));
+  const repaired = [];
+  store.workouts = saneStoreGet('workouts', [], v => arr(v).map(w => normalizeWorkout(w)), repaired);
+  store.routines = saneStoreGet('routines', [], v => arr(v).map(normalizeRoutine), repaired);
+  store.photos = saneStoreGet('photos', [], v => arr(v).map(p => ({ id: +p.id, ts: +p.ts, wId: p.wId ?? null, note: String(p.note || '').slice(0, MAX_STR), kg: Number.isFinite(p.kg) ? p.kg : null, remote: REMOTE_RE.test(p.remote || '') ? p.remote : '' })).filter(p => Number.isFinite(p.ts)), repaired);
+  store.customs = saneStoreGet('customs', [], v => arr(v).filter(c => c && typeof c.name === 'string' && c.name.length <= MAX_STR).slice(0, 500), repaired);
   // normalizeSettings bloque aussi __proto__ depuis le localStorage local (défense en profondeur)
   store.settings = Object.assign({}, store.settings, normalizeSettings(lsGet('settings', {})) || {});
   if (!store.settings.since) store.settings.since = Date.now();
-  store.draft = lsGet('draft', null);
+  store.draft = saneStoreGet('draft', null, normalizeDraft, repaired);
   store.skipped = lsGet('skipped', false);
-  store.session = lsGet('session', null);
-  const meta = lsGet('meta', {});
+  store.session = saneStoreGet('session', null, normalizeSession, repaired);
+  const meta = saneStoreGet('meta', {}, normMeta, repaired);
   Object.assign(store, {
     dirtyAt: meta.dirtyAt || 0, pushedTs: meta.pushedTs || 0, lastSeenRemoteTs: meta.lastSeenRemoteTs || 0,
     lastAccount: meta.lastAccount || '', delW: arr(meta.delW), delR: arr(meta.delR),
@@ -202,16 +238,19 @@ export function init() {
   applyCustoms(store.customs);
   store.prCache = Calc.rebuildPrs(store.workouts);
   persistAll();
+  if (repaired.length) emit('repaired');
 }
 
-/** Recharge les données depuis le disque (multi-onglets : l'autre onglet vient d'écrire). */
+/** Recharge les données depuis le disque (multi-onglets : l'autre onglet vient d'écrire).
+ *  Même bouclier que init() : une écriture externe corrompue ne doit pas tuer cette page. */
 export function reloadFromDisk() {
-  store.workouts = arr(lsGet('workouts', store.workouts));
-  store.routines = arr(lsGet('routines', store.routines));
-  store.photos = arr(lsGet('photos', store.photos));
-  store.customs = arr(lsGet('customs', store.customs));
+  const repaired = [];
+  store.workouts = saneStoreGet('workouts', store.workouts, v => arr(v).map(w => normalizeWorkout(w)), repaired);
+  store.routines = saneStoreGet('routines', store.routines, v => arr(v).map(normalizeRoutine), repaired);
+  store.photos = saneStoreGet('photos', store.photos, v => arr(v).map(p => ({ id: +p.id, ts: +p.ts, wId: p.wId ?? null, note: String(p.note || '').slice(0, MAX_STR), kg: Number.isFinite(p.kg) ? p.kg : null, remote: REMOTE_RE.test(p.remote || '') ? p.remote : '' })).filter(p => Number.isFinite(p.ts)), repaired);
+  store.customs = saneStoreGet('customs', store.customs, v => arr(v).filter(c => c && typeof c.name === 'string' && c.name.length <= MAX_STR).slice(0, 500), repaired);
   store.settings = Object.assign({}, store.settings, normalizeSettings(lsGet('settings', {})) || {});
-  const meta = lsGet('meta', {});
+  const meta = saneStoreGet('meta', {}, normMeta, repaired);
   Object.assign(store, {
     dirtyAt: meta.dirtyAt || 0, pushedTs: meta.pushedTs || 0, lastSeenRemoteTs: meta.lastSeenRemoteTs || 0,
     lastAccount: meta.lastAccount || '', delW: arr(meta.delW), delR: arr(meta.delR),
@@ -616,32 +655,34 @@ export function snapshot() {
 
 const normW = w => normalizeWorkout(w);
 const MAX_SETS = 1000, MAX_EX = 200, MAX_STR = 500;
+/** Liste d'exercices bornée (cloud, backup, localStorage au boot) : kg/reps/mins/km
+ *  finis uniquement (Infinity/NaN corrompent JSON.stringify en null, les graphes et la sync).
+ *  mode 'workout' : done conservé, PRs conservées — 'routine' et brouillon : tout à false. */
+function normExs(list, mode = 'workout') {
+  const keepDone = mode === 'workout';
+  return (Array.isArray(list) ? list : []).slice(0, MAX_EX).map(e => ({
+    name: e.name, muscle: e.muscle || '', notes: String(e.notes || '').slice(0, MAX_STR * 20), superset: !!e.superset, restSec: e.restSec ?? null,
+    sets: (Array.isArray(e.sets) ? e.sets : []).slice(0, MAX_SETS).map(s => ({
+      kg: Number.isFinite(s.kg) ? s.kg : null, reps: Number.isFinite(s.reps) ? s.reps : null,
+      mins: Number.isFinite(s.mins) ? s.mins : null, km: Number.isFinite(s.km) ? s.km : null,
+      done: keepDone ? s.done !== false : !!s.done,
+      prW: keepDone ? !!s.prW : false, prE: keepDone ? !!s.prE : false,
+    })),
+  }));
+}
 function normalizeWorkout(w) {
   return {
     id: +w.id, name: String(w.name || 'Séance').slice(0, MAX_STR), startedAt: +w.startedAt, endedAt: +w.endedAt,
     uTs: Number.isFinite(+w.uTs) ? +w.uTs : 0,
     notes: String(w.notes || '').slice(0, MAX_STR * 20),
     prs: (Array.isArray(w.prs) ? w.prs : []).slice(0, MAX_EX).map(p => ({ ex: p.ex, kind: p.kind, value: +p.value })),
-    exercises: (Array.isArray(w.exercises) ? w.exercises : []).slice(0, MAX_EX).map(e => ({
-      name: e.name, muscle: e.muscle || '', notes: String(e.notes || '').slice(0, MAX_STR * 20), superset: !!e.superset, restSec: e.restSec ?? null,
-      sets: (Array.isArray(e.sets) ? e.sets : []).slice(0, MAX_SETS).map(s => ({
-        kg: Number.isFinite(s.kg) ? s.kg : null, reps: Number.isFinite(s.reps) ? s.reps : null,
-        mins: Number.isFinite(s.mins) ? s.mins : null, km: Number.isFinite(s.km) ? s.km : null,
-        done: s.done !== false, prW: !!s.prW, prE: !!s.prE,
-      })),
-    })),
+    exercises: normExs(w.exercises, 'workout'),
   };
 }
 function normalizeRoutine(r) {
   return {
     id: +r.id, name: String(r.name || 'Routine').slice(0, MAX_STR), pos: +(r.pos || 0),
-    exercises: (Array.isArray(r.exercises) ? r.exercises : []).slice(0, MAX_EX).map(e => ({
-      name: e.name, muscle: e.muscle || '', notes: String(e.notes || '').slice(0, MAX_STR * 20), superset: !!e.superset, restSec: e.restSec ?? null,
-      sets: (Array.isArray(e.sets) ? e.sets : []).slice(0, MAX_SETS).map(s => ({
-        kg: s.kg ?? null, reps: s.reps ?? null, mins: s.mins ?? null, km: s.km ?? null,
-        done: s.done !== false, prW: false, prE: false,
-      })),
-    })),
+    exercises: normExs(r.exercises, 'routine'),
   };
 }
 /** Format attendu d'un chemin d'objet photo distante : « {uid}/ph_{id}.jpg ». */

@@ -67,11 +67,20 @@ const boot = async () => {
           'Another tab modified the data — finish your workout here, then reload',
           'Un autre onglet a modifié les données — termine ta séance ici puis recharge')));
       }
+      // Séance en cours : on recharge QUAND MÊME les données partagées (workouts, routines,
+      // customs, photos, meta) — sinon notre prochain persistAll() réécraserait l'onglet
+      // qui vient d'écrire avec une copie périmée. Le brouillon lui-même n'est pas concerné :
+      // rester en mémoire (reloadFromDisk ne le touche pas).
+      clearTimeout(storageDebounce);
+      storageDebounce = setTimeout(() => { storeMod.reloadFromDisk(); renderAll(); }, 150);
       return;
     }
     clearTimeout(storageDebounce);
     storageDebounce = setTimeout(() => { storeMod.reloadFromDisk(); renderAll(); }, 150);
   });
+  storeMod.on('repaired', () => import('./ui.js').then(ui => ui.toast(L10n.s(
+    'Corrupted local data was discarded — restore a backup from Settings',
+    'Données locales corrompues écartées — restaure une sauvegarde depuis les Réglages'))));
 
   // sync : au boot (400 ms) et au retour de visibilité (onStart Android)
   if (store.session && !store.pendingLocalMerge) storeMod.requestSync(400);
