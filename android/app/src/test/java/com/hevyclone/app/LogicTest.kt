@@ -414,4 +414,79 @@ class LogicTest {
         assertEquals(listOf("Tirage Majorette"), back.delC)
         assertEquals(4, back.v)
     }
+
+    @Test
+    fun `startRepeat clones the last workout into a fresh draft`() {
+        val repo = com.hevyclone.app.data.Repo
+        val saved = repo.workouts.toList()
+        val savedDraft = repo.draft
+        try {
+            // aucune séance terminée → rien à répéter, le brouillon reste inexistant
+            repo.workouts.clear()
+            repo.draft = null
+            repo.startRepeat(null)
+            assertNull(repo.draft)
+
+            // répéter la dernière : exercices ordonnés, kg/reps copiés, cases à false
+            val source = w(1, 1000L, "Barbell Bench Press" to listOf(
+                Triple(80.0, 8, true),
+                Triple(85.0, 6, false),
+            ))
+            repo.workouts.add(source)
+            repo.startRepeat(null)
+            val draft = repo.draft
+            assertNotNull(draft)
+            assertEquals("workout", draft!!.mode)
+            assertEquals("W1", draft.name)
+            assertTrue(draft.startedAt!! >= source.startedAt)
+            assertEquals(listOf("Barbell Bench Press"), draft.exercises.map { it.name })
+            assertEquals(listOf(80.0, 85.0), draft.exercises[0].sets.map { it.kg })
+            assertEquals(listOf(8, 6), draft.exercises[0].sets.map { it.reps })
+            assertTrue(draft.exercises.all { ex -> ex.sets.all { s -> !s.done && !s.prW && !s.prE } })
+            // copie profonde : muter le brouillon ne touche pas l'historique
+            draft.exercises[0].sets[0].kg = 999.0
+            draft.exercises[0].sets.removeAt(1)
+            assertEquals(80.0, source.exercises[0].sets[0].kg!!, 1e-9)
+            assertEquals(2, source.exercises[0].sets.size)
+
+            // id explicite → cible la séance donnée, pas la plus récente
+            repo.workouts.add(w(2, 2000L, "Barbell Squat" to listOf(Triple(140.0, 5, true))))
+            repo.startRepeat(1L)
+            assertEquals("W1", repo.draft!!.name)
+            assertEquals(listOf("Barbell Bench Press"), repo.draft!!.exercises.map { it.name })
+        } finally {
+            repo.workouts.clear()
+            repo.workouts.addAll(saved)
+            repo.draft = savedDraft
+        }
+    }
+
+    @Test
+    fun `draft delete-undo snapshot is an independent deep copy`() {
+        val repo = com.hevyclone.app.data.Repo
+        val savedDraft = repo.draft
+        try {
+            val d = com.hevyclone.app.data.Draft(
+                "workout", null, "Push", 42L, "note",
+                mutableListOf(com.hevyclone.app.data.ExEntry(
+                    "Barbell Bench Press", "Chest", "", false, 90,
+                    mutableListOf(com.hevyclone.app.data.SetEntry(80.0, 8, done = true)),
+                )),
+            )
+            repo.draft = d
+            val snap = repo.deepDraftCopy()
+            assertNotNull(snap)
+            assertEquals("Push", snap!!.name)
+            assertEquals(90, snap.exercises[0].restSec)
+            assertEquals(80.0, snap.exercises[0].sets[0].kg!!, 1e-9)
+            assertTrue(snap.exercises[0].sets[0].done)
+            // le snapshot survit aux mutations faites au brouillon après capture
+            d.exercises[0].sets[0].kg = 999.0
+            d.exercises[0].sets[0].done = false
+            assertEquals(80.0, snap.exercises[0].sets[0].kg!!, 1e-9)
+            assertTrue(snap.exercises[0].sets[0].done)
+        } finally {
+            repo.draft = savedDraft
+        }
+    }
 }

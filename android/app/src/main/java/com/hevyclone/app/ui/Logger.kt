@@ -66,6 +66,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -93,6 +97,7 @@ import androidx.compose.ui.unit.sp
 import com.hevyclone.app.R
 import com.hevyclone.app.RestNotifService
 import com.hevyclone.app.data.Calc
+import com.hevyclone.app.data.Draft
 import com.hevyclone.app.data.ExEntry
 import com.hevyclone.app.data.MUSCLES
 import com.hevyclone.app.data.EXERCISES
@@ -212,6 +217,25 @@ object PrBadge {
     }
 }
 
+/**
+ * Delete-undo for the Logger: `snap` is a deep copy of the draft as it was BEFORE the
+ * removal, `label` is the snackbar text. The snackbar itself lives in LoggerScreen.
+ */
+object DraftUndo {
+    var snap by mutableStateOf<Draft?>(null)
+    var label by mutableStateOf("")
+}
+
+/** Snapshot the draft (pre-deletion), then perform the removal — feeds the undo snackbar. */
+fun deleteWithUndo(message: String, action: () -> Unit) {
+    val before = Repo.deepDraftCopy()
+    action()
+    if (before != null) {
+        DraftUndo.snap = before
+        DraftUndo.label = message
+    }
+}
+
 @Composable
 fun PrBadgeHost() {
     val b = PrBadge.current ?: return
@@ -270,6 +294,7 @@ fun LoggerScreen() {
     var showNotesDialog by remember { mutableStateOf(false) }
     var nameText by remember(draft) { mutableStateOf(draft.name) }
     var dragIndex by remember { mutableStateOf(-1) }   // exercise being dragged
+    val snackbar = remember { SnackbarHostState() }
 
     fun moveExercise(from: Int, to: Int) {
         val list = draft.exercises
@@ -499,6 +524,34 @@ fun LoggerScreen() {
         if (isWorkout) {
             Box(Modifier.align(Alignment.TopCenter)) { PrBadgeHost() }
         }
+        // Delete-undo snackbar (Material3), bottom center above the system bar
+        SnackbarHost(
+            hostState = snackbar,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = 10.dp),
+        )
+        // Show the snackbar while a pre-deletion snapshot is pending; cancelling the
+        // restart on a newer delete is exactly what we want (undo only covers the latest).
+        LaunchedEffect(DraftUndo.snap) {
+            val before = DraftUndo.snap ?: return@LaunchedEffect
+            val result = snackbar.showSnackbar(
+                DraftUndo.label,
+                actionLabel = L10n.s("Undo", "Annuler"),
+                duration = SnackbarDuration.Indefinite,
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                Repo.restoreDraftSnapshot(before)
+            }
+            DraftUndo.snap = null
+        }
+        // ~5 s of visibility: dismiss the indefinite snackbar ourselves.
+        LaunchedEffect(DraftUndo.snap) {
+            if (DraftUndo.snap == null) return@LaunchedEffect
+            delay(5000)
+            snackbar.currentSnackbarData?.dismiss()
+        }
     }
 
     // ---- pickers / dialogs ----
@@ -725,8 +778,10 @@ private fun ExCard(
                         leadingIcon = { Icon(Icons.Rounded.Delete, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp)) },
                         onClick = {
                             menuOpen = false
-                            Repo.draft?.exercises?.removeAll { it === ex }
-                            Repo.touchPublic()
+                            deleteWithUndo(L10n.s("Exercise deleted", "Exercice supprimé")) {
+                                Repo.draft?.exercises?.removeAll { it === ex }
+                                Repo.touchPublic()
+                            }
                         },
                     )
                 }
@@ -976,12 +1031,18 @@ private fun SetRow(
                 DropdownMenuItem(text = { Text(L10n.s("Delete set", "Supprimer la série"), color = MaterialTheme.colorScheme.error) }, leadingIcon = { Icon(Icons.Rounded.Delete, null, modifier = Modifier.size(15.dp)) }, onClick = {
                     menuOpen = false
                     // By identity: a double-tap before recomposition must not delete the neighbour.
-                    Repo.draft?.exercises?.let { list ->
-                        val exx = list.getOrNull(ei) ?: return@let
-                        if (exx.sets.size == 1) list.removeAll { it === exx }
-                        else exx.sets.removeAll { it === s }
+                    val lastSet = Repo.draft?.exercises?.getOrNull(ei)?.sets?.let { it.size == 1 } == true
+                    deleteWithUndo(
+                        if (lastSet) L10n.s("Exercise deleted", "Exercice supprimé")
+                        else L10n.s("Set deleted", "Série supprimée"),
+                    ) {
+                        Repo.draft?.exercises?.let { list ->
+                            val exx = list.getOrNull(ei) ?: return@let
+                            if (exx.sets.size == 1) list.removeAll { it === exx }
+                            else exx.sets.removeAll { it === s }
+                        }
+                        Repo.touchPublic()
                     }
-                    Repo.touchPublic()
                 })
             }
         }
@@ -1070,13 +1131,19 @@ private fun SetRow(
             // routine editor: direct delete button
             IconButton(
                 onClick = {
-                    Repo.draft?.exercises?.let { list ->
-                        val exx = list.getOrNull(ei) ?: return@let
-                        // By identity: a double-tap before recomposition must not delete the neighbour.
-                        if (exx.sets.size == 1) list.removeAll { it === exx }
-                        else exx.sets.removeAll { it === s }
+                    val lastSet = Repo.draft?.exercises?.getOrNull(ei)?.sets?.let { it.size == 1 } == true
+                    deleteWithUndo(
+                        if (lastSet) L10n.s("Exercise deleted", "Exercice supprimé")
+                        else L10n.s("Set deleted", "Série supprimée"),
+                    ) {
+                        Repo.draft?.exercises?.let { list ->
+                            val exx = list.getOrNull(ei) ?: return@let
+                            // By identity: a double-tap before recomposition must not delete the neighbour.
+                            if (exx.sets.size == 1) list.removeAll { it === exx }
+                            else exx.sets.removeAll { it === s }
+                        }
+                        Repo.touchPublic()
                     }
-                    Repo.touchPublic()
                 },
                 modifier = Modifier.size(40.dp),
             ) {

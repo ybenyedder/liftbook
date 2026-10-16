@@ -35,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -134,6 +135,13 @@ private data class TabDef(val screen: Screen, val label: String, val icon: Image
 
 @Composable
 fun App(refreshKey: Int = 0) {
+    // First-launch onboarding gate — re-checked per rev (global compose counter) so that
+    // Repo.setOnboarded() (START / Passer), which bumps it, lifts the gate on the spot.
+    val showOnboarding = remember(Repo.rev) { Repo.needsOnboarding() }
+    if (showOnboarding) {
+        OnboardingScreen()
+        return
+    }
     androidx.compose.runtime.LaunchedEffect(refreshKey) {
         if (Nav.pendingStartEmpty) {
             Nav.pendingStartEmpty = false

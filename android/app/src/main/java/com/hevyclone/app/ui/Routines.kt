@@ -40,6 +40,7 @@ import androidx.compose.material.icons.rounded.DriveFileRenameOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.FitnessCenter
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.PostAdd
@@ -210,6 +211,34 @@ fun TrainingScreen() {
                 Icon(Icons.Rounded.Add, null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(10.dp))
                 Text(L10n.s("Start an Empty Workout", "Démarrer un Entraînement Vide", "Iniciar un Entrenamiento Vacío", "Leeres Workout starten"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        // Répéter la dernière séance : nouveau brouillon copiant la dernière séance terminée
+        // (Repo.startRepeat : kg/reps copiés, cases de validation à false). Cachée sans historique.
+        val lastWorkout = remember(rev) { Repo.workoutsDesc().firstOrNull() }
+        if (lastWorkout != null) {
+            Spacer(Modifier.height(8.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                    .clickable {
+                        startFresh {
+                            Repo.startRepeat(lastWorkout.id)
+                            Nav.push(Screen.Logger)
+                        }
+                    }
+                    .padding(vertical = 15.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.History, null, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text(L10n.s("Repeat Last Workout", "Répéter la Dernière Séance", "Repetir el Último Entrenamiento", "Letztes Workout wiederholen"), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
         // Routines header (Hevy: title + folder+ icon only)

@@ -172,6 +172,19 @@ object Repo {
         touch()
     }
 
+    /** Deep copy of the live draft via a JSON round-trip — capture for the Logger's delete-undo. */
+    fun deepDraftCopy(): Draft? {
+        val d = draft ?: return null
+        return runCatching { json.decodeFromString<Draft>(json.encodeToString(Draft.serializer(), d)) }.getOrNull()
+    }
+
+    /** Delete-undo restore: swap the live draft back to its pre-deletion snapshot. No-op without a draft. */
+    fun restoreDraftSnapshot(snap: Draft) {
+        if (draft == null) return
+        draft = snap
+        touch()
+    }
+
     fun addExToDraft(name: String) {
         val d = draft ?: return
         d.exercises.add(ExEntry(name, EX[name]?.muscle ?: "", "", false, null, mutableListOf(SetEntry(null, null, done = false))))
@@ -504,6 +517,22 @@ object Repo {
     fun setAvatar(url: String) {
         settings.avatarUrl = url
         persistSettings(); touch(); Cloud.markDirty()
+    }
+
+    /**
+     * First-launch onboarding gate: no user data at all (no finished workout, no routine)
+     * AND the "seen" flag not set. An existing user who updates the app has data, so the
+     * flag can never surface the screen to them — wipe() keeps settings, so post-wipe too.
+     */
+    fun needsOnboarding(): Boolean = !settings.onboarded && workouts.isEmpty() && routines.isEmpty()
+
+    /** Persisted exactly like the other settings (unit, repos…) and pushed by cloud sync. */
+    fun setOnboarded() {
+        if (settings.onboarded) return
+        settings.onboarded = true
+        persistSettings()
+        touch()
+        Cloud.markDirty()
     }
 
     fun backupJson(): String = json.encodeToString(

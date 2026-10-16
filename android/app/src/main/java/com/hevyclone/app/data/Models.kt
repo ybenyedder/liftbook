@@ -55,6 +55,7 @@ data class Settings(
     var handle: String = "athlete",
     var since: Long = 0,
     var avatarUrl: String = "",
+    var onboarded: Boolean = false,   // premier lancement vu (un utilisateur existant a des données → jamais concerné)
 )
 
 /** One progress photo of the athlete. Pixels live in filesDir/progress/<id>.jpg;
